@@ -8,8 +8,10 @@ export interface StartPoint {
   nameBn: string;
 }
 
+export const MAIN_GATE: StartPoint = { id: "main-gate", name: "Main Gate", nameBn: "প্রধান ফটক" };
+
 export const START_POINTS: StartPoint[] = [
-  { id: "main-gate", name: "Main Gate", nameBn: "প্রধান ফটক" },
+  MAIN_GATE,
   { id: "shaheed-minar", name: "Shaheed Minar", nameBn: "শহীদ মিনার" },
   { id: "academic-ground", name: "Academic Building Ground Floor", nameBn: "একাডেমিক ভবন নিচতলা" },
 ];
@@ -127,7 +129,7 @@ const genericBuildings = (gate: number): Building[] => [
   },
 ];
 
-export const INSTITUTES: Institute[] = [
+export const INSTITUTES: [Institute, ...Institute[]] = [
   {
     id: "rpi",
     name: "Rajshahi Polytechnic Institute",
@@ -428,7 +430,14 @@ export function buildRoute(
   loc: CampusLocation,
   buildings: Building[],
 ): NavRoute {
-  const building = buildings.find((b) => b.id === loc.buildingId) ?? buildings[0];
+  const building: Building = buildings.find((b) => b.id === loc.buildingId) ??
+    buildings[0] ?? {
+      id: "unknown",
+      name: "Campus Building",
+      look: "building",
+      isAcademic: false,
+      distance: { "main-gate": 60, "shaheed-minar": 40, "academic-ground": 40, "academic-entrance": 40 },
+    };
   const meters = building.distance[start.id] ?? 60;
   const insideAlready = meters === 0;
   const steps: RouteStep[] = [];

@@ -3,6 +3,7 @@ import {
   buildRoute,
   INSTITUTES,
   QR_START_POINT,
+  MAIN_GATE,
   START_POINTS,
   searchLocations,
   type CampusLocation,
@@ -75,7 +76,7 @@ describe("step-by-step route", () => {
   const room205 = rpi.locations.find((l) => l.id === "rpi-205")!;
 
   it("builds the Main Gate → Academic Building → 2nd Floor → Room 205 breadcrumb", () => {
-    const route = buildRoute(START_POINTS[0], room205, rpi.buildings);
+    const route = buildRoute(MAIN_GATE, room205, rpi.buildings);
     expect(route.breadcrumb).toEqual(["Main Gate", "Academic Building", "2nd Floor", "Room 205"]);
   });
 
@@ -90,7 +91,7 @@ describe("step-by-step route", () => {
   });
 
   it("ends with the landmark turn and door position", () => {
-    const route = buildRoute(START_POINTS[0], room205, rpi.buildings);
+    const route = buildRoute(MAIN_GATE, room205, rpi.buildings);
     expect(route.steps.at(-1)?.detail).toBe(
       "Turn left at the Red Notice Board — Room 205 is the 2nd door on your right.",
     );

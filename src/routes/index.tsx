@@ -33,6 +33,7 @@ import {
   CATEGORY_META,
   floorLabel,
   INSTITUTES,
+  MAIN_GATE,
   QR_START_POINT,
   START_POINTS,
   searchLocations,
@@ -101,7 +102,7 @@ function Index() {
     [locations, institute.buildings, query, filter],
   );
   const selected = locations.find((l) => l.id === selectedId) ?? null;
-  const start = ALL_START_POINTS.find((s) => s.id === startId) ?? START_POINTS[0];
+  const start = ALL_START_POINTS.find((s) => s.id === startId) ?? MAIN_GATE;
   const startOptions = startId === QR_START_POINT.id ? [...START_POINTS, QR_START_POINT] : START_POINTS;
 
   function changeInstitute(id: string) {
