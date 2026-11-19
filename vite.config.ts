@@ -15,4 +15,21 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // Pre-bundle the UI libraries up front so the dev server never re-optimizes mid-session,
+    // which leaves an open preview with two React copies ("reading 'useMemo'" of null).
+    optimizeDeps: {
+      include: [
+        "sonner",
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-label",
+        "@radix-ui/react-select",
+        "@radix-ui/react-slot",
+        "class-variance-authority",
+        "clsx",
+        "lucide-react",
+        "tailwind-merge",
+      ],
+    },
+  },
 });
