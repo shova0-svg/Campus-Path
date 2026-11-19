@@ -53,6 +53,10 @@ export interface CampusLocation {
   department?: string;
   keywords?: string[];
   custom?: boolean;
+  /** Admin-set walking steps; overrides the automatic estimate. */
+  walkingSteps?: number;
+  /** Admin-written step-by-step landmark directions; replace the generated steps. */
+  directions?: string[];
 }
 
 export interface Institute {
@@ -500,7 +504,24 @@ export function buildRoute(
     )} door on your ${loc.side}.`,
   });
 
-  const walkingSteps = estimateSteps(meters, loc.floor, loc.door);
+  const customLines = (loc.directions ?? []).map((d) => d.trim()).filter(Boolean);
+  if (customLines.length > 0) {
+    steps.length = 0;
+    customLines.forEach((detail, i) => {
+      const last = i === customLines.length - 1;
+      steps.push({
+        kind: last ? "arrive" : i === 0 ? "walk" : "turn",
+        title: last ? "Arrive" : i === 0 ? "Walk" : "Continue",
+        titleBn: last ? "গন্তব্যে পৌঁছান" : i === 0 ? "হাঁটুন" : "এগিয়ে যান",
+        detail,
+      });
+    });
+  }
+
+  const walkingSteps =
+    loc.walkingSteps && loc.walkingSteps > 0
+      ? Math.round(loc.walkingSteps)
+      : estimateSteps(meters, loc.floor, loc.door);
 
   const breadcrumb = [start.name];
   if (!(insideAlready && start.id === "academic-ground")) breadcrumb.push(building.name);

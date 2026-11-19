@@ -6,10 +6,10 @@ import {
   Loader2,
   LocateFixed,
   MapPinPlus,
-  Plus,
   QrCode,
   Search,
   SearchX,
+  ShieldCheck,
   Sparkles,
   WifiOff,
 } from "lucide-react";
@@ -25,7 +25,20 @@ import {
 } from "@/components/ui/select";
 import { BrandLogo } from "@/components/sohoj/BrandLogo";
 import { QrScannerDialog } from "@/components/sohoj/QrScannerDialog";
-import { AddLocationDialog } from "@/components/sohoj/AddLocationDialog";
+import { LocationFormDialog, type EditTarget } from "@/components/sohoj/LocationFormDialog";
+import { AdminLoginDialog } from "@/components/sohoj/AdminLoginDialog";
+import { AdminPanel } from "@/components/sohoj/AdminPanel";
+import {
+  ADMIN_SESSION_KEY,
+  defaultStore,
+  deleteLocation,
+  isAdminEmail,
+  LEGACY_CUSTOM_KEY,
+  parseStore,
+  STORE_KEY,
+  upsertLocation,
+  type LocationStore,
+} from "@/lib/admin";
 import { NavigationView } from "@/components/sohoj/NavigationView";
 import { CATEGORY_ICON, CATEGORY_TONE } from "@/components/sohoj/category-icon";
 import {
@@ -70,33 +83,37 @@ const FILTERS: { id: CategoryFilter; label: string }[] = [
   ...(Object.keys(CATEGORY_META) as Category[]).map((c) => ({ id: c, label: CATEGORY_META[c].label })),
 ];
 
-const STORAGE_KEY = "sohoj-rasta-custom-locations";
-
 function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
-  const [custom, setCustom] = useState<Record<string, CampusLocation[]>>({});
+  const [store, setStore] = useState<LocationStore>(() => defaultStore());
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editing, setEditing] = useState<EditTarget | null>(null);
+  const [formInstituteId, setFormInstituteId] = useState<string>(INSTITUTES[0].id);
   const [startId, setStartId] = useState<StartPointId>("main-gate");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setCustom(JSON.parse(raw));
+      setStore(
+        parseStore(window.localStorage.getItem(STORE_KEY), window.localStorage.getItem(LEGACY_CUSTOM_KEY)),
+      );
+      const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
+      if (isAdminEmail(session)) setAdminEmail(session);
     } catch {
       /* ignore broken storage */
     }
   }, []);
 
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
-  const locations = useMemo(
-    () => [...(custom[institute.id] ?? []), ...institute.locations],
-    [custom, institute],
-  );
+  const locations = useMemo(() => store[institute.id] ?? institute.locations, [store, institute]);
+  const isAdmin = isAdminEmail(adminEmail);
   const results = useMemo(
     () => searchLocations(locations, institute.buildings, query, filter),
     [locations, institute.buildings, query, filter],
@@ -114,20 +131,69 @@ function Index() {
     setTimeout(() => setDownloading(false), 900);
   }
 
-  function addLocation(loc: CampusLocation) {
-    setCustom((prev) => {
-      const next = { ...prev, [institute.id]: [loc, ...(prev[institute.id] ?? [])] };
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* storage full or blocked */
-      }
-      return next;
+  function commit(next: LocationStore) {
+    setStore(next);
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(next));
+    } catch {
+      /* storage full or blocked */
+    }
+  }
+
+  function saveLocation(targetInstituteId: string, loc: CampusLocation) {
+    if (!isAdmin) return;
+    const isEdit = editing !== null;
+    commit(upsertLocation(store, targetInstituteId, loc));
+    toast.success(isEdit ? `${loc.name} updated` : `${loc.name} added to the map`, {
+      description: "এখন সার্চে দেখা যাবে",
     });
-    setSelectedId(null);
-    setQuery("");
-    setFilter("all");
-    toast.success(`${loc.name} added to the map`, { description: "এখন সার্চে দেখা যাবে" });
+    setEditing(null);
+  }
+
+  function removeLocation(targetInstituteId: string, loc: CampusLocation) {
+    if (!isAdmin) return;
+    commit(deleteLocation(store, targetInstituteId, loc.id));
+    if (selectedId === loc.id) setSelectedId(null);
+    toast.success(`${loc.name} deleted`);
+  }
+
+  function openAdmin() {
+    if (isAdmin) setPanelOpen(true);
+    else setLoginOpen(true);
+  }
+
+  function handleLogin(email: string) {
+    setAdminEmail(email);
+    try {
+      window.localStorage.setItem(ADMIN_SESSION_KEY, email);
+    } catch {
+      /* ignore */
+    }
+    toast.success("Admin Mode unlocked", { description: email });
+    setPanelOpen(true);
+  }
+
+  function handleLogout() {
+    setAdminEmail(null);
+    setPanelOpen(false);
+    try {
+      window.localStorage.removeItem(ADMIN_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+    toast("Logged out of Admin Mode");
+  }
+
+  function openAddForm(targetInstituteId: string) {
+    setEditing(null);
+    setFormInstituteId(targetInstituteId);
+    setFormOpen(true);
+  }
+
+  function openEditForm(targetInstituteId: string, loc: CampusLocation) {
+    setEditing({ instituteId: targetInstituteId, location: loc });
+    setFormInstituteId(targetInstituteId);
+    setFormOpen(true);
   }
 
   const handleQrDetected = useCallback(() => {
@@ -159,7 +225,7 @@ function Index() {
           {[
             [WifiOff, "Works offline, no GPS needed"],
             [QrCode, "QR checkpoints find where you stand"],
-            [MapPinPlus, "Campus ambassadors keep maps fresh"],
+            [MapPinPlus, "Rooms verified by the campus admin"],
           ].map(([Icon, text]) => {
             const I = Icon as typeof WifiOff;
             return (
@@ -190,8 +256,13 @@ function Index() {
                 </p>
               </div>
             </div>
-            <Button variant="glass" size="sm" onClick={() => setAddOpen(true)} aria-label="Add new room or map">
-              <Plus /> Add
+            <Button
+              variant="glass"
+              size="sm"
+              onClick={openAdmin}
+              aria-label={isAdmin ? "Open admin panel" : "Admin login"}
+            >
+              <ShieldCheck className={isAdmin ? "text-emerald" : undefined} /> Admin
             </Button>
           </div>
 
@@ -304,10 +375,9 @@ function Index() {
                   <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
                     <SearchX className="mx-auto size-8 text-muted-foreground" />
                     <p className="mt-3 font-medium">No place matches "{query}"</p>
-                    <p className="mt-1 text-sm text-muted-foreground">Know where it is? Add it for everyone.</p>
-                    <Button variant="soft" className="mt-4" onClick={() => setAddOpen(true)}>
-                      <Plus /> Add this room
-                    </Button>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Try another name, or ask your campus admin to add it.
+                    </p>
                   </div>
                 ) : (
                   <ul className="space-y-2.5">
@@ -350,13 +420,15 @@ function Index() {
 
           {/* Ambassador CTA */}
           <section className="rounded-3xl bg-primary-soft p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Campus Ambassador</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Verified by the campus admin</p>
             <p className="mt-1 font-bangla text-sm text-foreground">
-              আপনার ক্যাম্পাসের রুম বা ম্যাপ যোগ করে নতুন শিক্ষার্থীদের সাহায্য করুন।
+              সব রুম ও ম্যাপ অ্যাডমিন যাচাই করে যোগ করেন, তাই পথ সবসময় সঠিক থাকে।
             </p>
-            <Button variant="default" size="xl" className="mt-4 w-full" onClick={() => setAddOpen(true)}>
-              <Plus /> Add New Room / Map
-            </Button>
+            {isAdmin && (
+              <Button variant="default" size="xl" className="mt-4 w-full" onClick={() => setPanelOpen(true)}>
+                <ShieldCheck /> Open Admin Panel
+              </Button>
+            )}
           </section>
 
           <p className="text-center text-[11px] text-muted-foreground">
@@ -366,14 +438,32 @@ function Index() {
       </main>
 
       <QrScannerDialog open={qrOpen} onOpenChange={setQrOpen} onDetected={handleQrDetected} />
-      <AddLocationDialog
-        key={institute.id}
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        instituteName={institute.name}
-        buildings={institute.buildings}
-        onAdd={addLocation}
-      />
+      <AdminLoginDialog open={loginOpen} onOpenChange={setLoginOpen} onSuccess={handleLogin} />
+      {isAdmin && adminEmail && (
+        <>
+          <AdminPanel
+            open={panelOpen}
+            onOpenChange={setPanelOpen}
+            email={adminEmail}
+            store={store}
+            currentInstituteId={institute.id}
+            onLogout={handleLogout}
+            onAdd={openAddForm}
+            onEdit={openEditForm}
+            onDelete={removeLocation}
+          />
+          <LocationFormDialog
+            open={formOpen}
+            onOpenChange={(o) => {
+              setFormOpen(o);
+              if (!o) setEditing(null);
+            }}
+            defaultInstituteId={formInstituteId}
+            editing={editing}
+            onSave={saveLocation}
+          />
+        </>
+      )}
     </div>
   );
 }
