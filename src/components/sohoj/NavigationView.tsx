@@ -1,8 +1,19 @@
-import { ArrowLeft, ChevronRight, DoorOpen, Footprints, LogIn, MoveUpRight, Timer, Navigation } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarClock,
+  ChevronRight,
+  DoorOpen,
+  Footprints,
+  LogIn,
+  MoveUpRight,
+  Timer,
+  Navigation,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloorPlan } from "./FloorPlan";
 import { CampusMap } from "./CampusMap";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
+import type { RoutineEntry } from "@/lib/routine";
 import {
   buildRoute,
   CATEGORY_META,
@@ -27,10 +38,18 @@ interface Props {
   start: StartPoint;
   buildings: Building[];
   showCampusMap?: boolean;
+  roomClasses?: RoutineEntry[];
   onBack: () => void;
 }
 
-export function NavigationView({ location, start, buildings, showCampusMap, onBack }: Props) {
+export function NavigationView({
+  location,
+  start,
+  buildings,
+  showCampusMap,
+  roomClasses = [],
+  onBack,
+}: Props) {
   const route = buildRoute(start, location, buildings);
   const building = buildings.find((b) => b.id === location.buildingId);
   const Icon = CATEGORY_ICON[location.category];
@@ -44,7 +63,12 @@ export function NavigationView({ location, start, buildings, showCampusMap, onBa
       {/* Destination summary */}
       <section className="rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
         <div className="flex items-start gap-3">
-          <span className={cn("grid size-12 shrink-0 place-items-center rounded-2xl", CATEGORY_TONE[location.category])}>
+          <span
+            className={cn(
+              "grid size-12 shrink-0 place-items-center rounded-2xl",
+              CATEGORY_TONE[location.category],
+            )}
+          >
             <Icon className="size-6" />
           </span>
           <div className="min-w-0">
@@ -52,12 +76,17 @@ export function NavigationView({ location, start, buildings, showCampusMap, onBa
               {CATEGORY_META[location.category].label} · {building?.name}
             </p>
             <h2 className="mt-0.5 text-xl font-semibold leading-tight">{location.name}</h2>
-            {location.nameBn && <p className="font-bangla text-sm text-muted-foreground">{location.nameBn}</p>}
+            {location.nameBn && (
+              <p className="font-bangla text-sm text-muted-foreground">{location.nameBn}</p>
+            )}
           </div>
         </div>
 
         {/* Breadcrumb */}
-        <ol className="mt-4 flex flex-wrap items-center gap-1 text-xs font-medium" aria-label="Route">
+        <ol
+          className="mt-4 flex flex-wrap items-center gap-1 text-xs font-medium"
+          aria-label="Route"
+        >
           {route.breadcrumb.map((crumb, i) => {
             const last = i === route.breadcrumb.length - 1;
             return (
@@ -102,10 +131,15 @@ export function NavigationView({ location, start, buildings, showCampusMap, onBa
       <section>
         <h3 className="mb-3 flex items-baseline justify-between text-base font-semibold">
           Step-by-step directions
-          <span className="font-bangla text-sm font-normal text-muted-foreground">ধাপে ধাপে পথ</span>
+          <span className="font-bangla text-sm font-normal text-muted-foreground">
+            ধাপে ধাপে পথ
+          </span>
         </h3>
         <ol className="relative space-y-3">
-          <span className="absolute bottom-6 left-[1.4rem] top-6 w-0.5 bg-border" aria-hidden="true" />
+          <span
+            className="absolute bottom-6 left-[1.4rem] top-6 w-0.5 bg-border"
+            aria-hidden="true"
+          />
           {route.steps.map((step, i) => {
             const StepIcon = STEP_ICON[step.kind];
             const last = i === route.steps.length - 1;
@@ -118,7 +152,9 @@ export function NavigationView({ location, start, buildings, showCampusMap, onBa
                 <span
                   className={cn(
                     "relative z-10 grid size-9 shrink-0 place-items-center rounded-full text-sm font-bold",
-                    last ? "bg-emerald text-emerald-foreground" : "bg-primary text-primary-foreground",
+                    last
+                      ? "bg-emerald text-emerald-foreground"
+                      : "bg-primary text-primary-foreground",
                   )}
                 >
                   {i + 1}
@@ -126,7 +162,9 @@ export function NavigationView({ location, start, buildings, showCampusMap, onBa
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <StepIcon className="size-3.5" /> Step {i + 1} · {step.title}
-                    <span className="font-bangla normal-case tracking-normal">({step.titleBn})</span>
+                    <span className="font-bangla normal-case tracking-normal">
+                      ({step.titleBn})
+                    </span>
                   </p>
                   <p className="mt-1 text-sm leading-relaxed">{step.detail}</p>
                 </div>
@@ -142,6 +180,39 @@ export function NavigationView({ location, start, buildings, showCampusMap, onBa
           highlightBuildingId={location.buildingId}
           startId={start.id}
         />
+      )}
+
+      {roomClasses.length > 0 && (
+        <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+            <CalendarClock className="size-4 text-primary" /> Classes in this room
+          </h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            routine থেকে অটো — এখানে কোন ক্লাস হয়
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {roomClasses.map((e) => (
+              <li
+                key={e.id}
+                className="flex items-center gap-2 rounded-xl bg-muted/60 px-2.5 py-2 text-xs"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-[10px] font-bold text-primary">
+                  {e.acronym}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{e.subject}</span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {e.teacher}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
+                  {e.day.slice(0, 3)} · P{e.period}
+                  {e.endPeriod > e.period ? `-${e.endPeriod}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <FloorPlan location={location} />

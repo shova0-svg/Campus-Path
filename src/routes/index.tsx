@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  BookOpen,
   CheckCircle2,
   ChevronRight,
   List,
@@ -33,19 +34,36 @@ import { LocationFormDialog, type EditTarget } from "@/components/sohoj/Location
 import { AdminLoginDialog } from "@/components/sohoj/AdminLoginDialog";
 import { AdminPanel } from "@/components/sohoj/AdminPanel";
 import {
+  addInstituteAdmin,
+  adminProfile,
   ADMIN_SESSION_KEY,
+  ADMINS_STORE_KEY,
   defaultStore,
   deleteLocation,
+  isAdmin as isAdminUser,
   isAdminEmail,
   LEGACY_CUSTOM_KEY,
+  loadAdmins,
   parseStore,
+  removeInstituteAdmin,
   STORE_KEY,
   upsertLocation,
+  type AdminAccount,
   type LocationStore,
 } from "@/lib/admin";
 import { NavigationView } from "@/components/sohoj/NavigationView";
 import { CampusMap } from "@/components/sohoj/CampusMap";
+import { RoutineView } from "@/components/sohoj/RoutineView";
 import { hasCampusMap } from "@/lib/campus-map";
+import {
+  classesInRoom,
+  deleteRoutine,
+  parseRoutineStore,
+  ROUTINE_STORE_KEY,
+  roomsFromRoutine,
+  upsertRoutine,
+  type ClassRoutine,
+} from "@/lib/routine";
 import { CATEGORY_ICON, CATEGORY_TONE } from "@/components/sohoj/category-icon";
 import {
   ALL_START_POINTS,
@@ -110,7 +128,10 @@ function Index() {
   const [qrOpen, setQrOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [view, setView] = useState<"list" | "map">("list");
+  const [view, setView] = useState<"list" | "routine" | "map">("list");
+  const [admins, setAdmins] = useState<AdminAccount[]>(() => loadAdmins(null));
+  const [routines, setRoutines] = useState<ClassRoutine[]>(() => parseRoutineStore(null));
+  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -120,8 +141,18 @@ function Index() {
           window.localStorage.getItem(LEGACY_CUSTOM_KEY),
         ),
       );
+      const savedAdmins = loadAdmins(window.localStorage.getItem(ADMINS_STORE_KEY));
+      setAdmins(savedAdmins);
+      setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
       const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
-      if (isAdminEmail(session)) setAdminEmail(session);
+      if (isAdminUser(session, savedAdmins)) {
+        setAdminEmail(session);
+        const profile = adminProfile(session, savedAdmins);
+        if (profile && profile.instituteId !== "all") {
+          setInstituteId(profile.instituteId);
+          setFormInstituteId(profile.instituteId);
+        }
+      }
     } catch {
       /* ignore broken storage */
     }
@@ -129,7 +160,20 @@ function Index() {
 
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
   const locations = useMemo(() => store[institute.id] ?? institute.locations, [store, institute]);
-  const isAdmin = isAdminEmail(adminEmail);
+  const profile = adminProfile(adminEmail, admins);
+  const isAdmin = isAdminUser(adminEmail, admins);
+  const isSuper = isAdminEmail(adminEmail);
+  const allowedInstituteIds =
+    profile?.instituteId === "all"
+      ? INSTITUTES.map((i) => i.id)
+      : profile
+        ? [profile.instituteId]
+        : [];
+  const visibleInstitutes =
+    isSuper || !profile ? INSTITUTES : INSTITUTES.filter((i) => allowedInstituteIds.includes(i.id));
+  const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
+  const activeRoutine =
+    instituteRoutines.find((r) => r.id === activeRoutineId) ?? instituteRoutines[0];
   const results = useMemo(
     () => searchLocations(locations, institute.buildings, query, filter),
     [locations, institute.buildings, query, filter],
@@ -175,13 +219,88 @@ function Index() {
     toast.success(`${loc.name} deleted`);
   }
 
+  function saveRoutine(routine: ClassRoutine) {
+    if (!isAdmin) return;
+    setRoutines((prev) => {
+      const next = upsertRoutine(prev, routine);
+      try {
+        window.localStorage.setItem(ROUTINE_STORE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+    const autoRooms = roomsFromRoutine(routine, routine.instituteId);
+    let nextStore = store;
+    for (const room of autoRooms) {
+      if (!(nextStore[routine.instituteId] ?? []).some((l) => l.id === room.id)) {
+        nextStore = upsertLocation(nextStore, routine.instituteId, room);
+      }
+    }
+    commit(nextStore);
+    toast.success("Routine saved", {
+      description: `${autoRooms.length} ta room auto create hoyeche`,
+    });
+  }
+
+  function removeRoutine(id: string) {
+    setRoutines((prev) => {
+      const next = deleteRoutine(prev, id);
+      try {
+        window.localStorage.setItem(ROUTINE_STORE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+    toast.success("Routine deleted");
+  }
+
+  function addAdmin(email: string, instituteId: string) {
+    if (!isSuper || !adminEmail) return;
+    const result = addInstituteAdmin(admins, email, instituteId, adminEmail);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setAdmins(result.accounts);
+    try {
+      window.localStorage.setItem(ADMINS_STORE_KEY, JSON.stringify(result.accounts));
+    } catch {
+      /* ignore */
+    }
+    toast.success(`${email} added`, { description: "Ekhon ei institute access pabe" });
+  }
+
+  function removeAdmin(email: string) {
+    if (!isSuper) return;
+    const next = removeInstituteAdmin(admins, email);
+    setAdmins(next);
+    try {
+      window.localStorage.setItem(ADMINS_STORE_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    toast.success(`${email} removed`);
+  }
+
   function openAdmin() {
     if (isAdmin) setPanelOpen(true);
     else setLoginOpen(true);
   }
 
   function handleLogin(email: string) {
+    if (!isAdminUser(email, admins)) {
+      toast.error("Not an admin", { description: "Super admin ei email ke admin banate hobe." });
+      return;
+    }
+    const logged = adminProfile(email, admins);
     setAdminEmail(email);
+    if (logged && logged.instituteId !== "all") {
+      setInstituteId(logged.instituteId);
+      setFormInstituteId(logged.instituteId);
+      setView("list");
+    }
     try {
       window.localStorage.setItem(ADMIN_SESSION_KEY, email);
     } catch {
@@ -293,16 +412,18 @@ function Index() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {INSTITUTE_GROUPS.map((group) => (
-                  <SelectGroup key={group.id}>
-                    <SelectLabel>{group.label}</SelectLabel>
-                    {group.items.map((i) => (
-                      <SelectItem key={i.id} value={i.id}>
-                        {i.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
+                {(isSuper || !profile ? INSTITUTE_GROUPS : groupInstitutes(visibleInstitutes)).map(
+                  (group) => (
+                    <SelectGroup key={group.id}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.items.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ),
+                )}
               </SelectContent>
             </Select>
             <div className="mt-2 flex items-center justify-between text-xs">
@@ -359,9 +480,12 @@ function Index() {
             </p>
           </section>
 
-          {institute.map && (
+          {(institute.map || instituteRoutines.length > 0) && (
             <div
-              className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-card p-1 shadow-[var(--shadow-card)]"
+              className={cn(
+                "grid gap-1 rounded-2xl border border-border bg-card p-1 shadow-[var(--shadow-card)]",
+                institute.map && instituteRoutines.length > 0 ? "grid-cols-3" : "grid-cols-2",
+              )}
               role="tablist"
               aria-label="Campus view"
             >
@@ -371,7 +495,7 @@ function Index() {
                 aria-selected={view === "list"}
                 onClick={() => setView("list")}
                 className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all",
+                  "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
                   view === "list"
                     ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
                     : "text-muted-foreground",
@@ -379,23 +503,44 @@ function Index() {
               >
                 <List className="size-4" /> Destinations
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "map"}
-                onClick={() => {
-                  setSelectedId(null);
-                  setView("map");
-                }}
-                className={cn(
-                  "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all",
-                  view === "map"
-                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
-                    : "text-muted-foreground",
-                )}
-              >
-                <Map className="size-4" /> Campus Map
-              </button>
+              {instituteRoutines.length > 0 && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "routine"}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setView("routine");
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                    view === "routine"
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <BookOpen className="size-4" /> Class Routine
+                </button>
+              )}
+              {institute.map && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "map"}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setView("map");
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                    view === "map"
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <Map className="size-4" /> Campus Map
+                </button>
+              )}
             </div>
           )}
 
@@ -405,8 +550,39 @@ function Index() {
               start={start}
               buildings={institute.buildings}
               showCampusMap={hasCampusMap(institute.id)}
+              roomClasses={classesInRoom(routines, selected.name)}
               onBack={() => setSelectedId(null)}
             />
+          ) : view === "routine" && activeRoutine ? (
+            <div className="space-y-3">
+              {instituteRoutines.length > 1 && (
+                <Select value={activeRoutine.id} onValueChange={setActiveRoutineId}>
+                  <SelectTrigger className="h-11 rounded-2xl" aria-label="Choose routine">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instituteRoutines.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <RoutineView
+                routine={activeRoutine}
+                onSelectRoom={(room) => {
+                  const found = locations.find(
+                    (l) => l.name === `Room ${room}` || l.id.endsWith(`-${room}-${institute.id}`),
+                  );
+                  if (found) openLocation(found.id);
+                  else
+                    toast("Room not in list yet", {
+                      description: "Admin panel-e routine save korle room auto create hobey.",
+                    });
+                }}
+              />
+            </div>
           ) : view === "map" && institute.map ? (
             <CampusMap
               map={institute.map}
@@ -552,10 +728,18 @@ function Index() {
             email={adminEmail}
             store={store}
             currentInstituteId={institute.id}
+            isSuper={isSuper}
+            allowedInstituteIds={allowedInstituteIds}
+            admins={admins}
+            routines={routines}
             onLogout={handleLogout}
             onAdd={openAddForm}
             onEdit={openEditForm}
             onDelete={removeLocation}
+            onSaveRoutine={saveRoutine}
+            onDeleteRoutine={removeRoutine}
+            onAddAdmin={addAdmin}
+            onRemoveAdmin={removeAdmin}
           />
           <LocationFormDialog
             open={formOpen}

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { buildRoute, INSTITUTES, MAIN_GATE, type CampusLocation } from "@/lib/campus-data";
 import {
+  MAX_ADMINS_PER_INSTITUTE,
   type LocationStore,
+  addInstituteAdmin,
+  adminProfile,
+  canManageInstitute,
+  defaultAdmins,
   defaultStore,
   deleteLocation,
+  isAdmin,
   isAdminEmail,
+  loadAdmins,
   parseStore,
+  removeInstituteAdmin,
   upsertLocation,
 } from "@/lib/admin";
 
@@ -35,6 +43,48 @@ describe("Admin access", () => {
     expect(isAdminEmail("someone@gmail.com")).toBe(false);
     expect(isAdminEmail("shovaslks@gmail.com.evil.com")).toBe(false);
     expect(isAdminEmail("")).toBe(false);
+  });
+});
+
+describe("Per-institute admins", () => {
+  it("always keeps the super admin with access to every institute", () => {
+    const accounts = defaultAdmins();
+    expect(adminProfile("SHOVASLKS@GMAIL.COM", accounts)?.role).toBe("super");
+    expect(canManageInstitute("shovaslks@gmail.com", "rpi", accounts)).toBe(true);
+    expect(canManageInstitute("shovaslks@gmail.com", "dpi", accounts)).toBe(true);
+  });
+
+  it("adds institute admins and limits them to their own polytechnic", () => {
+    const first = addInstituteAdmin(
+      defaultAdmins(),
+      "teacher@rpi.edu",
+      "rpi",
+      "shovaslks@gmail.com",
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const accounts = first.accounts;
+    expect(isAdmin("teacher@rpi.edu", accounts)).toBe(true);
+    expect(canManageInstitute("teacher@rpi.edu", "rpi", accounts)).toBe(true);
+    expect(canManageInstitute("teacher@rpi.edu", "dpi", accounts)).toBe(false);
+    expect(adminProfile("teacher@rpi.edu", loadAdmins(JSON.stringify(accounts)))?.instituteId).toBe(
+      "rpi",
+    );
+  });
+
+  it("allows at most five admins per institute and can remove them", () => {
+    let accounts = defaultAdmins();
+    for (let i = 1; i <= MAX_ADMINS_PER_INSTITUTE; i++) {
+      const r = addInstituteAdmin(accounts, `admin${i}@rpi.edu`, "rpi", "shovaslks@gmail.com");
+      if (r.ok) accounts = r.accounts;
+    }
+    expect(accounts.filter((a) => a.instituteId === "rpi")).toHaveLength(MAX_ADMINS_PER_INSTITUTE);
+    expect(addInstituteAdmin(accounts, "six@rpi.edu", "rpi", "shovaslks@gmail.com")).toMatchObject({
+      ok: false,
+    });
+    accounts = removeInstituteAdmin(accounts, "admin1@rpi.edu");
+    expect(accounts.some((a) => a.email === "admin1@rpi.edu")).toBe(false);
+    expect(accounts[0]?.role).toBe("super");
   });
 });
 
@@ -75,10 +125,17 @@ describe("Admin room changes", () => {
   it("uses the admin's walking steps and written directions", () => {
     const route = buildRoute(
       MAIN_GATE,
-      { ...newRoom, walkingSteps: 140, directions: ["Walk to the Red Building", "Turn left at the filter"] },
+      {
+        ...newRoom,
+        walkingSteps: 140,
+        directions: ["Walk to the Red Building", "Turn left at the filter"],
+      },
       rpi.buildings,
     );
     expect(route.walkingSteps).toBe(140);
-    expect(route.steps.map((s) => s.detail)).toEqual(["Walk to the Red Building", "Turn left at the filter"]);
+    expect(route.steps.map((s) => s.detail)).toEqual([
+      "Walk to the Red Building",
+      "Turn left at the filter",
+    ]);
   });
 });
