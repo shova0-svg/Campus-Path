@@ -54,6 +54,7 @@ import {
 import { NavigationView } from "@/components/sohoj/NavigationView";
 import { CampusMap } from "@/components/sohoj/CampusMap";
 import { RoutineView } from "@/components/sohoj/RoutineView";
+import { BuildingView } from "@/components/sohoj/BuildingView";
 import { hasCampusMap } from "@/lib/campus-map";
 import {
   classesInRoom,
@@ -83,6 +84,7 @@ import {
   type CategoryFilter,
   type StartPointId,
 } from "@/lib/campus-data";
+import { decodeQr, type QrTarget } from "@/lib/qr";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -135,6 +137,7 @@ function Index() {
   const [admins, setAdmins] = useState<AdminAccount[]>(() => loadAdmins(null));
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => parseRoutineStore(null));
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
+  const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
 
   useEffect(() => {
     try {
@@ -161,6 +164,17 @@ function Index() {
       }
     } catch {
       /* ignore broken storage */
+    }
+    // Shared QR links: /?qr=SOHOJ1|rpi|academic|building
+    try {
+      const target = decodeQr(new URLSearchParams(window.location.search).get("qr"));
+      if (target && INSTITUTES.some((i) => i.id === target.instituteId)) {
+        setInstituteId(target.instituteId);
+        setFormInstituteId(target.instituteId);
+        setQrBuilding(target);
+      }
+    } catch {
+      /* ignore bad link */
     }
   }, []);
 
@@ -339,12 +353,32 @@ function Index() {
     setFormOpen(true);
   }
 
-  const handleQrDetected = useCallback(() => {
-    setStartId(QR_START_POINT.id);
-    toast.success("Location found: Academic Building Entrance", {
-      description: "আপনার বর্তমান অবস্থান সেট করা হয়েছে",
-    });
-  }, []);
+  const handleQrDetected = useCallback(
+    (target: QrTarget) => {
+      setInstituteId(target.instituteId);
+      setFormInstituteId(target.instituteId);
+      setSelectedId(null);
+      setView("list");
+      setStartId(target.buildingId === "academic" ? QR_START_POINT.id : "main-gate");
+      if (target.kind === "room" && target.room) {
+        const found = (store[target.instituteId] ?? []).find(
+          (l) => l.name === `Room ${target.room}`,
+        );
+        if (found) {
+          setSelectedId(found.id);
+          toast.success(`Room ${target.room} found`, {
+            description: "Class ও sir-er naam ni dekha jay",
+          });
+          return;
+        }
+      }
+      setQrBuilding(target);
+      toast.success("Building found", {
+        description: "এই ভবনের রুম, ক্লাস ও শিক্ষক দেখা যাচ্ছে",
+      });
+    },
+    [store],
+  );
 
   function openLocation(id: string) {
     setSelectedId(id);
@@ -550,7 +584,16 @@ function Index() {
             </div>
           )}
 
-          {selected ? (
+          {qrBuilding && qrBuilding.instituteId === institute.id ? (
+            <BuildingView
+              institute={institute}
+              buildingId={qrBuilding.buildingId}
+              rooms={locations}
+              routines={routines}
+              onSelectRoom={openLocation}
+              onBack={() => setQrBuilding(null)}
+            />
+          ) : selected ? (
             <NavigationView
               location={selected}
               start={start}

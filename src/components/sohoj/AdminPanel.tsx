@@ -4,6 +4,7 @@ import {
   LogOut,
   Pencil,
   Plus,
+  QrCode,
   Search,
   ShieldCheck,
   Trash2,
@@ -39,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
 import { RoutineEditor } from "./RoutineEditor";
+import { QrMaker } from "./QrMaker";
 import {
   floorLabel,
   groupInstitutes,
@@ -50,7 +52,7 @@ import { MAX_ADMINS_PER_INSTITUTE, type AdminAccount, type LocationStore } from 
 import { sortRooms, type ClassRoutine } from "@/lib/routine";
 import { cn } from "@/lib/utils";
 
-type Tab = "rooms" | "routines" | "admins";
+type Tab = "rooms" | "routines" | "qr" | "admins";
 
 interface Props {
   open: boolean;
@@ -121,6 +123,7 @@ export function AdminPanel({
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "rooms", label: "Rooms", icon: Pencil },
     { id: "routines", label: "Routines", icon: CalendarDays },
+    { id: "qr", label: "QR Maker", icon: QrCode },
     ...(isSuper ? [{ id: "admins" as Tab, label: "Admins", icon: Users }] : []),
   ];
 
@@ -343,6 +346,8 @@ export function AdminPanel({
               )}
             </div>
           )}
+
+          {tab === "qr" && <QrMaker institute={institute} rooms={rooms} routines={routines} />}
 
           {tab === "admins" && isSuper && (
             <div className="flex-1 overflow-y-auto px-5 py-4">
