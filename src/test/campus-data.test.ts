@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRoute,
+  DIVISION_ORDER,
+  groupInstitutes,
   INSTITUTES,
   QR_START_POINT,
   MAIN_GATE,
@@ -12,12 +14,25 @@ import {
 const rpi = INSTITUTES[0];
 
 describe("Sohoj Rasta campus data", () => {
-  it("defaults to Rajshahi Polytechnic and also offers Dhaka and Bogra", () => {
-    expect(INSTITUTES.map((i) => i.name)).toEqual([
+  it("defaults to Rajshahi Polytechnic and lists all 64 government/private institutes", () => {
+    expect(INSTITUTES.slice(0, 3).map((i) => i.name)).toEqual([
       "Rajshahi Polytechnic Institute",
       "Dhaka Polytechnic Institute",
-      "Bogra Polytechnic Institute",
+      "Bogura Polytechnic Institute",
     ]);
+    expect(INSTITUTES).toHaveLength(64);
+    expect(INSTITUTES.filter((i) => i.type === "government")).toHaveLength(52);
+    expect(INSTITUTES.filter((i) => i.type === "private")).toHaveLength(12);
+    expect(new Set(INSTITUTES.map((i) => i.id)).size).toBe(INSTITUTES.length);
+    expect(INSTITUTES.every((i) => i.nameBn && i.city && i.buildings.length > 0)).toBe(true);
+  });
+
+  it("groups the dropdown by division and then private institutes", () => {
+    expect(groupInstitutes(INSTITUTES).map((g) => g.label)).toEqual([
+      ...DIVISION_ORDER.map((d) => `${d} Division`),
+      "Private institutes",
+    ]);
+    expect(groupInstitutes(INSTITUTES).reduce((n, g) => n + g.items.length, 0)).toBe(64);
   });
 
   it("pre-loads at least 8 Rajshahi locations across all four categories", () => {

@@ -22,12 +22,20 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
-import { floorLabel, INSTITUTES, searchLocations, type CampusLocation } from "@/lib/campus-data";
+import {
+  floorLabel,
+  groupInstitutes,
+  INSTITUTES,
+  searchLocations,
+  type CampusLocation,
+} from "@/lib/campus-data";
 import type { LocationStore } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +87,8 @@ export function AdminPanel({
                 <ShieldCheck className="size-5 text-emerald" /> Admin Panel
               </DialogTitle>
               <DialogDescription className="text-primary-foreground/80">
-                Logged in as Admin (<span className="break-all font-medium text-primary-foreground">{email}</span>)
+                Logged in as Admin (
+                <span className="break-all font-medium text-primary-foreground">{email}</span>)
               </DialogDescription>
             </DialogHeader>
             <div className="mt-4 flex gap-2">
@@ -91,10 +100,15 @@ export function AdminPanel({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {INSTITUTES.map((i) => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {i.name}
-                    </SelectItem>
+                  {groupInstitutes(INSTITUTES).map((group) => (
+                    <SelectGroup key={group.id}>
+                      <SelectLabel>{group.label}</SelectLabel>
+                      {group.items.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>
@@ -105,7 +119,12 @@ export function AdminPanel({
           </div>
 
           <div className="space-y-3 border-b border-border px-5 py-4">
-            <Button variant="emerald" size="xl" className="w-full" onClick={() => onAdd(institute.id)}>
+            <Button
+              variant="emerald"
+              size="xl"
+              className="w-full"
+              onClick={() => onAdd(institute.id)}
+            >
               <Plus /> Add New Room
             </Button>
             <div className="relative">
@@ -134,8 +153,16 @@ export function AdminPanel({
               const Icon = CATEGORY_ICON[loc.category];
               const building = institute.buildings.find((b) => b.id === loc.buildingId);
               return (
-                <li key={loc.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", CATEGORY_TONE[loc.category])}>
+                <li
+                  key={loc.id}
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+                >
+                  <span
+                    className={cn(
+                      "grid size-10 shrink-0 place-items-center rounded-xl",
+                      CATEGORY_TONE[loc.category],
+                    )}
+                  >
                     <Icon className="size-5" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -173,7 +200,8 @@ export function AdminPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this room?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDelete?.name} will be removed from {institute.name} for students using this device.
+              {pendingDelete?.name} will be removed from {institute.name} for students using this
+              device.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

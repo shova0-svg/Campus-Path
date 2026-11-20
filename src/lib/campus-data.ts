@@ -109,11 +109,29 @@ export interface CampusMapData {
   roads: MapRoad[];
 }
 
+export type InstituteType = "government" | "private";
+
+export type Division =
+  "Dhaka" | "Chattogram" | "Rajshahi" | "Khulna" | "Rangpur" | "Barishal" | "Sylhet" | "Mymensingh";
+
+export const DIVISION_ORDER: Division[] = [
+  "Dhaka",
+  "Chattogram",
+  "Rajshahi",
+  "Khulna",
+  "Rangpur",
+  "Barishal",
+  "Sylhet",
+  "Mymensingh",
+];
+
 export interface Institute {
   id: string;
   name: string;
   nameBn: string;
   city: string;
+  division: Division;
+  type: InstituteType;
   buildings: Building[];
   locations: CampusLocation[];
   /** Only campuses with a verified map get one (currently Rajshahi Polytechnic). */
@@ -370,12 +388,503 @@ const genericBuildings = (gate: number): Building[] => [
   },
 ];
 
+interface InstituteSeed {
+  name: string;
+  nameBn: string;
+  city: string;
+  division: Division;
+  type: InstituteType;
+}
+
+/** Government polytechnic & monotechnic institutes (the three detailed ones above are already included). */
+const GOVERNMENT_SEEDS: InstituteSeed[] = [
+  // Dhaka Division
+  {
+    name: "Dhaka Mohila Polytechnic Institute",
+    nameBn: "ঢাকা মহিলা পলিটেকনিক ইনস্টিটিউট",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Bangladesh Institute of Glass and Ceramics",
+    nameBn: "বাংলাদেশ ইনস্টিটিউট অফ গ্লাস অ্যান্ড সেরামিক্স",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Graphic Arts Institute",
+    nameBn: "গ্রাফিক আর্টস ইনস্টিটিউট",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Faridpur Polytechnic Institute",
+    nameBn: "ফরিদপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Faridpur",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Gopalganj Polytechnic Institute",
+    nameBn: "গোপালগঞ্জ পলিটেকনিক ইনস্টিটিউট",
+    city: "Gopalganj",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Kishoreganj Polytechnic Institute",
+    nameBn: "কিশোরগঞ্জ পলিটেকনিক ইনস্টিটিউট",
+    city: "Kishoreganj",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Munshiganj Polytechnic Institute",
+    nameBn: "মুন্সিগঞ্জ পলিটেকনিক ইনস্টিটিউট",
+    city: "Munshiganj",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Narsingdi Polytechnic Institute",
+    nameBn: "নরসিংদী পলিটেকনিক ইনস্টিটিউট",
+    city: "Narsingdi",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Shariatpur Polytechnic Institute",
+    nameBn: "শরিয়তপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Shariatpur",
+    division: "Dhaka",
+    type: "government",
+  },
+  {
+    name: "Tangail Polytechnic Institute",
+    nameBn: "টাঙ্গাইল পলিটেকনিক ইনস্টিটিউট",
+    city: "Tangail",
+    division: "Dhaka",
+    type: "government",
+  },
+  // Chattogram Division
+  {
+    name: "Chattogram Polytechnic Institute",
+    nameBn: "চট্টগ্রাম পলিটেকনিক ইনস্টিটিউট",
+    city: "Chattogram",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Chattogram Mohila Polytechnic Institute",
+    nameBn: "চট্টগ্রাম মহিলা পলিটেকনিক ইনস্টিটিউট",
+    city: "Chattogram",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Brahmanbaria Polytechnic Institute",
+    nameBn: "ব্রাহ্মণবাড়িয়া পলিটেকনিক ইনস্টিটিউট",
+    city: "Brahmanbaria",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Chandpur Polytechnic Institute",
+    nameBn: "চান্দপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Chandpur",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Cumilla Polytechnic Institute",
+    nameBn: "কুমিল্লা পলিটেকনিক ইনস্টিটিউট",
+    city: "Cumilla",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Bangladesh Survey Institute",
+    nameBn: "বাংলাদেশ সার্ভে ইনস্টিটিউট",
+    city: "Cumilla",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Cox's Bazar Polytechnic Institute",
+    nameBn: "কক্সবাজার পলিটেকনিক ইনস্টিটিউট",
+    city: "Cox's Bazar",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Feni Polytechnic Institute",
+    nameBn: "ফেনী পলিটেকনিক ইনস্টিটিউট",
+    city: "Feni",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Feni Computer Institute",
+    nameBn: "ফেনী কম্পিউটার ইনস্টিটিউট",
+    city: "Feni",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Lakshmipur Polytechnic Institute",
+    nameBn: "লক্ষ্মীপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Lakshmipur",
+    division: "Chattogram",
+    type: "government",
+  },
+  {
+    name: "Bangladesh Sweden Polytechnic Institute",
+    nameBn: "বাংলাদেশ সুইডেন পলিটেকনিক ইনস্টিটিউট",
+    city: "Rangamati (Kaptai)",
+    division: "Chattogram",
+    type: "government",
+  },
+  // Rajshahi Division
+  {
+    name: "Rajshahi Mohila Polytechnic Institute",
+    nameBn: "রাজশাহী মহিলা পলিটেকনিক ইনস্টিটিউট",
+    city: "Rajshahi",
+    division: "Rajshahi",
+    type: "government",
+  },
+  {
+    name: "Rajshahi Survey Institute",
+    nameBn: "রাজশাহী সার্ভে ইনস্টিটিউট",
+    city: "Rajshahi",
+    division: "Rajshahi",
+    type: "government",
+  },
+  {
+    name: "Chapainawabganj Polytechnic Institute",
+    nameBn: "চাঁপাইনবাবগঞ্জ পলিটেকনিক ইনস্টিটিউট",
+    city: "Chapainawabganj",
+    division: "Rajshahi",
+    type: "government",
+  },
+  {
+    name: "Naogaon Polytechnic Institute",
+    nameBn: "নওগাঁ পলিটেকনিক ইনস্টিটিউট",
+    city: "Naogaon",
+    division: "Rajshahi",
+    type: "government",
+  },
+  {
+    name: "Pabna Polytechnic Institute",
+    nameBn: "পাবনা পলিটেকনিক ইনস্টিটিউট",
+    city: "Pabna",
+    division: "Rajshahi",
+    type: "government",
+  },
+  {
+    name: "Sirajganj Polytechnic Institute",
+    nameBn: "সিরাজগঞ্জ পলিটেকনিক ইনস্টিটিউট",
+    city: "Sirajganj",
+    division: "Rajshahi",
+    type: "government",
+  },
+  // Khulna Division
+  {
+    name: "Khulna Polytechnic Institute",
+    nameBn: "খুলনা পলিটেকনিক ইনস্টিটিউট",
+    city: "Khulna",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Khulna Mohila Polytechnic Institute",
+    nameBn: "খুলনা মহিলা পলিটেকনিক ইনস্টিটিউট",
+    city: "Khulna",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Jashore Polytechnic Institute",
+    nameBn: "যশোর পলিটেকনিক ইনস্টিটিউট",
+    city: "Jashore",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Jashore Govt. Survey Institute",
+    nameBn: "যশোর সরকারি সার্ভে ইনস্টিটিউট",
+    city: "Jashore",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Jhenaidah Polytechnic Institute",
+    nameBn: "ঝিনাইদহ পলিটেকনিক ইনস্টিটিউট",
+    city: "Jhenaidah",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Kushtia Polytechnic Institute",
+    nameBn: "কুষ্টিয়া পলিটেকনিক ইনস্টিটিউট",
+    city: "Kushtia",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Magura Polytechnic Institute",
+    nameBn: "মাগুরা পলিটেকনিক ইনস্টিটিউট",
+    city: "Magura",
+    division: "Khulna",
+    type: "government",
+  },
+  {
+    name: "Satkhira Polytechnic Institute",
+    nameBn: "সাতক্ষীরা পলিটেকনিক ইনস্টিটিউট",
+    city: "Satkhira",
+    division: "Khulna",
+    type: "government",
+  },
+  // Rangpur Division
+  {
+    name: "Rangpur Polytechnic Institute",
+    nameBn: "রংপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Rangpur",
+    division: "Rangpur",
+    type: "government",
+  },
+  {
+    name: "Rangpur Govt. Mohila Polytechnic Institute",
+    nameBn: "রংপুর সরকারি মহিলা পলিটেকনিক ইনস্টিটিউট",
+    city: "Rangpur",
+    division: "Rangpur",
+    type: "government",
+  },
+  {
+    name: "Dinajpur Polytechnic Institute",
+    nameBn: "দিনাজপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Dinajpur",
+    division: "Rangpur",
+    type: "government",
+  },
+  {
+    name: "Kurigram Polytechnic Institute",
+    nameBn: "কুরিগ্রাম পলিটেকনিক ইনস্টিটিউট",
+    city: "Kurigram",
+    division: "Rangpur",
+    type: "government",
+  },
+  {
+    name: "Thakurgaon Polytechnic Institute",
+    nameBn: "ঠাকুরগাঁও পলিটেকনিক ইনস্টিটিউট",
+    city: "Thakurgaon",
+    division: "Rangpur",
+    type: "government",
+  },
+  // Barishal Division
+  {
+    name: "Barishal Polytechnic Institute",
+    nameBn: "বরিশাল পলিটেকনিক ইনস্টিটিউট",
+    city: "Barishal",
+    division: "Barishal",
+    type: "government",
+  },
+  {
+    name: "Barguna Polytechnic Institute",
+    nameBn: "বরগুনা পলিটেকনিক ইনস্টিটিউট",
+    city: "Barguna",
+    division: "Barishal",
+    type: "government",
+  },
+  {
+    name: "Bhola Polytechnic Institute",
+    nameBn: "ভোলা পলিটেকনিক ইনস্টিটিউট",
+    city: "Bhola",
+    division: "Barishal",
+    type: "government",
+  },
+  {
+    name: "Patuakhali Polytechnic Institute",
+    nameBn: "পটুয়াখালী পলিটেকনিক ইনস্টিটিউট",
+    city: "Patuakhali",
+    division: "Barishal",
+    type: "government",
+  },
+  // Sylhet Division
+  {
+    name: "Sylhet Polytechnic Institute",
+    nameBn: "সিলেট পলিটেকনিক ইনস্টিটিউট",
+    city: "Sylhet",
+    division: "Sylhet",
+    type: "government",
+  },
+  {
+    name: "Habiganj Polytechnic Institute",
+    nameBn: "হবিগঞ্জ পলিটেকনিক ইনস্টিটিউট",
+    city: "Habiganj",
+    division: "Sylhet",
+    type: "government",
+  },
+  {
+    name: "Moulvibazar Polytechnic Institute",
+    nameBn: "মৌলভীবাজার পলিটেকনিক ইনস্টিটিউট",
+    city: "Moulvibazar",
+    division: "Sylhet",
+    type: "government",
+  },
+  // Mymensingh Division
+  {
+    name: "Mymensingh Polytechnic Institute",
+    nameBn: "ময়মনসিংহ পলিটেকনিক ইনস্টিটিউট",
+    city: "Mymensingh",
+    division: "Mymensingh",
+    type: "government",
+  },
+  {
+    name: "Sherpur Polytechnic Institute",
+    nameBn: "শেরপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Sherpur",
+    division: "Mymensingh",
+    type: "government",
+  },
+];
+
+/** Notable private polytechnic institutes. */
+const PRIVATE_SEEDS: InstituteSeed[] = [
+  {
+    name: "Daffodil Polytechnic Institute (DPI)",
+    nameBn: "ড্যাফোডিল পলিটেকনিক ইনস্টিটিউট",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "National Polytechnic Institute (NPI)",
+    nameBn: "ন্যাশনাল পলিটেকনিক ইনস্টিটিউট",
+    city: "Dhaka & Manikganj",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "Shyamoli Ideal Polytechnic Institute",
+    nameBn: "শ্যামলী আইডিয়াল পলিটেকনিক ইনস্টিটিউট",
+    city: "Dhaka, Chattogram, Rangpur, Lakshmipur",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "MAWTS Institute of Technology",
+    nameBn: "মাওটস ইনস্টিটিউট অফ টেকনোলজি",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "SAIC Institute of Management & Technology (SIMT)",
+    nameBn: "সাইক ইনস্টিটিউট অফ ম্যানেজমেন্ট অ্যান্ড টেকনোলজি",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "Mirpur Polytechnic Institute",
+    nameBn: "মিরপুর পলিটেকনিক ইনস্টিটিউট",
+    city: "Dhaka",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "BCMC College of Engineering & Technology",
+    nameBn: "বিসিএমসি কলেজ অফ ইঞ্জিনিয়ারিং অ্যান্ড টেকনোলজি",
+    city: "Jashore",
+    division: "Khulna",
+    type: "private",
+  },
+  {
+    name: "Mangrove Institute of Science and Technology",
+    nameBn: "ম্যাঙ্গ্রোভ ইনস্টিটিউট অফ সায়েন্স অ্যান্ড টেকনোলজি",
+    city: "Khulna",
+    division: "Khulna",
+    type: "private",
+  },
+  {
+    name: "Infra Polytechnic Institute",
+    nameBn: "ইনফ্রা পলিটেকনিক ইনস্টিটিউট",
+    city: "Barishal",
+    division: "Barishal",
+    type: "private",
+  },
+  {
+    name: "CCN Polytechnic Institute",
+    nameBn: "সিসিএন পলিটেকনিক ইনস্টিটিউট",
+    city: "Cumilla",
+    division: "Chattogram",
+    type: "private",
+  },
+  {
+    name: "Haji Abul Hossain Institute of Technology (HABHIT)",
+    nameBn: "হাজী আবুল হোসেন ইনস্টিটিউট অফ টেকনোলজি",
+    city: "Tangail",
+    division: "Dhaka",
+    type: "private",
+  },
+  {
+    name: "Islamic Bank Institute of Technology (IBIT)",
+    nameBn: "ইসলামিক ব্যাংক ইনস্টিটিউট অফ টেকনোলজি",
+    city: "Dhaka, Chattogram, Bogura, Sylhet",
+    division: "Dhaka",
+    type: "private",
+  },
+];
+
+function slugId(seed: InstituteSeed): string {
+  const slug = seed.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return seed.type === "private" ? `p-${slug}` : slug;
+}
+
+const CATALOG_INSTITUTES: Institute[] = [...GOVERNMENT_SEEDS, ...PRIVATE_SEEDS].map((seed) => ({
+  id: slugId(seed),
+  name: seed.name,
+  nameBn: seed.nameBn,
+  city: seed.city,
+  division: seed.division,
+  type: seed.type,
+  buildings: genericBuildings(100),
+  locations: [],
+}));
+
+export interface InstituteGroup {
+  id: string;
+  label: string;
+  items: Institute[];
+}
+
+/** Dropdown groups: government institutes by division, then all private ones. */
+export function groupInstitutes(list: Institute[]): InstituteGroup[] {
+  const groups: InstituteGroup[] = DIVISION_ORDER.map((division) => ({
+    id: `gov-${division.toLowerCase()}`,
+    label: `${division} Division`,
+    items: list.filter((i) => i.type === "government" && i.division === division),
+  })).filter((g) => g.items.length > 0);
+  const privates = list.filter((i) => i.type === "private");
+  if (privates.length > 0)
+    groups.push({ id: "private", label: "Private institutes", items: privates });
+  return groups;
+}
+
 export const INSTITUTES: [Institute, ...Institute[]] = [
   {
     id: "rpi",
     name: "Rajshahi Polytechnic Institute",
     nameBn: "রাজশাহী পলিটেকনিক ইনস্টিটিউট",
     city: "Rajshahi",
+    division: "Rajshahi",
+    type: "government",
     buildings: rajshahiBuildings,
     map: RPI_MAP,
     locations: [
@@ -494,6 +1003,8 @@ export const INSTITUTES: [Institute, ...Institute[]] = [
     name: "Dhaka Polytechnic Institute",
     nameBn: "ঢাকা পলিটেকনিক ইনস্টিটিউট",
     city: "Dhaka",
+    division: "Dhaka",
+    type: "government",
     buildings: genericBuildings(110),
     locations: [
       {
@@ -549,9 +1060,11 @@ export const INSTITUTES: [Institute, ...Institute[]] = [
   },
   {
     id: "bpi",
-    name: "Bogra Polytechnic Institute",
+    name: "Bogura Polytechnic Institute",
     nameBn: "বগুড়া পলিটেকনিক ইনস্টিটিউট",
     city: "Bogura",
+    division: "Rajshahi",
+    type: "government",
     buildings: genericBuildings(90),
     locations: [
       {
@@ -593,6 +1106,7 @@ export const INSTITUTES: [Institute, ...Institute[]] = [
       },
     ],
   },
+  ...CATALOG_INSTITUTES,
 ];
 
 /* ---------------- Search ---------------- */

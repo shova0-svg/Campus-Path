@@ -15,13 +15,16 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import {
   CATEGORY_META,
   floorLabel,
+  groupInstitutes,
   INSTITUTES,
   type CampusLocation,
   type Category,
@@ -50,20 +53,34 @@ function SimpleSelect({
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; group?: string }[];
   label: string;
 }) {
+  const groups = [...new Set(options.map((o) => o.group).filter(Boolean) as string[])];
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-11 rounded-xl" aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
+        {groups.length > 0
+          ? groups.map((group) => (
+              <SelectGroup key={group}>
+                <SelectLabel>{group}</SelectLabel>
+                {options
+                  .filter((o) => o.group === group)
+                  .map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
+            ))
+          : options.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
       </SelectContent>
     </Select>
   );
@@ -74,7 +91,13 @@ const SIDES = [
   { value: "right", label: "Right" },
 ];
 
-export function LocationFormDialog({ open, onOpenChange, defaultInstituteId, editing, onSave }: Props) {
+export function LocationFormDialog({
+  open,
+  onOpenChange,
+  defaultInstituteId,
+  editing,
+  onSave,
+}: Props) {
   const [instituteId, setInstituteId] = useState(defaultInstituteId);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<Category>("classroom");
@@ -170,7 +193,9 @@ export function LocationFormDialog({ open, onOpenChange, defaultInstituteId, edi
               label="Institute"
               value={instituteId}
               onChange={changeInstitute}
-              options={INSTITUTES.map((i) => ({ value: i.id, label: i.name }))}
+              options={groupInstitutes(INSTITUTES).flatMap((g) =>
+                g.items.map((i) => ({ value: i.id, label: i.name, group: g.label })),
+              )}
             />
           </div>
 
@@ -204,7 +229,10 @@ export function LocationFormDialog({ open, onOpenChange, defaultInstituteId, edi
                 label="Floor"
                 value={floor}
                 onChange={setFloor}
-                options={[0, 1, 2, 3, 4, 5].map((f) => ({ value: String(f), label: floorLabel(f) }))}
+                options={[0, 1, 2, 3, 4, 5].map((f) => ({
+                  value: String(f),
+                  label: floorLabel(f),
+                }))}
               />
             </div>
           </div>
@@ -250,24 +278,37 @@ export function LocationFormDialog({ open, onOpenChange, defaultInstituteId, edi
             <Label htmlFor="directions">Step-by-step landmark directions</Label>
             <Textarea
               id="directions"
-              placeholder={"Walk straight past the Shaheed Minar\nTake the main stairs to the 3rd floor\nTurn left at the blue water filter — 2nd door on your right"}
+              placeholder={
+                "Walk straight past the Shaheed Minar\nTake the main stairs to the 3rd floor\nTurn left at the blue water filter — 2nd door on your right"
+              }
               value={directions}
               onChange={(e) => setDirections(e.target.value)}
               className="min-h-28 rounded-xl"
             />
             <p className="text-xs text-muted-foreground">
-              One step per line. Leave empty to create steps automatically from the student's start point.
+              One step per line. Leave empty to create steps automatically from the student's start
+              point.
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Turn</Label>
-              <SimpleSelect label="Turn" value={turn} onChange={(v) => setTurn(v as Side)} options={SIDES} />
+              <SimpleSelect
+                label="Turn"
+                value={turn}
+                onChange={(v) => setTurn(v as Side)}
+                options={SIDES}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Door side</Label>
-              <SimpleSelect label="Door side" value={side} onChange={(v) => setSide(v as Side)} options={SIDES} />
+              <SimpleSelect
+                label="Door side"
+                value={side}
+                onChange={(v) => setSide(v as Side)}
+                options={SIDES}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Door #</Label>

@@ -21,7 +21,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -49,6 +51,7 @@ import {
   ALL_START_POINTS,
   CATEGORY_META,
   floorLabel,
+  groupInstitutes,
   INSTITUTES,
   MAIN_GATE,
   QR_START_POINT,
@@ -89,6 +92,8 @@ const FILTERS: { id: CategoryFilter; label: string }[] = [
     label: CATEGORY_META[c].label,
   })),
 ];
+
+const INSTITUTE_GROUPS = groupInstitutes(INSTITUTES);
 
 function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
@@ -288,10 +293,15 @@ function Index() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {INSTITUTES.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.name}
-                  </SelectItem>
+                {INSTITUTE_GROUPS.map((group) => (
+                  <SelectGroup key={group.id}>
+                    <SelectLabel>{group.label}</SelectLabel>
+                    {group.items.map((i) => (
+                      <SelectItem key={i.id} value={i.id}>
+                        {i.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
@@ -449,9 +459,13 @@ function Index() {
                 {results.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
                     <SearchX className="mx-auto size-8 text-muted-foreground" />
-                    <p className="mt-3 font-medium">No place matches "{query}"</p>
+                    <p className="mt-3 font-medium">
+                      {query ? `No place matches "${query}"` : "No rooms added yet"}
+                    </p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Try another name, or ask your campus admin to add it.
+                      {query
+                        ? "Try another name, or ask your campus admin to add it."
+                        : "আপনার ক্যাম্পাস অ্যাডমিন Admin Mode থেকে রুম যোগ করতে পারবেন।"}
                     </p>
                   </div>
                 ) : (
