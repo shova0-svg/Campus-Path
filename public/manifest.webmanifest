@@ -1,0 +1,46 @@
+{
+  "name": "Sohoj Rasta — Smart Campus Navigator",
+  "short_name": "Sohoj Rasta",
+  "description": "Find classrooms, labs, routines and QR checkpoints across Bangladesh polytechnic campuses — works offline.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8FAFC",
+  "theme_color": "#1E3A8A",
+  "lang": "bn",
+  "categories": ["education", "navigation", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Class Routine",
+      "short_name": "Routine",
+      "url": "/?view=routine"
+    },
+    {
+      "name": "Campus Map",
+      "short_name": "Map",
+      "url": "/?view=map"
+    }
+  ]
+}

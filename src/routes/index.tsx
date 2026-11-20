@@ -160,7 +160,9 @@ function Index() {
       window.localStorage.setItem(STORE_KEY, JSON.stringify(withRoutineRooms));
       const savedAdmins = loadAdmins(window.localStorage.getItem(ADMINS_STORE_KEY));
       setAdmins(savedAdmins);
-      setBuildingStore(parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY)));
+      const mergedBuildings = parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY));
+      setBuildingStore(mergedBuildings);
+      window.localStorage.setItem(BUILDINGS_STORE_KEY, JSON.stringify(mergedBuildings));
       setRoutines(savedRoutines);
       const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
       if (isAdminUser(session, savedAdmins)) {
@@ -185,6 +187,8 @@ function Index() {
     } catch {
       /* ignore bad link */
     }
+    const viewParam = new URLSearchParams(window.location.search).get("view");
+    if (viewParam === "routine" || viewParam === "map") setView(viewParam);
   }, []);
 
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
@@ -464,7 +468,7 @@ function Index() {
       </aside>
 
       {/* App frame */}
-      <main className="mx-auto min-h-screen w-full max-w-md bg-background lg:mx-0 lg:min-h-[calc(100vh-5rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-border lg:shadow-[var(--shadow-float)]">
+      <main className="mx-auto min-h-dvh w-full max-w-md bg-background pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:min-h-[calc(100dvh-5rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-border lg:shadow-[var(--shadow-float)]">
         {/* Header */}
         <header className="bg-hero rounded-b-[2rem] px-5 pb-14 pt-6 text-primary-foreground">
           <div className="flex items-center justify-between gap-3">

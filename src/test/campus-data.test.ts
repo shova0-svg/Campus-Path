@@ -51,6 +51,22 @@ describe("Sohoj Rasta campus data", () => {
     expect(QR_START_POINT.name).toBe("Academic Building Entrance");
   });
 
+  it("includes all eight Rajshahi department buildings", () => {
+    const names = rpi.buildings.map((b) => b.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "Electrical Department Building",
+        "Electronics Department Building",
+        "Computer Department Building",
+        "Civil Department Building",
+        "Mechanical Department Building",
+        "Power Department Building",
+        "Electro-Medical Department Building",
+        "Mechatronics Department Building",
+      ]),
+    );
+  });
+
   it("attaches the Google campus map to Rajshahi Polytechnic only", () => {
     expect(rpi.map).toBeDefined();
     expect(rpi.map?.lat).toBeCloseTo(24.3791113, 6);

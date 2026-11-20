@@ -135,7 +135,11 @@ export function parseBuildingStore(raw: string | null): BuildingStore {
   const store = defaultBuildingStore();
   if (saved && typeof saved === "object" && !Array.isArray(saved)) {
     for (const [id, list] of Object.entries(saved as Record<string, unknown>)) {
-      if (Array.isArray(list)) store[id] = list as Building[];
+      if (!Array.isArray(list)) continue;
+      const savedList = list as Building[];
+      const savedIds = new Set(savedList.map((b) => b.id));
+      // Keep admin buildings/order, but add newly shipped built-ins (e.g. new departments).
+      store[id] = [...savedList, ...(store[id] ?? []).filter((b) => !savedIds.has(b.id))];
     }
   }
   return store;

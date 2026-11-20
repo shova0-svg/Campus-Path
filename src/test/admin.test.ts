@@ -182,4 +182,12 @@ describe("Admin-managed buildings", () => {
       true,
     );
   });
+
+  it("adds newly shipped buildings to an older saved list", () => {
+    const oldOnly = JSON.stringify({ rpi: [workshop] });
+    const merged = parseBuildingStore(oldOnly)["rpi"] ?? [];
+    expect(merged.some((b) => b.name === "Workshop Building")).toBe(true);
+    expect(merged.some((b) => b.name === "Electrical Department Building")).toBe(true);
+    expect(merged).toHaveLength(defaultBuildingStore()["rpi"]!.length + 1);
+  });
 });

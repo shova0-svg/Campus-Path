@@ -362,6 +362,29 @@ const rajshahiBuildings: Building[] = [
       "academic-entrance": 35,
     },
   },
+  ...(
+    [
+      ["electrical", "Electrical Department Building", 95],
+      ["electronics", "Electronics Department Building", 100],
+      ["computer", "Computer Department Building", 85],
+      ["civil", "Civil Department Building", 90],
+      ["mechanical", "Mechanical Department Building", 120],
+      ["power", "Power Department Building", 125],
+      ["electro-medical", "Electro-Medical Department Building", 115],
+      ["mechatronics", "Mechatronics Department Building", 130],
+    ] as [string, string, number][]
+  ).map(([id, name, gate]): Building => ({
+    id,
+    name,
+    look: `${name.replace(" Department Building", "")} department block`,
+    isAcademic: true,
+    distance: {
+      "main-gate": gate,
+      "shaheed-minar": Math.round(gate * 0.6),
+      "academic-ground": Math.round(gate * 0.45),
+      "academic-entrance": Math.round(gate * 0.4),
+    },
+  })),
 ];
 
 const genericBuildings = (gate: number): Building[] => [
