@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { BuildingStore } from "@/lib/admin";
 import {
   CATEGORY_META,
   floorLabel,
@@ -40,6 +41,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultInstituteId: string;
+  /** Admin-managed buildings per institute (falls back to built-in ones). */
+  buildingStore?: BuildingStore;
   /** When set, the form edits this room instead of adding a new one. */
   editing: EditTarget | null;
   onSave: (instituteId: string, loc: CampusLocation) => void;
@@ -95,6 +98,7 @@ export function LocationFormDialog({
   open,
   onOpenChange,
   defaultInstituteId,
+  buildingStore,
   editing,
   onSave,
 }: Props) {
@@ -115,10 +119,11 @@ export function LocationFormDialog({
     const loc = editing?.location;
     const instId = editing?.instituteId ?? defaultInstituteId;
     const inst = INSTITUTES.find((i) => i.id === instId) ?? INSTITUTES[0];
+    const list = buildingStore?.[inst.id] ?? inst.buildings;
     setInstituteId(inst.id);
     setName(loc?.name ?? "");
     setCategory(loc?.category ?? "classroom");
-    setBuildingId(loc?.buildingId ?? inst.buildings[0]?.id ?? "academic");
+    setBuildingId(loc?.buildingId ?? list[0]?.id ?? "academic");
     setFloor(String(loc?.floor ?? 1));
     setWalkingSteps(loc?.walkingSteps ? String(loc.walkingSteps) : "");
     setLandmark(loc?.landmark ?? "");
@@ -126,10 +131,10 @@ export function LocationFormDialog({
     setTurn(loc?.turn ?? "left");
     setSide(loc?.side ?? "right");
     setDoor(String(loc?.door ?? 1));
-  }, [open, editing, defaultInstituteId]);
+  }, [open, editing, defaultInstituteId, buildingStore]);
 
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
-  const buildings = institute.buildings;
+  const buildings = buildingStore?.[instituteId] ?? institute.buildings;
   const stepsNum = Number(walkingSteps);
   const stepsValid = walkingSteps.trim() === "" || (Number.isFinite(stepsNum) && stepsNum > 0);
   const valid = name.trim().length > 1 && landmark.trim().length > 1 && stepsValid;
@@ -137,8 +142,9 @@ export function LocationFormDialog({
   function changeInstitute(id: string) {
     setInstituteId(id);
     const inst = INSTITUTES.find((i) => i.id === id);
-    if (inst && !inst.buildings.some((b) => b.id === buildingId)) {
-      setBuildingId(inst.buildings[0]?.id ?? "academic");
+    const list = buildingStore?.[id] ?? inst?.buildings ?? [];
+    if (!list.some((b) => b.id === buildingId)) {
+      setBuildingId(list[0]?.id ?? "academic");
     }
   }
 

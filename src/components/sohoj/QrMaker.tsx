@@ -10,23 +10,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CampusLocation, Institute } from "@/lib/campus-data";
+import type { Building, CampusLocation, Institute } from "@/lib/campus-data";
 import { classesInRoom, type ClassRoutine } from "@/lib/routine";
 import { buildingQrPayload, makeQrDataUrl, qrFileName, roomQrPayload, shareUrl } from "@/lib/qr";
 
 interface Props {
   institute: Institute;
+  buildings: Building[];
   rooms: CampusLocation[];
   routines: ClassRoutine[];
 }
 
-export function QrMaker({ institute, rooms, routines }: Props) {
-  const [buildingId, setBuildingId] = useState(institute.buildings[0]?.id ?? "academic");
+export function QrMaker({ institute, buildings, rooms, routines }: Props) {
+  const [buildingId, setBuildingId] = useState(buildings[0]?.id ?? "academic");
   const [roomCode, setRoomCode] = useState("");
   const [dataUrl, setDataUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const building = institute.buildings.find((b) => b.id === buildingId) ?? institute.buildings[0];
+  const building = buildings.find((b) => b.id === buildingId) ?? buildings[0];
   const buildingRooms = useMemo(
     () => rooms.filter((r) => r.buildingId === buildingId),
     [rooms, buildingId],
@@ -99,7 +100,7 @@ export function QrMaker({ institute, rooms, routines }: Props) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {institute.buildings.map((b) => (
+            {buildings.map((b) => (
               <SelectItem key={b.id} value={b.id}>
                 {b.name}
               </SelectItem>

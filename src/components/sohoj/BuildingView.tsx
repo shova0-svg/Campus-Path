@@ -1,10 +1,11 @@
 import { ArrowLeft, Building2, DoorOpen, Layers3, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { floorLabel, type CampusLocation, type Institute } from "@/lib/campus-data";
+import { floorLabel, type Building, type CampusLocation, type Institute } from "@/lib/campus-data";
 import { classesInRoom, formatRoomCode, type ClassRoutine } from "@/lib/routine";
 
 interface Props {
   institute: Institute;
+  buildings?: Building[];
   buildingId: string;
   rooms: CampusLocation[];
   routines: ClassRoutine[];
@@ -14,13 +15,14 @@ interface Props {
 
 export function BuildingView({
   institute,
+  buildings = institute.buildings,
   buildingId,
   rooms,
   routines,
   onSelectRoom,
   onBack,
 }: Props) {
-  const building = institute.buildings.find((b) => b.id === buildingId);
+  const building = buildings.find((b) => b.id === buildingId);
   const buildingRooms = rooms.filter((r) => r.buildingId === buildingId);
   const floors = [...new Set(buildingRooms.map((r) => r.floor))].sort((a, b) => a - b);
   const totalClasses = buildingRooms.reduce(

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Building2,
   CalendarDays,
   LogOut,
   Pencil,
@@ -46,13 +47,15 @@ import {
   groupInstitutes,
   INSTITUTES,
   searchLocations,
+  type Building,
   type CampusLocation,
+  type StartPointId,
 } from "@/lib/campus-data";
 import { MAX_ADMINS_PER_INSTITUTE, type AdminAccount, type LocationStore } from "@/lib/admin";
 import { sortRooms, type ClassRoutine } from "@/lib/routine";
 import { cn } from "@/lib/utils";
 
-type Tab = "rooms" | "routines" | "qr" | "admins";
+type Tab = "rooms" | "buildings" | "routines" | "qr" | "admins";
 
 interface Props {
   open: boolean;
@@ -64,6 +67,7 @@ interface Props {
   allowedInstituteIds: string[];
   admins: AdminAccount[];
   routines: ClassRoutine[];
+  buildings: Building[];
   onLogout: () => void;
   onAdd: (instituteId: string) => void;
   onEdit: (instituteId: string, loc: CampusLocation) => void;
@@ -72,6 +76,8 @@ interface Props {
   onDeleteRoutine: (id: string) => void;
   onAddAdmin: (email: string, instituteId: string) => void;
   onRemoveAdmin: (email: string) => void;
+  onSaveBuilding: (building: Building) => void;
+  onDeleteBuilding: (buildingId: string) => void;
 }
 
 export function AdminPanel({
@@ -84,6 +90,7 @@ export function AdminPanel({
   allowedInstituteIds,
   admins,
   routines,
+  buildings,
   onLogout,
   onAdd,
   onEdit,
@@ -92,12 +99,15 @@ export function AdminPanel({
   onDeleteRoutine,
   onAddAdmin,
   onRemoveAdmin,
+  onSaveBuilding,
+  onDeleteBuilding,
 }: Props) {
   const [tab, setTab] = useState<Tab>("rooms");
   const [instituteId, setInstituteId] = useState(currentInstituteId);
   const [query, setQuery] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CampusLocation | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<ClassRoutine | "new" | null>(null);
+  const [editingBuilding, setEditingBuilding] = useState<Building | "new" | null>(null);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminInstitute, setNewAdminInstitute] = useState(allowedInstituteIds[0] ?? "rpi");
 
@@ -106,6 +116,7 @@ export function AdminPanel({
       setInstituteId(currentInstituteId);
       setTab("rooms");
       setEditingRoutine(null);
+      setEditingBuilding(null);
     }
   }, [open, currentInstituteId]);
 
@@ -122,6 +133,7 @@ export function AdminPanel({
 
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "rooms", label: "Rooms", icon: Pencil },
+    { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "routines", label: "Routines", icon: CalendarDays },
     { id: "qr", label: "QR Maker", icon: QrCode },
     ...(isSuper ? [{ id: "admins" as Tab, label: "Admins", icon: Users }] : []),
@@ -154,6 +166,7 @@ export function AdminPanel({
                     onClick={() => {
                       setTab(t.id);
                       setEditingRoutine(null);
+                      setEditingBuilding(null);
                     }}
                     className={cn(
                       "flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
@@ -280,6 +293,80 @@ export function AdminPanel({
             </>
           )}
 
+          {tab === "buildings" && (
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {editingBuilding ? (
+                <BuildingEditor
+                  initial={editingBuilding === "new" ? null : editingBuilding}
+                  roomCount={(id) => rooms.filter((r) => r.buildingId === id).length}
+                  onSave={(b) => {
+                    onSaveBuilding(b);
+                    setEditingBuilding(null);
+                  }}
+                  onCancel={() => setEditingBuilding(null)}
+                />
+              ) : (
+                <>
+                  <Button
+                    variant="emerald"
+                    size="xl"
+                    className="w-full"
+                    onClick={() => setEditingBuilding("new")}
+                  >
+                    <Plus /> Add New Building
+                  </Button>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Bhon add korlei tar niche classroom gulo thakbe. Room add korar somoy ei
+                    building select kora jay.
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {buildings.map((b) => {
+                      const count = rooms.filter((r) => r.buildingId === b.id).length;
+                      return (
+                        <li
+                          key={b.id}
+                          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
+                        >
+                          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                            <Building2 className="size-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{b.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {count} rooms · {b.isAcademic ? "Academic" : "Other"}
+                            </span>
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Edit ${b.name}`}
+                            onClick={() => setEditingBuilding(b)}
+                          >
+                            <Pencil />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete ${b.name}`}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => onDeleteBuilding(b.id)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </li>
+                      );
+                    })}
+                    {buildings.length === 0 && (
+                      <li className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                        Ekhono kono building nei.
+                      </li>
+                    )}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+
           {tab === "routines" && (
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {editingRoutine ? (
@@ -347,7 +434,14 @@ export function AdminPanel({
             </div>
           )}
 
-          {tab === "qr" && <QrMaker institute={institute} rooms={rooms} routines={routines} />}
+          {tab === "qr" && (
+            <QrMaker
+              institute={institute}
+              buildings={buildings}
+              rooms={rooms}
+              routines={routines}
+            />
+          )}
 
           {tab === "admins" && isSuper && (
             <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -448,5 +542,131 @@ export function AdminPanel({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+const START_POINT_IDS: StartPointId[] = [
+  "main-gate",
+  "shaheed-minar",
+  "academic-ground",
+  "academic-entrance",
+];
+
+const START_POINT_LABELS: Record<StartPointId, string> = {
+  "main-gate": "Main Gate",
+  "shaheed-minar": "Shaheed Minar",
+  "academic-ground": "Academic ground",
+  "academic-entrance": "Academic entrance",
+};
+
+function blankBuilding(): Building {
+  return {
+    id: `building-${Date.now()}`,
+    name: "",
+    look: "",
+    isAcademic: false,
+    distance: {
+      "main-gate": 60,
+      "shaheed-minar": 40,
+      "academic-ground": 40,
+      "academic-entrance": 40,
+    },
+  };
+}
+
+function BuildingEditor({
+  initial,
+  roomCount,
+  onSave,
+  onCancel,
+}: {
+  initial: Building | null;
+  roomCount: (id: string) => number;
+  onSave: (building: Building) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState<Building>(initial ? { ...initial } : blankBuilding());
+  const patch = (p: Partial<Building>) => setDraft((d) => ({ ...d, ...p }));
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">Building name</label>
+        <Input
+          value={draft.name}
+          onChange={(e) => patch({ name: e.target.value })}
+          placeholder="e.g. Academic Building"
+          className="h-10 rounded-xl"
+        />
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">
+          Look / landmark (directions-e use hobey)
+        </label>
+        <Input
+          value={draft.look}
+          onChange={(e) => patch({ look: e.target.value })}
+          placeholder="Red building with the flag pole"
+          className="h-10 rounded-xl"
+        />
+      </div>
+      <label className="flex items-center gap-2 text-xs font-medium">
+        <input
+          type="checkbox"
+          checked={draft.isAcademic}
+          onChange={(e) => patch({ isAcademic: e.target.checked })}
+          className="size-4 accent-[var(--primary)]"
+        />
+        Academic building
+      </label>
+
+      <div>
+        <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
+          Walking distance (meters) from each start point
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {START_POINT_IDS.map((id) => (
+            <div key={id}>
+              <label className="text-[10px] text-muted-foreground">{START_POINT_LABELS[id]}</label>
+              <Input
+                type="number"
+                min={0}
+                value={draft.distance[id] ?? 0}
+                onChange={(e) =>
+                  patch({ distance: { ...draft.distance, [id]: Number(e.target.value) } })
+                }
+                className="h-9 rounded-lg"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {initial && (
+        <p className="text-[11px] text-muted-foreground">
+          {roomCount(initial.id)} rooms currently in this building.
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          variant="emerald"
+          className="flex-1"
+          disabled={!draft.name.trim()}
+          onClick={() =>
+            onSave({
+              ...draft,
+              name: draft.name.trim(),
+              look: draft.look.trim() || draft.name.trim(),
+            })
+          }
+        >
+          Save building
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }

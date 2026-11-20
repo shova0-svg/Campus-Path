@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
+  Building2,
   CheckCircle2,
   ChevronRight,
   List,
   Loader2,
   LocateFixed,
-  Map,
+  Map as MapIcon,
   MapPinPlus,
   QrCode,
   Search,
@@ -38,19 +39,25 @@ import {
   adminProfile,
   ADMIN_SESSION_KEY,
   ADMINS_STORE_KEY,
+  BUILDINGS_STORE_KEY,
   defaultStore,
+  deleteBuilding,
   deleteLocation,
   isAdmin as isAdminUser,
   isAdminEmail,
   LEGACY_CUSTOM_KEY,
   loadAdmins,
+  parseBuildingStore,
   parseStore,
   removeInstituteAdmin,
   STORE_KEY,
+  upsertBuilding,
   upsertLocation,
   type AdminAccount,
+  type BuildingStore,
   type LocationStore,
 } from "@/lib/admin";
+import type { Building } from "@/lib/campus-data";
 import { NavigationView } from "@/components/sohoj/NavigationView";
 import { CampusMap } from "@/components/sohoj/CampusMap";
 import { RoutineView } from "@/components/sohoj/RoutineView";
@@ -135,6 +142,7 @@ function Index() {
   const [downloading, setDownloading] = useState(false);
   const [view, setView] = useState<"list" | "routine" | "map">("list");
   const [admins, setAdmins] = useState<AdminAccount[]>(() => loadAdmins(null));
+  const [buildingStore, setBuildingStore] = useState<BuildingStore>(() => parseBuildingStore(null));
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => parseRoutineStore(null));
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
@@ -152,6 +160,7 @@ function Index() {
       window.localStorage.setItem(STORE_KEY, JSON.stringify(withRoutineRooms));
       const savedAdmins = loadAdmins(window.localStorage.getItem(ADMINS_STORE_KEY));
       setAdmins(savedAdmins);
+      setBuildingStore(parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY)));
       setRoutines(savedRoutines);
       const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
       if (isAdminUser(session, savedAdmins)) {
@@ -179,6 +188,7 @@ function Index() {
   }, []);
 
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
+  const buildings = buildingStore[institute.id] ?? institute.buildings;
   const locations = useMemo(() => store[institute.id] ?? institute.locations, [store, institute]);
   const profile = adminProfile(adminEmail, admins);
   const isAdmin = isAdminUser(adminEmail, admins);
@@ -195,9 +205,22 @@ function Index() {
   const activeRoutine =
     instituteRoutines.find((r) => r.id === activeRoutineId) ?? instituteRoutines[0];
   const results = useMemo(
-    () => sortRooms(searchLocations(locations, institute.buildings, query, filter)),
-    [locations, institute.buildings, query, filter],
+    () => sortRooms(searchLocations(locations, buildings, query, filter)),
+    [locations, buildings, query, filter],
   );
+  const groupedResults = useMemo(() => {
+    const map = new Map<string, CampusLocation[]>();
+    for (const loc of results) {
+      const list = map.get(loc.buildingId) ?? [];
+      list.push(loc);
+      map.set(loc.buildingId, list);
+    }
+    return [...map.entries()].map(([id, list]) => ({
+      id,
+      building: buildings.find((b) => b.id === id),
+      list,
+    }));
+  }, [results, buildings]);
   const selected = locations.find((l) => l.id === selectedId) ?? null;
   const start = ALL_START_POINTS.find((s) => s.id === startId) ?? MAIN_GATE;
   const startOptions =
@@ -302,6 +325,29 @@ function Index() {
       /* ignore */
     }
     toast.success(`${email} removed`);
+  }
+
+  function commitBuildings(next: BuildingStore) {
+    setBuildingStore(next);
+    try {
+      window.localStorage.setItem(BUILDINGS_STORE_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function saveBuilding(building: Building) {
+    if (!isAdmin) return;
+    commitBuildings(upsertBuilding(buildingStore, institute.id, building));
+    toast.success(`${building.name} saved`, {
+      description: "এই ভবনের নিচে এখন রুম যোগ করা যাবে",
+    });
+  }
+
+  function removeBuilding(buildingId: string) {
+    const name = buildings.find((b) => b.id === buildingId)?.name ?? "Building";
+    commitBuildings(deleteBuilding(buildingStore, institute.id, buildingId));
+    toast.success(`${name} removed`);
   }
 
   function openAdmin() {
@@ -578,7 +624,7 @@ function Index() {
                       : "text-muted-foreground",
                   )}
                 >
-                  <Map className="size-4" /> Campus Map
+                  <MapIcon className="size-4" /> Campus Map
                 </button>
               )}
             </div>
@@ -587,6 +633,7 @@ function Index() {
           {qrBuilding && qrBuilding.instituteId === institute.id ? (
             <BuildingView
               institute={institute}
+              buildings={buildings}
               buildingId={qrBuilding.buildingId}
               rooms={locations}
               routines={routines}
@@ -597,7 +644,7 @@ function Index() {
             <NavigationView
               location={selected}
               start={start}
-              buildings={institute.buildings}
+              buildings={buildings}
               showCampusMap={hasCampusMap(institute.id)}
               roomClasses={classesInRoom(routines, selected.name)}
               liveClasses={currentClassesInRoom(routines, selected.name)}
@@ -638,7 +685,7 @@ function Index() {
               map={institute.map}
               instituteName={institute.name}
               onSelectBuilding={(id) => {
-                const b = institute.buildings.find((x) => x.id === id);
+                const b = buildings.find((x) => x.id === id);
                 if (b) {
                   setFilter("all");
                   setQuery(b.name);
@@ -695,49 +742,63 @@ function Index() {
                     </p>
                   </div>
                 ) : (
-                  <ul className="space-y-2.5">
-                    {results.map((loc, i) => {
-                      const Icon = CATEGORY_ICON[loc.category];
-                      const building = institute.buildings.find((b) => b.id === loc.buildingId);
-                      return (
-                        <li
-                          key={loc.id}
-                          className="animate-rise"
-                          style={{ animationDelay: `${i * 40}ms` }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => openLocation(loc.id)}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30 active:scale-[0.99]"
-                          >
-                            <span
-                              className={cn(
-                                "grid size-11 shrink-0 place-items-center rounded-xl",
-                                CATEGORY_TONE[loc.category],
-                              )}
-                            >
-                              <Icon className="size-5" />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-center gap-2">
-                                <span className="truncate font-semibold">{loc.name}</span>
-                                {loc.custom && (
-                                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
-                                    <Sparkles className="size-3" /> New
+                  <div className="space-y-4">
+                    {groupedResults.map((group) => (
+                      <div key={group.id}>
+                        <div className="mb-2 flex items-center gap-2 px-1">
+                          <Building2 className="size-3.5 text-primary" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-primary">
+                            {group.building?.name ?? "Other"}
+                          </h3>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {group.list.length}
+                          </span>
+                        </div>
+                        <ul className="space-y-2.5">
+                          {group.list.map((loc, i) => {
+                            const Icon = CATEGORY_ICON[loc.category];
+                            return (
+                              <li
+                                key={loc.id}
+                                className="animate-rise"
+                                style={{ animationDelay: `${i * 40}ms` }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => openLocation(loc.id)}
+                                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30 active:scale-[0.99]"
+                                >
+                                  <span
+                                    className={cn(
+                                      "grid size-11 shrink-0 place-items-center rounded-xl",
+                                      CATEGORY_TONE[loc.category],
+                                    )}
+                                  >
+                                    <Icon className="size-5" />
                                   </span>
-                                )}
-                              </span>
-                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                                {loc.buildingNo ? `Building ${loc.buildingNo} · ` : ""}
-                                {building?.name} · {floorLabel(loc.floor)}
-                              </span>
-                            </span>
-                            <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex items-center gap-2">
+                                      <span className="truncate font-semibold">{loc.name}</span>
+                                      {loc.custom && (
+                                        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
+                                          <Sparkles className="size-3" /> New
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                      {loc.buildingNo ? `Building ${loc.buildingNo} · ` : ""}
+                                      {floorLabel(loc.floor)}
+                                    </span>
+                                  </span>
+                                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </section>
             </>
@@ -783,6 +844,7 @@ function Index() {
             allowedInstituteIds={allowedInstituteIds}
             admins={admins}
             routines={routines}
+            buildings={buildings}
             onLogout={handleLogout}
             onAdd={openAddForm}
             onEdit={openEditForm}
@@ -791,6 +853,8 @@ function Index() {
             onDeleteRoutine={removeRoutine}
             onAddAdmin={addAdmin}
             onRemoveAdmin={removeAdmin}
+            onSaveBuilding={saveBuilding}
+            onDeleteBuilding={removeBuilding}
           />
           <LocationFormDialog
             open={formOpen}
@@ -799,6 +863,7 @@ function Index() {
               if (!o) setEditing(null);
             }}
             defaultInstituteId={formInstituteId}
+            buildingStore={buildingStore}
             editing={editing}
             onSave={saveLocation}
           />

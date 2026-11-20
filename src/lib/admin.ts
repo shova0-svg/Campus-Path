@@ -1,4 +1,4 @@
-import { INSTITUTES, type CampusLocation } from "@/lib/campus-data";
+import { INSTITUTES, type Building, type CampusLocation } from "@/lib/campus-data";
 
 /** The super admin can manage every institute and every admin account. */
 export const ADMIN_EMAIL = "Shovaslks@gmail.com";
@@ -116,6 +116,51 @@ export function removeInstituteAdmin(accounts: AdminAccount[], email: string): A
   return accounts.filter(
     (a) => a.instituteId === "all" || a.email.toLowerCase() !== email.trim().toLowerCase(),
   );
+}
+
+/* ---------------- Building store (per institute, saved in localStorage) ---------------- */
+
+export type BuildingStore = Record<string, Building[]>;
+
+export const BUILDINGS_STORE_KEY = "sohoj-rasta-buildings-v1";
+
+export function defaultBuildingStore(): BuildingStore {
+  const store: BuildingStore = {};
+  for (const inst of INSTITUTES) store[inst.id] = [...inst.buildings];
+  return store;
+}
+
+export function parseBuildingStore(raw: string | null): BuildingStore {
+  const saved = safeParse(raw);
+  const store = defaultBuildingStore();
+  if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+    for (const [id, list] of Object.entries(saved as Record<string, unknown>)) {
+      if (Array.isArray(list)) store[id] = list as Building[];
+    }
+  }
+  return store;
+}
+
+export function upsertBuilding(
+  store: BuildingStore,
+  instituteId: string,
+  building: Building,
+): BuildingStore {
+  const list = store[instituteId] ?? [];
+  const idx = list.findIndex((b) => b.id === building.id);
+  const next = idx < 0 ? [building, ...list] : list.map((b, i) => (i === idx ? building : b));
+  return { ...store, [instituteId]: next };
+}
+
+export function deleteBuilding(
+  store: BuildingStore,
+  instituteId: string,
+  buildingId: string,
+): BuildingStore {
+  return {
+    ...store,
+    [instituteId]: (store[instituteId] ?? []).filter((b) => b.id !== buildingId),
+  };
 }
 
 /* ---------------- Room store (per institute, saved in localStorage) ---------------- */

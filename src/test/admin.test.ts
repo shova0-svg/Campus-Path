@@ -7,13 +7,17 @@ import {
   adminProfile,
   canManageInstitute,
   defaultAdmins,
+  defaultBuildingStore,
   defaultStore,
+  deleteBuilding,
   deleteLocation,
   isAdmin,
   isAdminEmail,
   loadAdmins,
+  parseBuildingStore,
   parseStore,
   removeInstituteAdmin,
+  upsertBuilding,
   upsertLocation,
 } from "@/lib/admin";
 
@@ -137,5 +141,45 @@ describe("Admin room changes", () => {
       "Walk to the Red Building",
       "Turn left at the filter",
     ]);
+  });
+});
+
+describe("Admin-managed buildings", () => {
+  const workshop = {
+    id: "building-workshop",
+    name: "Workshop Building",
+    look: "Grey workshop beside the field",
+    isAcademic: false,
+    distance: {
+      "main-gate": 120,
+      "shaheed-minar": 80,
+      "academic-ground": 60,
+      "academic-entrance": 55,
+    },
+  };
+
+  it("starts from the built-in buildings per institute", () => {
+    expect(defaultBuildingStore()["rpi"]).toEqual(rpi.buildings);
+    expect(parseBuildingStore(null)["rpi"]).toEqual(rpi.buildings);
+  });
+
+  it("adds, edits and deletes a building for one institute only", () => {
+    let store = upsertBuilding(defaultBuildingStore(), "rpi", workshop);
+    expect(store["rpi"]?.some((b) => b.id === workshop.id)).toBe(true);
+    expect(store["dpi"]?.some((b) => b.id === workshop.id)).toBe(false);
+
+    store = upsertBuilding(store, "rpi", { ...workshop, name: "Central Workshop" });
+    expect(store["rpi"]?.find((b) => b.id === workshop.id)?.name).toBe("Central Workshop");
+    expect(store["rpi"]).toHaveLength(rpi.buildings.length + 1);
+
+    store = deleteBuilding(store, "rpi", workshop.id);
+    expect(store["rpi"]?.some((b) => b.id === workshop.id)).toBe(false);
+  });
+
+  it("restores saved buildings after a refresh", () => {
+    const saved = JSON.stringify(upsertBuilding(defaultBuildingStore(), "rpi", workshop));
+    expect(parseBuildingStore(saved)["rpi"]?.some((b) => b.name === "Workshop Building")).toBe(
+      true,
+    );
   });
 });
