@@ -1,4 +1,5 @@
 import type { CampusLocation } from "@/lib/campus-data";
+import type { LocationStore } from "@/lib/admin";
 
 /* ---------------- Models ---------------- */
 
@@ -406,6 +407,64 @@ export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEn
   return routines.flatMap((r) =>
     r.entries.filter((e) => e.room.trim() === code).map((e) => ({ ...e, id: `${r.id}-${e.id}` })),
   );
+}
+
+/** Adds rooms referenced by every saved routine to the room store (idempotent). */
+export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]): LocationStore {
+  let next = { ...store };
+  for (const routine of routines) {
+    for (const room of roomsFromRoutine(routine, routine.instituteId)) {
+      if ((next[routine.instituteId] ?? []).some((l) => l.id === room.id)) continue;
+      next = {
+        ...next,
+        [routine.instituteId]: [room, ...(next[routine.instituteId] ?? [])],
+      };
+    }
+  }
+  return next;
+}
+
+function timeToMinutes(time: string, isEnd: boolean): number {
+  const match = time.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  // "12:30-1:15" → the end time is 13:15, not 01:15.
+  if (isEnd && hours < 8) hours += 12;
+  return hours * 60 + minutes;
+}
+
+/** Classes happening in a room right now, based on the wall clock and routine periods. */
+export function currentClassesInRoom(
+  routines: ClassRoutine[],
+  room: string,
+  now: Date = new Date(),
+): RoutineEntry[] {
+  const code = room.replace(/^Room\s*/i, "").trim();
+  const day = DAY_ORDER[now.getDay()];
+  if (!day) return [];
+  const current = now.getHours() * 60 + now.getMinutes();
+  return routines.flatMap((routine) => {
+    const period = routine.periods.find((p) => {
+      const [start, end] = p.time.split(/\s*[-–]\s*/);
+      return (
+        start &&
+        end &&
+        current >= timeToMinutes(start, false) &&
+        current <= timeToMinutes(end, true)
+      );
+    });
+    if (!period) return [];
+    return routine.entries
+      .filter(
+        (e) =>
+          e.room.trim() === code &&
+          e.day === day &&
+          period.id >= e.period &&
+          period.id <= e.endPeriod,
+      )
+      .map((e) => ({ ...e, id: `${routine.id}-now-${e.id}` }));
+  });
 }
 
 /* ---------------- Cloud OCR adapter (ready for Lovable Cloud) ---------------- */

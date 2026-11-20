@@ -8,6 +8,7 @@ import {
   MoveUpRight,
   Timer,
   Navigation,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloorPlan } from "./FloorPlan";
@@ -39,6 +40,7 @@ interface Props {
   buildings: Building[];
   showCampusMap?: boolean;
   roomClasses?: RoutineEntry[];
+  liveClasses?: RoutineEntry[];
   onBack: () => void;
 }
 
@@ -48,6 +50,7 @@ export function NavigationView({
   buildings,
   showCampusMap,
   roomClasses = [],
+  liveClasses = [],
   onBack,
 }: Props) {
   const route = buildRoute(start, location, buildings);
@@ -182,15 +185,37 @@ export function NavigationView({
         />
       )}
 
-      {roomClasses.length > 0 && (
+      {(liveClasses.length > 0 || roomClasses.length > 0) && (
         <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
             <CalendarClock className="size-4 text-primary" /> Classes in this room
           </h3>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            routine থেকে অটো — এখানে কোন ক্লাস হয়
+            routine থেকে অটো — room number {location.name.replace(/^Room\s*/i, "")}
           </p>
-          <ul className="mt-3 space-y-1.5">
+
+          {liveClasses.length > 0 && (
+            <div className="mt-3 rounded-2xl border border-emerald/40 bg-emerald-soft p-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald">
+                <span className="size-2 animate-pulse rounded-full bg-emerald" /> Happening now
+              </p>
+              {liveClasses.map((e) => (
+                <div key={e.id} className="mt-2">
+                  <p className="text-sm font-semibold leading-tight">{e.subject}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-emerald">
+                    <UserRound className="size-3.5" /> {e.teacher}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    {e.day} · Period {e.period}
+                    {e.endPeriod > e.period ? `–${e.endPeriod}` : ""} · Room {e.room}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-3 text-[11px] font-semibold text-muted-foreground">Full week schedule</p>
+          <ul className="mt-1.5 space-y-1.5">
             {roomClasses.map((e) => (
               <li
                 key={e.id}
@@ -201,8 +226,8 @@ export function NavigationView({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-semibold">{e.subject}</span>
-                  <span className="block truncate text-[10px] text-muted-foreground">
-                    {e.teacher}
+                  <span className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-medium text-primary">
+                    <UserRound className="size-3 shrink-0" /> {e.teacher}
                   </span>
                 </span>
                 <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   classesInRoom,
+  currentClassesInRoom,
   DEFAULT_ROUTINES,
+  mergeRoutineRooms,
   parseRoutineStore,
   parseRoutineText,
   roomFloor,
@@ -60,10 +62,34 @@ describe("auto routine maker", () => {
     expect(new Set(rooms.map((r) => r.id)).size).toBe(rooms.length);
   });
 
-  it("finds all classes happening in a room across routines", () => {
+  it("finds all classes happening in a room across routines, with the teacher", () => {
     const classes = classesInRoom(DEFAULT_ROUTINES, "2306");
     expect(classes.length).toBeGreaterThan(3);
     expect(classes.every((c) => c.room === "2306")).toBe(true);
+    expect(
+      classes.some((c) => c.teacher === "ANJUMAN ARA" && c.subject === "Mathematics-III"),
+    ).toBe(true);
+  });
+
+  it("merges routine room numbers (e.g. 1305) into the room store once", () => {
+    const first = mergeRoutineRooms({}, DEFAULT_ROUTINES);
+    expect(first["rpi"]?.some((r) => r.name === "Room 1305" && r.floor === 1)).toBe(true);
+    const again = mergeRoutineRooms(first, DEFAULT_ROUTINES);
+    expect(again["rpi"]).toHaveLength(first["rpi"]!.length);
+  });
+
+  it("finds the class happening right now in a room with its teacher", () => {
+    // Sunday 12:00 → period 6; 3rd sem has Mathematics-III (ANJUMAN ARA) in Room 2306.
+    const now = new Date("2026-11-22T12:00:00");
+    expect(now.getDay()).toBe(0);
+    const live = currentClassesInRoom(DEFAULT_ROUTINES, "Room 2306", now);
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({
+      subject: "Mathematics-III",
+      teacher: "ANJUMAN ARA",
+      room: "2306",
+    });
+    expect(currentClassesInRoom(DEFAULT_ROUTINES, "Room 1305", now)).toHaveLength(0);
   });
 
   it("updates a routine in place", () => {

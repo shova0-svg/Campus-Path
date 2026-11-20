@@ -57,7 +57,9 @@ import { RoutineView } from "@/components/sohoj/RoutineView";
 import { hasCampusMap } from "@/lib/campus-map";
 import {
   classesInRoom,
+  currentClassesInRoom,
   deleteRoutine,
+  mergeRoutineRooms,
   parseRoutineStore,
   ROUTINE_STORE_KEY,
   roomsFromRoutine,
@@ -135,15 +137,18 @@ function Index() {
 
   useEffect(() => {
     try {
-      setStore(
-        parseStore(
-          window.localStorage.getItem(STORE_KEY),
-          window.localStorage.getItem(LEGACY_CUSTOM_KEY),
-        ),
+      const savedStore = parseStore(
+        window.localStorage.getItem(STORE_KEY),
+        window.localStorage.getItem(LEGACY_CUSTOM_KEY),
       );
+      const savedRoutines = parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY));
+      // Room numbers from the routine cells (e.g. 1305) become rooms automatically.
+      const withRoutineRooms = mergeRoutineRooms(savedStore, savedRoutines);
+      setStore(withRoutineRooms);
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(withRoutineRooms));
       const savedAdmins = loadAdmins(window.localStorage.getItem(ADMINS_STORE_KEY));
       setAdmins(savedAdmins);
-      setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
+      setRoutines(savedRoutines);
       const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
       if (isAdminUser(session, savedAdmins)) {
         setAdminEmail(session);
@@ -551,6 +556,7 @@ function Index() {
               buildings={institute.buildings}
               showCampusMap={hasCampusMap(institute.id)}
               roomClasses={classesInRoom(routines, selected.name)}
+              liveClasses={currentClassesInRoom(routines, selected.name)}
               onBack={() => setSelectedId(null)}
             />
           ) : view === "routine" && activeRoutine ? (
