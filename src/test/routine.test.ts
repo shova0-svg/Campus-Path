@@ -39,6 +39,45 @@ describe("Rajshahi CST routines", () => {
   it("falls back to the two seeded routines when storage is empty", () => {
     expect(parseRoutineStore(null).map((r) => r.id)).toEqual(DEFAULT_ROUTINES.map((r) => r.id));
   });
+
+  it("has the corrected 1st semester subject codes and teacher names", () => {
+    const byCode = (code: string) => rpi1.entries.find((e) => e.code === code);
+    expect(byCode("21011")).toMatchObject({
+      subject: "Engineering Drawing",
+      teacher: "MD. ABDULLAH-AL-MAMUN",
+      acronym: "AAM",
+    });
+    expect(byCode("25711")?.teacher).toBe("MST. RABEYA SIDDIQUA");
+    expect(byCode("25712")?.teacher).toBe("MD. SHIMUL HOSSAIN");
+    expect(byCode("25911")?.teacher).toBe("MD. ABDUR RAZZAK");
+    expect(byCode("25912")?.teacher).toBe("SYED MAHMUDUN NABI KHONDKER");
+    expect(byCode("28511")?.teacher).toBe("MD. FARUQ HOSSAIN");
+    expect(byCode("26711")?.teacher).toBe("MD. MOHOSIN");
+    expect(rpi1.verified).toBe(true);
+  });
+
+  it("uses the exact 1st semester cells from the notice board", () => {
+    const sunday = rpi1.entries.filter((e) => e.day === "Sunday");
+    expect(sunday).toHaveLength(3);
+    expect(sunday.map((e) => [e.code, e.period, e.endPeriod, e.room])).toEqual([
+      ["25912", 1, 2, "2106"],
+      ["25911", 3, 4, "2302"],
+      ["26711", 5, 6, "5208"],
+    ]);
+    expect(
+      rpi1.entries.some((e) => e.day === "Thursday" && e.code === "21011" && e.room === "2305"),
+    ).toBe(true);
+  });
+
+  it("refreshes seeded routines from code but keeps admin edits", () => {
+    const stale = [{ ...rpi1, entries: [], source: "seeded" as const }];
+    const parsed = parseRoutineStore(JSON.stringify(stale));
+    expect(parsed.find((r) => r.id === rpi1.id)?.entries.length).toBe(rpi1.entries.length);
+    const edited = { ...rpi1, source: "admin" as const, title: "My edited routine" };
+    expect(parseRoutineStore(JSON.stringify([edited])).find((r) => r.id === rpi1.id)?.title).toBe(
+      "My edited routine",
+    );
+  });
 });
 
 describe("auto routine maker", () => {

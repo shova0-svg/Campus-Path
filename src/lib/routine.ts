@@ -97,22 +97,27 @@ const SUBJECT_3RD = [
 
 const SUBJECT_1ST = [
   {
-    code: "2001",
+    code: "21011",
     subject: "Engineering Drawing",
     teacher: "MD. ABDULLAH-AL-MAMUN",
     acronym: "AAM",
   },
-  { code: "25711", subject: "Bangla-1", teacher: "MST. SHAHEYA SIDDIQUA", acronym: "SH" },
-  { code: "25712", subject: "English-1", teacher: "MD. SHABIR HOSSAIN", acronym: "SH" },
-  { code: "25911", subject: "Mathematics-1", teacher: "MD. ABDUL HOSSAIN", acronym: "AP" },
-  { code: "25912", subject: "Physics-1", teacher: "SK. MAMUNUL ISLAM MIAHKURIR", acronym: "MNK" },
+  { code: "25711", subject: "Bangla-I", teacher: "MST. RABEYA SIDDIQUA", acronym: "RS" },
+  { code: "25712", subject: "English-I", teacher: "MD. SHIMUL HOSSAIN", acronym: "SH" },
+  { code: "25911", subject: "Mathematics-I", teacher: "MD. ABDUR RAZZAK", acronym: "AR" },
   {
-    code: "25811",
+    code: "25912",
+    subject: "Physics-I",
+    teacher: "SYED MAHMUDUN NABI KHONDKER",
+    acronym: "MNK",
+  },
+  {
+    code: "28511",
     subject: "Computer Office Application",
-    teacher: "MD. FAQUH HUSSAIN",
+    teacher: "MD. FARUQ HOSSAIN",
     acronym: "MFH",
   },
-  { code: "26711", subject: "Basic Electricity", teacher: "MD. NOHOSIN", acronym: "MM" },
+  { code: "26711", subject: "Basic Electricity", teacher: "MD. MOHOSIN", acronym: "MM" },
 ];
 
 type Cell = [code: string, period: number, endPeriod: number, room: string];
@@ -177,30 +182,33 @@ const THIRD_SEM_CELLS: Record<DayName, Cell[]> = {
 
 const FIRST_SEM_CELLS: Record<DayName, Cell[]> = {
   Sunday: [
-    ["25912", 1, 1, ""],
+    ["25912", 1, 2, "2106"],
     ["25911", 3, 4, "2302"],
-    ["25711", 4, 4, "2302"],
-    ["26711", 6, 7, "2308"],
+    ["26711", 5, 6, "5208"],
   ],
   Monday: [
-    ["25711", 1, 2, "2302"],
-    ["25811", 3, 3, "2302"],
-    ["26711", 4, 4, "2306"],
+    ["25911", 1, 2, "2302"],
+    ["25711", 3, 3, "2302"],
+    ["28511", 5, 6, "2301"],
+    ["26711", 7, 7, "3109"],
   ],
   Tuesday: [
-    ["25912", 1, 2, "2302"],
-    ["25911", 4, 4, "2302"],
-    ["25811", 5, 6, "2306"],
+    ["25912", 2, 2, "2306"],
+    ["26711", 3, 3, "2306"],
+    ["25712", 4, 4, "2306"],
+    ["21011", 5, 6, "2302"],
   ],
   Wednesday: [
-    ["2001", 2, 3, "2306"],
-    ["25911", 4, 4, "2302"],
-    ["26711", 5, 6, "2306"],
+    ["28511", 2, 2, "1308"],
+    ["25711", 4, 4, "2303"],
+    ["25912", 5, 5, "2303"],
+    ["26711", 6, 6, "2303"],
   ],
   Thursday: [
-    ["25712", 1, 2, "2302"],
-    ["25912", 3, 4, "2302"],
-    ["25811", 5, 6, "2306"],
+    ["25712", 1, 1, "2303"],
+    ["25911", 2, 3, "2303"],
+    ["25912", 4, 4, "2305"],
+    ["21011", 5, 7, "2305"],
   ],
   Friday: [],
   Saturday: [],
@@ -221,7 +229,7 @@ export const DEFAULT_ROUTINES: ClassRoutine[] = [
     periods: DEFAULT_PERIODS,
     entries: makeEntries("rpi1", SUBJECT_1ST, FIRST_SEM_CELLS),
     source: "seeded",
-    verified: false,
+    verified: true,
     createdAt: STAMP,
     updatedAt: STAMP,
   },
@@ -258,7 +266,15 @@ function safeParse(raw: string | null): unknown {
 
 export function parseRoutineStore(raw: string | null): ClassRoutine[] {
   const saved = safeParse(raw);
-  return Array.isArray(saved) ? (saved as ClassRoutine[]) : DEFAULT_ROUTINES.map((r) => ({ ...r }));
+  if (!Array.isArray(saved)) return DEFAULT_ROUTINES.map((r) => ({ ...r }));
+  // Seeded routines are refreshed from code so corrections reach existing devices.
+  // Admin-created or admin-edited routines (source !== "seeded") are preserved.
+  const seeded = DEFAULT_ROUTINES.map((r) => ({ ...r }));
+  const kept = (saved as ClassRoutine[]).filter(
+    (r) => r && !seeded.some((d) => d.id === r.id && r.source === "seeded"),
+  );
+  const freshSeeded = seeded.filter((d) => !kept.some((r) => r.id === d.id));
+  return [...freshSeeded, ...kept];
 }
 
 export function upsertRoutine(list: ClassRoutine[], routine: ClassRoutine): ClassRoutine[] {
