@@ -59,6 +59,56 @@ export interface CampusLocation {
   directions?: string[];
 }
 
+/* ---------------- Campus map ---------------- */
+
+export type MapFeatureKind = "gate" | "road" | "building" | "pond" | "ground" | "landmark";
+
+export const MAP_FEATURE_META: Record<
+  MapFeatureKind,
+  { label: string; labelBn: string; dot: string }
+> = {
+  gate: { label: "Gate", labelBn: "ফটক", dot: "bg-landmark" },
+  road: { label: "Road / path", labelBn: "রাস্তা", dot: "bg-muted-foreground" },
+  building: { label: "Building", labelBn: "ভবন", dot: "bg-primary" },
+  pond: { label: "Pond", labelBn: "পুকুর", dot: "bg-chart-5" },
+  ground: { label: "Ground / field", labelBn: "মাঠ", dot: "bg-emerald" },
+  landmark: { label: "Landmark", labelBn: "ল্যান্ডমার্ক", dot: "bg-landmark-soft" },
+};
+
+export interface MapFeature {
+  id: string;
+  name: string;
+  nameBn: string;
+  kind: MapFeatureKind;
+  /** Position on the plan and on the live-map label overlay, in percent (0-100). */
+  x: number;
+  y: number;
+  /** Width/height of area features, in percent. */
+  size?: [number, number];
+  /** Show a label chip on top of the live Google Map. */
+  livePin?: boolean;
+  detail?: string;
+}
+
+export interface MapRoad {
+  id: string;
+  name: string;
+  nameBn: string;
+  /** Path vertices in percent (0-100). */
+  points: [number, number][];
+}
+
+export interface CampusMapData {
+  lat: number;
+  lng: number;
+  /** Exact Google Maps place link supplied by the campus. */
+  link: string;
+  /** Key-free embed URL built from the place coordinates. */
+  embedUrl: string;
+  features: MapFeature[];
+  roads: MapRoad[];
+}
+
 export interface Institute {
   id: string;
   name: string;
@@ -66,6 +116,8 @@ export interface Institute {
   city: string;
   buildings: Building[];
   locations: CampusLocation[];
+  /** Only campuses with a verified map get one (currently Rajshahi Polytechnic). */
+  map?: CampusMapData;
 }
 
 export const CATEGORY_META: Record<Category, { label: string; labelBn: string }> = {
@@ -75,34 +127,219 @@ export const CATEGORY_META: Record<Category, { label: string; labelBn: string }>
   facility: { label: "Facilities", labelBn: "সুবিধা" },
 };
 
+/**
+ * Rajshahi Government Polytechnic Institute — the only campus with a map.
+ * Coordinates and the place link come from the institute's Google Maps listing.
+ * Feature positions are approximate relative locations used for the annotated
+ * plan and the label overlay on the live map.
+ */
+export const RPI_MAP: CampusMapData = {
+  lat: 24.3791113,
+  lng: 88.606811,
+  link: "https://www.google.com/maps/place/Rajshahi+Polytechnic+Institute/@24.3790792,88.6069135,124m/data=!3m1!1e3!4m14!1m7!3m6!1s0x39fbee4db10be455:0xc6ee56098bd61ee9!2sRajshahi+Polytechnic+Institute!8m2!3d24.3791113!4d88.606811!16s%2Fg%2F11f3jykj1s!3m5!1s0x39fbee4db10be455:0xc6ee56098bd61ee9!8m2!3d24.3791113!4d88.606811!16s%2Fg%2F11f3jykj1s!5m1!1e4?entry=ttu&g_ep=EgoyMDI2MTExNy4wIKXMDSoASAFQAw%3D%3D",
+  embedUrl: "https://www.google.com/maps?q=24.3791113,88.606811&z=18&output=embed",
+  roads: [
+    {
+      id: "main-road",
+      name: "Main campus road",
+      nameBn: "প্রধান ক্যাম্পাস রাস্তা",
+      points: [
+        [50, 97],
+        [50, 80],
+        [47, 64],
+        [47, 34],
+      ],
+    },
+    {
+      id: "admin-path",
+      name: "Path to Administrative Building",
+      nameBn: "প্রশাসনিক ভবনের পথ",
+      points: [
+        [50, 72],
+        [70, 57],
+      ],
+    },
+    {
+      id: "library-path",
+      name: "Path to Library",
+      nameBn: "লাইব্রেরির পথ",
+      points: [
+        [70, 57],
+        [78, 34],
+      ],
+    },
+    {
+      id: "pond-path",
+      name: "Canteen and pond path",
+      nameBn: "ক্যান্টিন ও পুকুরের পথ",
+      points: [
+        [50, 80],
+        [67, 75],
+        [85, 79],
+      ],
+    },
+    {
+      id: "ground-path",
+      name: "Playground path",
+      nameBn: "খেলার মাঠের পথ",
+      points: [
+        [47, 66],
+        [22, 68],
+        [17, 40],
+      ],
+    },
+  ],
+  features: [
+    {
+      id: "main-gate",
+      name: "Main Gate",
+      nameBn: "প্রধান ফটক",
+      kind: "gate",
+      x: 50,
+      y: 92,
+      size: [10, 5],
+      livePin: true,
+      detail: "Main entrance of the institute, at the south end of the campus road.",
+    },
+    {
+      id: "shaheed-minar",
+      name: "Shaheed Minar",
+      nameBn: "শহীদ মিনার",
+      kind: "landmark",
+      x: 44,
+      y: 76,
+      livePin: false,
+      detail: "Central landmark just inside the gate — a good starting point for directions.",
+    },
+    {
+      id: "academic",
+      name: "Academic Building",
+      nameBn: "একাডেমিক ভবন",
+      kind: "building",
+      x: 35,
+      y: 50,
+      size: [22, 15],
+      livePin: true,
+      detail: "The red building — classrooms, Computer/Civil labs and the software lab.",
+    },
+    {
+      id: "admin",
+      name: "Administrative Building",
+      nameBn: "প্রশাসনিক ভবন",
+      kind: "building",
+      x: 70,
+      y: 54,
+      size: [16, 12],
+      livePin: true,
+      detail:
+        "White building with the flag pole — Principal's office and the registrar/stipend section.",
+    },
+    {
+      id: "library",
+      name: "Library Block",
+      nameBn: "লাইব্রেরি ভবন",
+      kind: "building",
+      x: 78,
+      y: 30,
+      size: [15, 10],
+      livePin: true,
+      detail: "Yellow block behind the field — home of the Central Library.",
+    },
+    {
+      id: "canteen",
+      name: "Canteen",
+      nameBn: "ক্যান্টিন",
+      kind: "building",
+      x: 66,
+      y: 74,
+      size: [12, 9],
+      livePin: false,
+      detail: "Tin-roofed student canteen beside the pond.",
+    },
+    {
+      id: "pond",
+      name: "Campus Pond",
+      nameBn: "ক্যাম্পাস পুকুর",
+      kind: "pond",
+      x: 86,
+      y: 79,
+      size: [13, 9],
+      livePin: true,
+      detail: "Large pond on the east side of the campus, next to the canteen.",
+    },
+    {
+      id: "ground",
+      name: "Playground",
+      nameBn: "খেলার মাঠ",
+      kind: "ground",
+      x: 20,
+      y: 69,
+      size: [17, 13],
+      livePin: true,
+      detail: "Open ground and sports field west of the Academic Building.",
+    },
+    {
+      id: "workshop",
+      name: "Workshop Block",
+      nameBn: "ওয়ার্কশপ ভবন",
+      kind: "building",
+      x: 16,
+      y: 36,
+      size: [13, 10],
+      livePin: false,
+      detail: "Mechanical and civil technology workshops.",
+    },
+  ],
+};
+
 const rajshahiBuildings: Building[] = [
   {
     id: "academic",
     name: "Academic Building",
     look: "Red Academic Building",
     isAcademic: true,
-    distance: { "main-gate": 80, "shaheed-minar": 35, "academic-ground": 0, "academic-entrance": 0 },
+    distance: {
+      "main-gate": 80,
+      "shaheed-minar": 35,
+      "academic-ground": 0,
+      "academic-entrance": 0,
+    },
   },
   {
     id: "admin",
     name: "Administrative Building",
     look: "White Admin Building with the flag pole",
     isAcademic: false,
-    distance: { "main-gate": 45, "shaheed-minar": 30, "academic-ground": 60, "academic-entrance": 55 },
+    distance: {
+      "main-gate": 45,
+      "shaheed-minar": 30,
+      "academic-ground": 60,
+      "academic-entrance": 55,
+    },
   },
   {
     id: "library",
     name: "Library Block",
     look: "Yellow Library Block behind the field",
     isAcademic: false,
-    distance: { "main-gate": 130, "shaheed-minar": 90, "academic-ground": 55, "academic-entrance": 50 },
+    distance: {
+      "main-gate": 130,
+      "shaheed-minar": 90,
+      "academic-ground": 55,
+      "academic-entrance": 50,
+    },
   },
   {
     id: "canteen",
     name: "Canteen Area",
     look: "tin-roofed Canteen beside the pond",
     isAcademic: false,
-    distance: { "main-gate": 110, "shaheed-minar": 75, "academic-ground": 40, "academic-entrance": 35 },
+    distance: {
+      "main-gate": 110,
+      "shaheed-minar": 75,
+      "academic-ground": 40,
+      "academic-entrance": 35,
+    },
   },
 ];
 
@@ -140,6 +377,7 @@ export const INSTITUTES: [Institute, ...Institute[]] = [
     nameBn: "রাজশাহী পলিটেকনিক ইনস্টিটিউট",
     city: "Rajshahi",
     buildings: rajshahiBuildings,
+    map: RPI_MAP,
     locations: [
       {
         id: "rpi-205",
@@ -440,7 +678,12 @@ export function buildRoute(
       name: "Campus Building",
       look: "building",
       isAcademic: false,
-      distance: { "main-gate": 60, "shaheed-minar": 40, "academic-ground": 40, "academic-entrance": 40 },
+      distance: {
+        "main-gate": 60,
+        "shaheed-minar": 40,
+        "academic-ground": 40,
+        "academic-entrance": 40,
+      },
     };
   const meters = building.distance[start.id] ?? 60;
   const insideAlready = meters === 0;

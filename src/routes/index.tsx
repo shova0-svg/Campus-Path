@@ -3,8 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   CheckCircle2,
   ChevronRight,
+  List,
   Loader2,
   LocateFixed,
+  Map,
   MapPinPlus,
   QrCode,
   Search,
@@ -24,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BrandLogo } from "@/components/sohoj/BrandLogo";
+import { CampusMap } from "@/components/sohoj/CampusMap";
 import { QrScannerDialog } from "@/components/sohoj/QrScannerDialog";
 import { LocationFormDialog, type EditTarget } from "@/components/sohoj/LocationFormDialog";
 import { AdminLoginDialog } from "@/components/sohoj/AdminLoginDialog";
@@ -80,7 +83,10 @@ export const Route = createFileRoute("/")({
 
 const FILTERS: { id: CategoryFilter; label: string }[] = [
   { id: "all", label: "All" },
-  ...(Object.keys(CATEGORY_META) as Category[]).map((c) => ({ id: c, label: CATEGORY_META[c].label })),
+  ...(Object.keys(CATEGORY_META) as Category[]).map((c) => ({
+    id: c,
+    label: CATEGORY_META[c].label,
+  })),
 ];
 
 function Index() {
@@ -98,11 +104,15 @@ function Index() {
   const [qrOpen, setQrOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [view, setView] = useState<"list" | "map">("list");
 
   useEffect(() => {
     try {
       setStore(
-        parseStore(window.localStorage.getItem(STORE_KEY), window.localStorage.getItem(LEGACY_CUSTOM_KEY)),
+        parseStore(
+          window.localStorage.getItem(STORE_KEY),
+          window.localStorage.getItem(LEGACY_CUSTOM_KEY),
+        ),
       );
       const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
       if (isAdminEmail(session)) setAdminEmail(session);
@@ -120,10 +130,12 @@ function Index() {
   );
   const selected = locations.find((l) => l.id === selectedId) ?? null;
   const start = ALL_START_POINTS.find((s) => s.id === startId) ?? MAIN_GATE;
-  const startOptions = startId === QR_START_POINT.id ? [...START_POINTS, QR_START_POINT] : START_POINTS;
+  const startOptions =
+    startId === QR_START_POINT.id ? [...START_POINTS, QR_START_POINT] : START_POINTS;
 
   function changeInstitute(id: string) {
     setInstituteId(id);
+    setView("list");
     setSelectedId(null);
     setQuery("");
     setFilter("all");
@@ -308,7 +320,10 @@ function Index() {
             </div>
             <div className="mt-3 flex gap-2">
               <Select value={startId} onValueChange={(v) => setStartId(v as StartPointId)}>
-                <SelectTrigger className="h-12 min-w-0 flex-1 rounded-2xl bg-muted/60 text-left" aria-label="Current location">
+                <SelectTrigger
+                  className="h-12 min-w-0 flex-1 rounded-2xl bg-muted/60 text-left"
+                  aria-label="Current location"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,7 +334,12 @@ function Index() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="emerald" size="xl" onClick={() => setQrOpen(true)} className="shrink-0 px-4">
+              <Button
+                variant="emerald"
+                size="xl"
+                onClick={() => setQrOpen(true)}
+                className="shrink-0 px-4"
+              >
                 <QrCode /> Scan QR
               </Button>
             </div>
@@ -328,6 +348,46 @@ function Index() {
             </p>
           </section>
 
+          {institute.map && (
+            <div
+              className="grid grid-cols-2 gap-1 rounded-2xl border border-border bg-card p-1 shadow-[var(--shadow-card)]"
+              role="tablist"
+              aria-label="Campus view"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "list"}
+                onClick={() => setView("list")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all",
+                  view === "list"
+                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                    : "text-muted-foreground",
+                )}
+              >
+                <List className="size-4" /> Destinations
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "map"}
+                onClick={() => {
+                  setSelectedId(null);
+                  setView("map");
+                }}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm font-semibold transition-all",
+                  view === "map"
+                    ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                    : "text-muted-foreground",
+                )}
+              >
+                <Map className="size-4" /> Campus Map
+              </button>
+            </div>
+          )}
+
           {selected ? (
             <NavigationView
               location={selected}
@@ -335,6 +395,8 @@ function Index() {
               buildings={institute.buildings}
               onBack={() => setSelectedId(null)}
             />
+          ) : view === "map" && institute.map ? (
+            <CampusMap map={institute.map} instituteName={institute.name} />
           ) : (
             <>
               {/* Search */}
@@ -385,13 +447,22 @@ function Index() {
                       const Icon = CATEGORY_ICON[loc.category];
                       const building = institute.buildings.find((b) => b.id === loc.buildingId);
                       return (
-                        <li key={loc.id} className="animate-rise" style={{ animationDelay: `${i * 40}ms` }}>
+                        <li
+                          key={loc.id}
+                          className="animate-rise"
+                          style={{ animationDelay: `${i * 40}ms` }}
+                        >
                           <button
                             type="button"
                             onClick={() => openLocation(loc.id)}
                             className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30 active:scale-[0.99]"
                           >
-                            <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl", CATEGORY_TONE[loc.category])}>
+                            <span
+                              className={cn(
+                                "grid size-11 shrink-0 place-items-center rounded-xl",
+                                CATEGORY_TONE[loc.category],
+                              )}
+                            >
                               <Icon className="size-5" />
                             </span>
                             <span className="min-w-0 flex-1">
@@ -420,12 +491,19 @@ function Index() {
 
           {/* Ambassador CTA */}
           <section className="rounded-3xl bg-primary-soft p-5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">Verified by the campus admin</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+              Verified by the campus admin
+            </p>
             <p className="mt-1 font-bangla text-sm text-foreground">
               সব রুম ও ম্যাপ অ্যাডমিন যাচাই করে যোগ করেন, তাই পথ সবসময় সঠিক থাকে।
             </p>
             {isAdmin && (
-              <Button variant="default" size="xl" className="mt-4 w-full" onClick={() => setPanelOpen(true)}>
+              <Button
+                variant="default"
+                size="xl"
+                className="mt-4 w-full"
+                onClick={() => setPanelOpen(true)}
+              >
                 <ShieldCheck /> Open Admin Panel
               </Button>
             )}

@@ -35,6 +35,22 @@ describe("Sohoj Rasta campus data", () => {
     ]);
     expect(QR_START_POINT.name).toBe("Academic Building Entrance");
   });
+
+  it("attaches the Google campus map to Rajshahi Polytechnic only", () => {
+    expect(rpi.map).toBeDefined();
+    expect(rpi.map?.lat).toBeCloseTo(24.3791113, 6);
+    expect(rpi.map?.lng).toBeCloseTo(88.606811, 6);
+    expect(rpi.map?.link).toContain("google.com/maps/place/Rajshahi+Polytechnic+Institute");
+    expect(rpi.map?.embedUrl).toContain("output=embed");
+    expect(INSTITUTES.slice(1).every((i) => i.map === undefined)).toBe(true);
+  });
+
+  it("marks the campus roads, academic buildings, pond and ground on the map", () => {
+    const kinds = new Set(rpi.map?.features.map((f) => f.kind));
+    expect(kinds).toEqual(new Set(["gate", "landmark", "building", "pond", "ground"]));
+    expect(rpi.map?.roads.length).toBeGreaterThan(0);
+    expect(rpi.map?.features.some((f) => f.name === "Academic Building" && f.livePin)).toBe(true);
+  });
 });
 
 describe("destination search", () => {
