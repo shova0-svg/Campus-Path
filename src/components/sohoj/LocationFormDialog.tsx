@@ -127,7 +127,7 @@ export function LocationFormDialog({ open, onOpenChange, defaultInstituteId, edi
       .map((l) => l.trim())
       .filter(Boolean);
     const base = editing?.location;
-    onSave(institute.id, {
+    const loc: CampusLocation = {
       ...base,
       id: base?.id ?? `custom-${Date.now()}`,
       name: name.trim(),
@@ -138,10 +138,13 @@ export function LocationFormDialog({ open, onOpenChange, defaultInstituteId, edi
       side,
       door: Number(door),
       landmark: landmark.trim(),
-      walkingSteps: walkingSteps.trim() ? Math.round(stepsNum) : undefined,
-      directions: lines.length ? lines : undefined,
-      custom: base ? base.custom : true,
-    });
+      custom: base ? base.custom === true : true,
+    };
+    delete loc.walkingSteps;
+    delete loc.directions;
+    if (walkingSteps.trim()) loc.walkingSteps = Math.round(stepsNum);
+    if (lines.length) loc.directions = lines;
+    onSave(institute.id, loc);
     onOpenChange(false);
   }
 
