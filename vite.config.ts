@@ -21,6 +21,7 @@ export default defineConfig({
     optimizeDeps: {
       include: [
         "sonner",
+        "@radix-ui/react-alert-dialog",
         "@radix-ui/react-dialog",
         "@radix-ui/react-label",
         "@radix-ui/react-select",
