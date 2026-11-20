@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { FloorPlan } from "./FloorPlan";
 import { CampusMap } from "./CampusMap";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
-import type { RoutineEntry } from "@/lib/routine";
+import { formatRoomCode, type RoutineEntry } from "@/lib/routine";
 import {
   buildRoute,
   CATEGORY_META,
@@ -81,6 +81,11 @@ export function NavigationView({
             <h2 className="mt-0.5 text-xl font-semibold leading-tight">{location.name}</h2>
             {location.nameBn && (
               <p className="font-bangla text-sm text-muted-foreground">{location.nameBn}</p>
+            )}
+            {formatRoomCode(location.name) && (
+              <p className="mt-1 inline-flex rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-semibold text-primary">
+                {formatRoomCode(location.name)}
+              </p>
             )}
           </div>
         </div>

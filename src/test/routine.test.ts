@@ -3,11 +3,14 @@ import {
   classesInRoom,
   currentClassesInRoom,
   DEFAULT_ROUTINES,
+  formatRoomCode,
   mergeRoutineRooms,
+  parseRoomCode,
   parseRoutineStore,
   parseRoutineText,
   roomFloor,
   roomsFromRoutine,
+  sortRooms,
   upsertRoutine,
 } from "@/lib/routine";
 
@@ -54,12 +57,32 @@ describe("auto routine maker", () => {
     expect(entries[2]?.day).toBe("Monday");
   });
 
-  it("creates rooms from routine cells with a floor from the room number", () => {
+  it("uses the room-code serial: building → floor → room (1305 = B1, 3rd floor, room 05)", () => {
+    expect(parseRoomCode("1305")).toEqual({ buildingNo: 1, floor: 3, roomNo: 5 });
+    expect(roomFloor("1305")).toBe(3);
+    expect(formatRoomCode("1305")).toBe("Building 1 · 3rd Floor · Room 05");
+    expect(parseRoomCode("205")).toBeNull();
+  });
+
+  it("creates rooms from routine cells with the code breakdown", () => {
     const rooms = roomsFromRoutine(rpi3, "rpi");
     expect(rooms.length).toBeGreaterThan(3);
-    expect(rooms.some((r) => r.name === "Room 2302" && r.floor === 2)).toBe(true);
-    expect(roomFloor("5201")).toBe(5);
+    expect(
+      rooms.some(
+        (r) => r.name === "Room 1305" && r.floor === 3 && r.buildingNo === 1 && r.roomNo === 5,
+      ),
+    ).toBe(true);
     expect(new Set(rooms.map((r) => r.id)).size).toBe(rooms.length);
+  });
+
+  it("sorts rooms by building, then floor, then room number", () => {
+    const sorted = sortRooms([
+      { name: "Room 1308" },
+      { name: "Room 2302" },
+      { name: "Room 1205" },
+      { name: "Room 1305" },
+    ] as Parameters<typeof sortRooms>[0]);
+    expect(sorted.map((r) => r.name)).toEqual(["Room 1205", "Room 1305", "Room 1308", "Room 2302"]);
   });
 
   it("finds all classes happening in a room across routines, with the teacher", () => {
@@ -73,9 +96,32 @@ describe("auto routine maker", () => {
 
   it("merges routine room numbers (e.g. 1305) into the room store once", () => {
     const first = mergeRoutineRooms({}, DEFAULT_ROUTINES);
-    expect(first["rpi"]?.some((r) => r.name === "Room 1305" && r.floor === 1)).toBe(true);
+    expect(first["rpi"]?.some((r) => r.name === "Room 1305" && r.floor === 3)).toBe(true);
     const again = mergeRoutineRooms(first, DEFAULT_ROUTINES);
     expect(again["rpi"]).toHaveLength(first["rpi"]!.length);
+  });
+
+  it("migrates rooms saved with the old floor number", () => {
+    const old = {
+      rpi: [
+        {
+          id: "routine-room-1305-rpi",
+          name: "Room 1305",
+          category: "classroom",
+          buildingId: "academic",
+          floor: 1,
+          turn: "right",
+          landmark: "Academic Building corridor",
+          side: "left",
+          door: 1,
+        },
+      ],
+    } as Parameters<typeof mergeRoutineRooms>[0];
+    const fixed = mergeRoutineRooms(old, DEFAULT_ROUTINES)["rpi"]?.find(
+      (r) => r.id === "routine-room-1305-rpi",
+    );
+    expect(fixed?.floor).toBe(3);
+    expect(fixed?.buildingNo).toBe(1);
   });
 
   it("finds the class happening right now in a room with its teacher", () => {

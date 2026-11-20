@@ -47,7 +47,7 @@ import {
   type CampusLocation,
 } from "@/lib/campus-data";
 import { MAX_ADMINS_PER_INSTITUTE, type AdminAccount, type LocationStore } from "@/lib/admin";
-import type { ClassRoutine } from "@/lib/routine";
+import { sortRooms, type ClassRoutine } from "@/lib/routine";
 import { cn } from "@/lib/utils";
 
 type Tab = "rooms" | "routines" | "admins";
@@ -113,7 +113,7 @@ export function AdminPanel({
   const institute = manageable.find((i) => i.id === instituteId) ?? manageable[0] ?? INSTITUTES[0];
   const rooms = useMemo(() => store[institute.id] ?? [], [store, institute.id]);
   const shown = useMemo(
-    () => searchLocations(rooms, institute.buildings, query, "all"),
+    () => sortRooms(searchLocations(rooms, institute.buildings, query, "all")),
     [rooms, institute.buildings, query],
   );
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);

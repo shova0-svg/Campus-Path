@@ -63,6 +63,7 @@ import {
   parseRoutineStore,
   ROUTINE_STORE_KEY,
   roomsFromRoutine,
+  sortRooms,
   upsertRoutine,
   type ClassRoutine,
 } from "@/lib/routine";
@@ -180,7 +181,7 @@ function Index() {
   const activeRoutine =
     instituteRoutines.find((r) => r.id === activeRoutineId) ?? instituteRoutines[0];
   const results = useMemo(
-    () => searchLocations(locations, institute.buildings, query, filter),
+    () => sortRooms(searchLocations(locations, institute.buildings, query, filter)),
     [locations, institute.buildings, query, filter],
   );
   const selected = locations.find((l) => l.id === selectedId) ?? null;
@@ -684,6 +685,7 @@ function Index() {
                                 )}
                               </span>
                               <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                {loc.buildingNo ? `Building ${loc.buildingNo} · ` : ""}
                                 {building?.name} · {floorLabel(loc.floor)}
                               </span>
                             </span>

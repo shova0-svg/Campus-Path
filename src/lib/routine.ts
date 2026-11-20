@@ -370,10 +370,59 @@ export function routineRoomId(room: string): string {
   return `routine-room-${room.replace(/[^0-9A-Za-z]/g, "")}`;
 }
 
-/** Maps a room number to a floor: the leading digit (2 → 2nd floor, 5 → 5th, …). */
+/** Room-code convention: 1305 → building 1, floor 3, room 05. */
+export interface RoomCodeParts {
+  buildingNo: number;
+  floor: number;
+  roomNo: number;
+}
+
+export function parseRoomCode(room: string): RoomCodeParts | null {
+  const code = room.replace(/^Room\s*/i, "").trim();
+  const match = code.match(/^(\d)(\d)(\d{2})$/);
+  if (!match) return null;
+  return {
+    buildingNo: Number(match[1]),
+    floor: Number(match[2]),
+    roomNo: Number(match[3]),
+  };
+}
+
+/** The floor is the second digit of a 4-digit room code (1305 → 3). */
 export function roomFloor(room: string): number {
-  const n = Number(room.trim()[0]);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  return parseRoomCode(room)?.floor ?? 0;
+}
+
+/** Human-readable breakdown, e.g. "Building 1 · 3rd Floor · Room 05". */
+export function formatRoomCode(room: string): string | null {
+  const parts = parseRoomCode(room);
+  if (!parts) return null;
+  return `Building ${parts.buildingNo} · ${parts.floor}${ordinalSuffix(parts.floor)} Floor · Room ${String(
+    parts.roomNo,
+  ).padStart(2, "0")}`;
+}
+
+function ordinalSuffix(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return s[(v - 20) % 10] ?? s[v] ?? s[0] ?? "th";
+}
+
+/** Sorts rooms by building → floor → room number; other rooms keep their relative order at the end. */
+export function sortRooms<T extends CampusLocation>(rooms: T[]): T[] {
+  return [...rooms].sort((a, b) => {
+    const pa = parseRoomCode(a.name);
+    const pb = parseRoomCode(b.name);
+    if (!pa && !pb) return 0;
+    if (!pa) return 1;
+    if (!pb) return -1;
+    return (
+      pa.buildingNo - pb.buildingNo ||
+      pa.floor - pb.floor ||
+      pa.roomNo - pb.roomNo ||
+      a.name.localeCompare(b.name)
+    );
+  });
 }
 
 /** Rooms referenced by a routine but not yet in the room store. */
@@ -384,19 +433,21 @@ export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): Ca
     const code = entry.room.trim();
     if (!code || seen.has(code)) continue;
     seen.add(code);
+    const parts = parseRoomCode(code);
     rooms.push({
       id: routineRoomId(code),
       name: `Room ${code}`,
       nameBn: `রুম ${code}`,
       category: "classroom",
       buildingId: "academic",
-      floor: roomFloor(code),
+      floor: parts?.floor ?? 0,
+      ...(parts ? { buildingNo: parts.buildingNo, roomNo: parts.roomNo } : {}),
       turn: "right",
-      landmark: "Academic Building corridor",
+      landmark: parts ? `Building ${parts.buildingNo} corridor` : "Academic Building corridor",
       side: "left",
-      door: 1,
+      door: parts?.roomNo ?? 1,
       custom: true,
-      keywords: [code, "routine", "class"],
+      keywords: [code, "routine", "class", `building ${parts?.buildingNo ?? ""}`],
     });
   }
   return rooms.map((r) => ({ ...r, id: `${r.id}-${instituteId}` }));
@@ -413,13 +464,24 @@ export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEn
 export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]): LocationStore {
   let next = { ...store };
   for (const routine of routines) {
+    const list = next[routine.instituteId] ?? [];
     for (const room of roomsFromRoutine(routine, routine.instituteId)) {
-      if ((next[routine.instituteId] ?? []).some((l) => l.id === room.id)) continue;
-      next = {
-        ...next,
-        [routine.instituteId]: [room, ...(next[routine.instituteId] ?? [])],
+      const index = list.findIndex((l) => l.id === room.id);
+      if (index < 0) {
+        list.unshift(room);
+        continue;
+      }
+      // Migrate rooms saved by older versions (floor used to be the first digit).
+      const existing = list[index];
+      if (!existing) continue;
+      list[index] = {
+        ...existing,
+        ...room,
+        ...(existing.directions ? { directions: existing.directions } : {}),
+        ...(existing.walkingSteps != null ? { walkingSteps: existing.walkingSteps } : {}),
       };
     }
+    next = { ...next, [routine.instituteId]: list };
   }
   return next;
 }

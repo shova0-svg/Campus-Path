@@ -50,6 +50,9 @@ export interface CampusLocation {
   side: Side;
   /** Door number counted from the landmark (1 = first door). */
   door: number;
+  /** Room code breakdown: 1305 → building 1, floor 3, room 05. */
+  buildingNo?: number;
+  roomNo?: number;
   department?: string;
   keywords?: string[];
   custom?: boolean;
