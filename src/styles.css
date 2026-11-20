@@ -42,6 +42,11 @@
   --color-emerald-soft: var(--emerald-soft);
   --color-landmark: var(--landmark);
   --color-landmark-soft: var(--landmark-soft);
+  --color-water: var(--water);
+  --color-field: var(--field);
+  --color-field-line: var(--field-line);
+  --color-road: var(--road);
+  --color-library: var(--library);
   --color-scanner: var(--scanner);
   --color-scanner-foreground: var(--scanner-foreground);
   --color-destructive: var(--destructive);
@@ -100,6 +105,11 @@
   --emerald-soft: oklch(0.95 0.05 165);
   --landmark: oklch(0.58 0.2 27);
   --landmark-soft: oklch(0.95 0.03 27);
+  --water: oklch(0.78 0.09 230);
+  --field: oklch(0.86 0.11 150);
+  --field-line: oklch(0.95 0.05 150);
+  --road: oklch(0.88 0.012 255);
+  --library: oklch(0.86 0.14 88);
   --scanner: oklch(0.2 0.05 265);
   --scanner-foreground: oklch(0.97 0.01 250);
   --destructive: oklch(0.577 0.245 27.325);

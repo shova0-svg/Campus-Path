@@ -40,6 +40,8 @@ import {
   type LocationStore,
 } from "@/lib/admin";
 import { NavigationView } from "@/components/sohoj/NavigationView";
+import { CampusMap } from "@/components/sohoj/CampusMap";
+import { hasCampusMap } from "@/lib/campus-map";
 import { CATEGORY_ICON, CATEGORY_TONE } from "@/components/sohoj/category-icon";
 import {
   ALL_START_POINTS,
@@ -333,10 +335,23 @@ function Index() {
               location={selected}
               start={start}
               buildings={institute.buildings}
+              showCampusMap={hasCampusMap(institute.id)}
               onBack={() => setSelectedId(null)}
             />
           ) : (
             <>
+              {hasCampusMap(institute.id) && (
+                <CampusMap
+                  onSelectBuilding={(id) => {
+                    const b = institute.buildings.find((x) => x.id === id);
+                    if (b) {
+                      setFilter("all");
+                      setQuery(b.name);
+                    }
+                  }}
+                />
+              )}
+
               {/* Search */}
               <section className="space-y-3">
                 <div className="relative">
