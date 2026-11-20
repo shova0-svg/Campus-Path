@@ -1,6 +1,7 @@
 import { ArrowLeft, ChevronRight, DoorOpen, Footprints, LogIn, MoveUpRight, Timer, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloorPlan } from "./FloorPlan";
+import { CampusMap } from "./CampusMap";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
 import {
   buildRoute,
@@ -25,10 +26,11 @@ interface Props {
   location: CampusLocation;
   start: StartPoint;
   buildings: Building[];
+  showCampusMap?: boolean;
   onBack: () => void;
 }
 
-export function NavigationView({ location, start, buildings, onBack }: Props) {
+export function NavigationView({ location, start, buildings, showCampusMap, onBack }: Props) {
   const route = buildRoute(start, location, buildings);
   const building = buildings.find((b) => b.id === location.buildingId);
   const Icon = CATEGORY_ICON[location.category];
@@ -133,6 +135,14 @@ export function NavigationView({ location, start, buildings, onBack }: Props) {
           })}
         </ol>
       </section>
+
+      {showCampusMap && (
+        <CampusMap
+          title="Your route on campus"
+          highlightBuildingId={location.buildingId}
+          startId={start.id}
+        />
+      )}
 
       <FloorPlan location={location} />
     </div>

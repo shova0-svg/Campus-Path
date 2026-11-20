@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BrandLogo } from "@/components/sohoj/BrandLogo";
-import { CampusMap } from "@/components/sohoj/CampusMap";
 import { QrScannerDialog } from "@/components/sohoj/QrScannerDialog";
 import { LocationFormDialog, type EditTarget } from "@/components/sohoj/LocationFormDialog";
 import { AdminLoginDialog } from "@/components/sohoj/AdminLoginDialog";
@@ -43,6 +42,8 @@ import {
   type LocationStore,
 } from "@/lib/admin";
 import { NavigationView } from "@/components/sohoj/NavigationView";
+import { CampusMap } from "@/components/sohoj/CampusMap";
+import { hasCampusMap } from "@/lib/campus-map";
 import { CATEGORY_ICON, CATEGORY_TONE } from "@/components/sohoj/category-icon";
 import {
   ALL_START_POINTS,
@@ -393,10 +394,22 @@ function Index() {
               location={selected}
               start={start}
               buildings={institute.buildings}
+              showCampusMap={hasCampusMap(institute.id)}
               onBack={() => setSelectedId(null)}
             />
           ) : view === "map" && institute.map ? (
-            <CampusMap map={institute.map} instituteName={institute.name} />
+            <CampusMap
+              map={institute.map}
+              instituteName={institute.name}
+              onSelectBuilding={(id) => {
+                const b = institute.buildings.find((x) => x.id === id);
+                if (b) {
+                  setFilter("all");
+                  setQuery(b.name);
+                  setView("list");
+                }
+              }}
+            />
           ) : (
             <>
               {/* Search */}
