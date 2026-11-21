@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Box, DoorOpen, Map as MapIcon, Trees } from "lucide-react";
+import { CampusPhoto } from "./CampusPhoto";
 import { cn } from "@/lib/utils";
 
 /** Hotspots follow the institute's official ground-floor site plan. */
@@ -478,6 +479,7 @@ export function RealCampusMap({
   onSelectBuilding?: (buildingId: string) => void;
 }) {
   const [selected, setSelected] = useState<Area | null>(null);
+  const [photoSpot, setPhotoSpot] = useState<Parameters<typeof CampusPhoto>[0]["selected"]>(null);
   const [is3D, setIs3D] = useState(true);
 
   return (
@@ -510,16 +512,17 @@ export function RealCampusMap({
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-[#f4f2ea]">
-        <div
-          className={cn(
-            "transition-transform duration-500",
-            is3D && "[transform:perspective(1400px)_rotateX(34deg)_rotateZ(-8deg)_scale(0.93)]",
-          )}
-        >
-          <PlanSvg selected={selected} onSelect={setSelected} is3D={is3D} />
+      {is3D ? (
+        <CampusPhoto
+          selected={photoSpot}
+          onSelect={setPhotoSpot}
+          onOpenRooms={(id) => onSelectBuilding?.(id)}
+        />
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border bg-[#f4f2ea]">
+          <PlanSvg selected={selected} onSelect={setSelected} is3D={false} />
         </div>
-      </div>
+      )}
 
       {selected && (
         <div className="mt-2 rounded-2xl border border-primary/20 bg-primary-soft/60 p-3">
