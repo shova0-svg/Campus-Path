@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RealCampusMap } from "./RealCampusMap";
 import { ExternalLink, Layers, Map as MapIcon, Satellite } from "lucide-react";
 import { MAP_FEATURE_META, type CampusMapData, type StartPointId } from "@/lib/campus-data";
 import {
@@ -90,7 +91,7 @@ export function CampusMap({
   onSelectBuilding,
   title,
 }: Props) {
-  const [view, setView] = useState<"live" | "drawn" | "satellite">(map ? "live" : "drawn");
+  const [view, setView] = useState<"live" | "real" | "drawn" | "satellite">(map ? "real" : "drawn");
   const [labelsOn, setLabelsOn] = useState(true);
   const path = highlightBuildingId && startId ? campusPath(startId, highlightBuildingId) : [];
   const routeD = path.length > 1 ? pathD(path) : "";
@@ -100,24 +101,23 @@ export function CampusMap({
 
   return (
     <figure className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]">
-      <figcaption className="flex items-center justify-between gap-2 px-4 pb-2 pt-3.5">
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">
-            {title ?? instituteName ?? "Campus Map"}
-          </span>
-          <span className="block font-bangla text-xs text-muted-foreground">
+      <figcaption className="px-4 pb-2 pt-3.5">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{title ?? instituteName ?? "Campus Map"}</p>
+          <p className="font-bangla text-xs text-muted-foreground">
             ক্যাম্পাস ম্যাপ — রাস্তা, ভবন, পুকুর, মাঠ
-          </span>
-        </span>
-        <span
-          className="flex shrink-0 rounded-full bg-muted p-0.5"
+          </p>
+        </div>
+        <div
+          className="mt-2 flex gap-1 overflow-x-auto rounded-full bg-muted p-0.5 [scrollbar-width:none]"
           role="tablist"
           aria-label="Map view"
         >
           {(
             [
               ...(map ? ([["live", Layers, "Google Map"]] as const) : []),
-              ["drawn", MapIcon, "Map"],
+              ["real", MapIcon, "Real Map"],
+              ["drawn", Layers, "Sketch"],
               ["satellite", Satellite, "Satellite"],
             ] as const
           ).map(([id, Icon, label]) => (
@@ -128,17 +128,19 @@ export function CampusMap({
               aria-selected={view === id}
               onClick={() => setView(id)}
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
                 view === id ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
               <Icon className="size-3.5" /> {label}
             </button>
           ))}
-        </span>
+        </div>
       </figcaption>
 
-      {view === "live" && map ? (
+      {view === "real" ? (
+        <RealCampusMap {...(onSelectBuilding ? { onSelectBuilding } : {})} />
+      ) : view === "live" && map ? (
         <div className="px-3 pb-3">
           <div className="relative overflow-hidden rounded-2xl border border-border">
             <iframe
