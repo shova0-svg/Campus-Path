@@ -337,9 +337,9 @@ export function RealCampusMap({
           {[
             ["Pond bank", 500, 372],
             ["Pond bank", 500, 760],
-          ].map(([label, x, y]) => (
+          ].map(([label, x, y], i) => (
             <text
-              key={String(label)}
+              key={`pond-bank-${i}`}
               x={Number(x)}
               y={Number(y)}
               textAnchor="middle"
