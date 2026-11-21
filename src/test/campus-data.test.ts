@@ -16,9 +16,9 @@ const rpi = INSTITUTES[0];
 describe("Sohoj Rasta campus data", () => {
   it("defaults to Rajshahi Polytechnic and lists all 64 government/private institutes", () => {
     expect(INSTITUTES.slice(0, 3).map((i) => i.name)).toEqual([
-      "Rajshahi Polytechnic Institute",
-      "Dhaka Polytechnic Institute",
-      "Bogura Polytechnic Institute",
+      "Rajshahi Govt. Polytechnic Institute",
+      "Dhaka Govt. Polytechnic Institute",
+      "Bogura Govt. Polytechnic Institute",
     ]);
     expect(INSTITUTES).toHaveLength(64);
     expect(INSTITUTES.filter((i) => i.type === "government")).toHaveLength(52);
@@ -49,6 +49,19 @@ describe("Sohoj Rasta campus data", () => {
       "Academic Building Ground Floor",
     ]);
     expect(QR_START_POINT.name).toBe("Academic Building Entrance");
+  });
+
+  it("labels every government polytechnic as Govt. but keeps private names as-is", () => {
+    const govt = INSTITUTES.filter((i) => i.type === "government");
+    expect(govt.length).toBeGreaterThan(50);
+    expect(
+      govt
+        .filter((i) => i.name.includes("Polytechnic Institute"))
+        .every((i) => i.name.includes("Govt.")),
+    ).toBe(true);
+    expect(
+      INSTITUTES.filter((i) => i.type === "private").every((i) => !i.name.includes("Govt.")),
+    ).toBe(true);
   });
 
   it("includes all eight Rajshahi department buildings", () => {

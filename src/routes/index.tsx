@@ -136,6 +136,7 @@ function Index() {
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [formInstituteId, setFormInstituteId] = useState<string>(INSTITUTES[0].id);
   const [startId, setStartId] = useState<StartPointId>("main-gate");
+  const [startBuildingId, setStartBuildingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CategoryFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -238,12 +239,29 @@ function Index() {
   const startOptions =
     startId === QR_START_POINT.id ? [...START_POINTS, QR_START_POINT] : START_POINTS;
 
+  function changeStart(value: string) {
+    if (value.startsWith("b:")) {
+      const id = value.slice(2);
+      const building = buildings.find((b) => b.id === id);
+      if (!building) return;
+      setStartBuildingId(id);
+      const nearest = (Object.entries(building.distance) as [StartPointId, number][]).sort(
+        (a, b) => a[1] - b[1],
+      )[0]?.[0];
+      setStartId(nearest ?? "main-gate");
+      return;
+    }
+    setStartBuildingId(null);
+    setStartId(value as StartPointId);
+  }
+
   function changeInstitute(id: string) {
     setInstituteId(id);
     setView("list");
     setSelectedId(null);
     setSelectedBuildingId(null);
     setQrBuilding(null);
+    setStartBuildingId(null);
     setQuery("");
     setFilter("all");
     setDownloading(true);
@@ -419,6 +437,7 @@ function Index() {
       setFormInstituteId(target.instituteId);
       setSelectedId(null);
       setView("list");
+      setStartBuildingId(target.buildingId);
       setStartId(target.buildingId === "academic" ? QR_START_POINT.id : "main-gate");
       if (target.kind === "room" && target.room) {
         const found = (store[target.instituteId] ?? []).find(
@@ -575,7 +594,10 @@ function Index() {
               <span className="font-bangla text-xs text-muted-foreground">আপনি এখন কোথায়?</span>
             </div>
             <div className="mt-3 flex gap-2">
-              <Select value={startId} onValueChange={(v) => setStartId(v as StartPointId)}>
+              <Select
+                value={startBuildingId ? `b:${startBuildingId}` : startId}
+                onValueChange={changeStart}
+              >
                 <SelectTrigger
                   className="h-12 min-w-0 flex-1 rounded-2xl bg-muted/60 text-left"
                   aria-label="Current location"
@@ -583,11 +605,22 @@ function Index() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {startOptions.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    <SelectLabel>Start points</SelectLabel>
+                    {startOptions.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Buildings</SelectLabel>
+                    {buildings.map((b) => (
+                      <SelectItem key={b.id} value={`b:${b.id}`}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
               <Button

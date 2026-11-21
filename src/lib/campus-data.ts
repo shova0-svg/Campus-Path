@@ -876,7 +876,10 @@ function slugId(seed: InstituteSeed): string {
 
 const CATALOG_INSTITUTES: Institute[] = [...GOVERNMENT_SEEDS, ...PRIVATE_SEEDS].map((seed) => ({
   id: slugId(seed),
-  name: seed.name,
+  name:
+    seed.type === "government"
+      ? seed.name.replace(" Polytechnic Institute", " Govt. Polytechnic Institute")
+      : seed.name,
   nameBn: seed.nameBn,
   city: seed.city,
   division: seed.division,
@@ -907,7 +910,7 @@ export function groupInstitutes(list: Institute[]): InstituteGroup[] {
 export const INSTITUTES: [Institute, ...Institute[]] = [
   {
     id: "rpi",
-    name: "Rajshahi Polytechnic Institute",
+    name: "Rajshahi Govt. Polytechnic Institute",
     nameBn: "রাজশাহী পলিটেকনিক ইনস্টিটিউট",
     city: "Rajshahi",
     division: "Rajshahi",
@@ -1027,7 +1030,7 @@ export const INSTITUTES: [Institute, ...Institute[]] = [
   },
   {
     id: "dpi",
-    name: "Dhaka Polytechnic Institute",
+    name: "Dhaka Govt. Polytechnic Institute",
     nameBn: "ঢাকা পলিটেকনিক ইনস্টিটিউট",
     city: "Dhaka",
     division: "Dhaka",
@@ -1087,7 +1090,7 @@ export const INSTITUTES: [Institute, ...Institute[]] = [
   },
   {
     id: "bpi",
-    name: "Bogura Polytechnic Institute",
+    name: "Bogura Govt. Polytechnic Institute",
     nameBn: "বগুড়া পলিটেকনিক ইনস্টিটিউট",
     city: "Bogura",
     division: "Rajshahi",
