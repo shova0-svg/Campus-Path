@@ -33,3 +33,25 @@ use the editor.
 - Campus data, search and route generation live in `src/lib/campus-data.ts` as pure functions; UI pieces in `src/components/sohoj/`. Why: keeps the demo data testable (`src/test/campus-data.test.ts`).
 - No backend yet: all rooms (built-in + admin edits) live in one per-institute store in localStorage via `src/lib/admin.ts`; admin sign-in is a simulated Google flow checked by `isAdminEmail`. Why: offline-first MVP demo; real Google sign-in needs Lovable Cloud.
 <!-- AGENT-MEMORY:END -->
+
+<!-- AGENT-SKILLS:BEGIN -->
+## Skills to use going forward
+
+These skills are installed in this codebase (`.claude/skills/`) and enabled as
+project-scoped plugins in `~/.claude/plugins/installed_plugins.json`. Use them:
+
+- **graphify** — treat any question about this codebase, its architecture, file
+  relationships, or project content as a graphify query first. Turn code/docs
+  into a persistent knowledge graph, then query/path/explain. Prefer it over
+  ad-hoc grepping when the question is broad or cross-file.
+- **ponytail** — default mode for coding tasks (write/fix/refactor/review/pick
+  dependencies): smallest change that fully solves the task, YAGNI, stdlib
+  first, no unrequested abstractions, and a reply a busy human reads once.
+  Levels: lite / full / ultra. Also use `ponytail-review` for code review and
+  `ponytail-audit` for whole-repo quality/bloat audits.
+- **context-optimizer** (skills: `cco`, `token-check`, `doc-digest`,
+  `fresh-start`, `sharpen-prompt`, `project-context`) — use when the user asks
+  about session cost, context size, token usage, long documents, handoffs to a
+  new chat, prompt sharpening, or reusable project context. Prefer digesting
+  long inputs instead of pasting them whole into context.
+<!-- AGENT-SKILLS:END -->
