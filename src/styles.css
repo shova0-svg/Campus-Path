@@ -254,6 +254,14 @@ html {
   }
 }
 
+/* Host-injected editor badge (defensive; DOM scrubber handles text nodes). */
+[data-sohoj-hidden-badge],
+[class*="lovable-badge" i],
+[id*="lovable-badge" i],
+a[href*="lovable.dev" i] {
+  display: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
