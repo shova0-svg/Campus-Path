@@ -1,5 +1,6 @@
 import type { CampusLocation } from "@/lib/campus-data";
 import type { LocationStore } from "@/lib/admin";
+import { civilRoutines } from "@/lib/civil-routines";
 
 /* ---------------- Models ---------------- */
 
@@ -249,6 +250,7 @@ export const DEFAULT_ROUTINES: ClassRoutine[] = [
     createdAt: STAMP,
     updatedAt: STAMP,
   },
+  ...civilRoutines(DEFAULT_PERIODS),
 ];
 
 /* ---------------- Storage ---------------- */
@@ -443,13 +445,15 @@ export function sortRooms<T extends CampusLocation>(rooms: T[]): T[] {
 
 /** Maps a routine room number to its building at Rajshahi Polytechnic. */
 export function buildingIdForRoom(code: string): string {
-  const n = Number(code.replace(/[^0-9]/g, ""));
+  const room = code.trim();
+  const n = Number(room.replace(/[^0-9]/g, ""));
   if (!Number.isFinite(n)) return "academic";
-  if (n >= 1301 && n <= 1308) return "computer";
+  if (room.startsWith("4")) return "civil";
+  if (room.startsWith("5")) return "electrical";
+  if (room.startsWith("13")) return "computer";
   if ((n >= 2101 && n <= 2107) || (n >= 2201 && n <= 2206) || (n >= 2301 && n <= 2306)) {
     return "non-departmental";
   }
-  if (code.trim().startsWith("5")) return "electrical";
   return "academic";
 }
 
@@ -497,7 +501,13 @@ export function allCampusRooms(instituteId: string): CampusLocation[] {
     ...range(2101, 2107),
     ...range(2201, 2206),
     ...range(2301, 2306),
+    ...range(3101, 3109),
+    ...range(3201, 3209),
+    ...range(3401, 3406),
+    ...range(4101, 4106),
+    ...range(5101, 5108),
     ...range(5201, 5208),
+    ...range(5211, 5211),
   ].map((code) => makeRoutineRoom(code, instituteId));
 }
 

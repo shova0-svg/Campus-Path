@@ -20,14 +20,29 @@ const rpi3 = DEFAULT_ROUTINES.find((r) => r.id === "rpi-cst-3-morning")!;
 const rpi1 = DEFAULT_ROUTINES.find((r) => r.id === "rpi-cst-1-morning")!;
 
 describe("Rajshahi CST routines", () => {
-  it("ships 1st and 3rd semester morning routines", () => {
-    expect(DEFAULT_ROUTINES.map((r) => [r.semester, r.shift])).toEqual([
+  it("ships CST and Civil morning routines", () => {
+    expect(DEFAULT_ROUTINES.slice(0, 2).map((r) => [r.semester, r.shift])).toEqual([
       [1, "Morning"],
       [3, "Morning"],
     ]);
+    expect(DEFAULT_ROUTINES.filter((r) => r.department === "Civil Technology")).toHaveLength(8);
     expect(DEFAULT_ROUTINES.every((r) => r.instituteId === "rpi" && r.entries.length > 0)).toBe(
       true,
     );
+  });
+
+  it("has all eight Civil routines with subjects, teachers and rooms", () => {
+    const civil = DEFAULT_ROUTINES.filter((r) => r.department === "Civil Technology");
+    expect(civil.map((r) => r.semester).sort()).toEqual([1, 1, 3, 3, 4, 4, 6, 6]);
+    const c4a = civil.find((r) => r.id === "rpi-civil-4-a")!;
+    expect(c4a.entries.find((e) => e.code === "26441")).toMatchObject({
+      subject: "Construction Process-II",
+      teacher: "MD. SHAHID HOSSAIN",
+      acronym: "SH",
+    });
+    const c6b = civil.find((r) => r.id === "rpi-civil-6-b")!;
+    expect(c6b.entries.find((e) => e.code === "29041")?.teacher).toBe("KM MONIRUZZAMAN");
+    expect(civil.every((r) => r.entries.some((e) => e.room.startsWith("4")))).toBe(true);
   });
 
   it("has the 3rd semester subjects, teachers and rooms", () => {
@@ -86,6 +101,8 @@ describe("auto routine maker", () => {
   it("maps routine room numbers to the right buildings", () => {
     expect(buildingIdForRoom("1305")).toBe("computer");
     expect(buildingIdForRoom("1301")).toBe("computer");
+    expect(buildingIdForRoom("4105")).toBe("civil");
+    expect(buildingIdForRoom("4101")).toBe("civil");
     expect(buildingIdForRoom("2106")).toBe("non-departmental");
     expect(buildingIdForRoom("2203")).toBe("non-departmental");
     expect(buildingIdForRoom("2306")).toBe("non-departmental");
@@ -102,6 +119,8 @@ describe("auto routine maker", () => {
     }
     expect(names.filter((n) => /^Room 13/.test(n))).toHaveLength(8);
     expect(names.filter((n) => /^Room 21|^Room 22|^Room 23/.test(n))).toHaveLength(19);
+    expect(names.filter((n) => /^Room 4/.test(n))).toHaveLength(6);
+    expect(rooms.find((r) => r.name === "Room 4105")?.buildingId).toBe("civil");
     expect(rooms.find((r) => r.name === "Room 1301")?.buildingId).toBe("computer");
     expect(rooms.find((r) => r.name === "Room 2201")?.buildingId).toBe("non-departmental");
     expect(rooms.find((r) => r.name === "Room 5205")?.buildingId).toBe("electrical");
@@ -213,7 +232,7 @@ describe("auto routine maker", () => {
 
   it("updates a routine in place", () => {
     const next = upsertRoutine(DEFAULT_ROUTINES, { ...rpi1, verified: true });
-    expect(next).toHaveLength(2);
+    expect(next).toHaveLength(DEFAULT_ROUTINES.length);
     expect(next.find((r) => r.id === rpi1.id)?.verified).toBe(true);
   });
 });
