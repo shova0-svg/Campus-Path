@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Building2, ExternalLink, Mail, Phone, Search, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,13 @@ import {
   groupTeachers,
   phoneHref,
   searchTeachers,
-  TEACHERS,
+  allTeachers,
+  parseTeacherStore,
+  TEACHERS_STORE_KEY,
   TEACHER_SOURCE,
+  teacherId,
   type Teacher,
+  type TeacherStore,
 } from "@/lib/teachers";
 
 interface Props {
@@ -17,11 +21,29 @@ interface Props {
 }
 
 export function TeacherDirectory({ instituteName }: Props) {
+  const [store, setStore] = useState<TeacherStore>(() =>
+    parseTeacherStore(
+      typeof window === "undefined" ? null : window.localStorage.getItem(TEACHERS_STORE_KEY),
+    ),
+  );
   const [query, setQuery] = useState("");
   const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
 
-  const allGroups = useMemo(() => groupTeachers(TEACHERS), []);
-  const results = useMemo(() => searchTeachers(TEACHERS, query), [query]);
+  useEffect(() => {
+    const refresh = () =>
+      setStore(parseTeacherStore(window.localStorage.getItem(TEACHERS_STORE_KEY)));
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener("sohoj:teachers-changed", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("sohoj:teachers-changed", refresh);
+    };
+  }, []);
+
+  const teachers = useMemo(() => allTeachers(store), [store]);
+  const allGroups = useMemo(() => groupTeachers(teachers), [teachers]);
+  const results = useMemo(() => searchTeachers(teachers, query), [teachers, query]);
   const groups = useMemo(() => groupTeachers(results), [results]);
   const shown = activeDepartment ? groups.filter((g) => g.key === activeDepartment) : groups;
 
@@ -47,7 +69,7 @@ export function TeacherDirectory({ instituteName }: Props) {
           </p>
           <h1 className="mt-1 font-display text-xl font-semibold">শিক্ষকবৃন্দ</h1>
           <p className="mt-1 text-xs text-primary-foreground/75">
-            {instituteName} · {TEACHERS.length} teachers · {allGroups.length} departments
+            {instituteName} · {teachers.length} teachers · {allGroups.length} departments
           </p>
         </div>
         <div className="p-4">
@@ -112,10 +134,7 @@ export function TeacherDirectory({ instituteName }: Props) {
             </div>
             <ul className="space-y-2.5">
               {group.teachers.map((teacher) => (
-                <TeacherCard
-                  key={`${teacher.facultyKey}-${teacher.serial}-${teacher.name}`}
-                  teacher={teacher}
-                />
+                <TeacherCard key={teacherId(teacher)} teacher={teacher} />
               ))}
             </ul>
           </section>

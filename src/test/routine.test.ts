@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { groupTeachers, phoneHref, searchTeachers, TEACHERS } from "@/lib/teachers";
+import {
+  allTeachers,
+  deleteTeacher,
+  groupTeachers,
+  parseTeacherStore,
+  phoneHref,
+  searchTeachers,
+  TEACHERS,
+  upsertTeacher,
+  type Teacher,
+} from "@/lib/teachers";
 import {
   classesInRoom,
   currentClassesInRoom,
@@ -286,5 +296,60 @@ describe("RPI teacher directory", () => {
   it("searches teachers by name and department", () => {
     expect(searchTeachers(TEACHERS, "সিভিল").length).toBeGreaterThan(0);
     expect(searchTeachers(TEACHERS, "zzzz-no-match")).toHaveLength(0);
+  });
+});
+
+describe("Admin-managed teachers", () => {
+  it("seeds RPI and allows adding a teacher to another institute's department", () => {
+    const store = parseTeacherStore(null);
+    expect(store["rpi"]?.length).toBe(TEACHERS.length);
+
+    const teacher: Teacher = {
+      serial: "",
+      name: "Test Teacher",
+      designation: "讲师",
+      faculty: "সিভিল",
+      facultyKey: "civil",
+      department: "সিভিল",
+      office: "Dhaka Govt. Polytechnic Institute",
+      email: "test@example.com",
+      batch: "",
+      phoneOffice: "",
+      phoneHome: "",
+      room: "4101",
+      mobile: "01700000000",
+      photo: "",
+    };
+    const next = upsertTeacher(store, "dpi", teacher);
+    expect(next["dpi"]).toHaveLength(1);
+    expect(next["dpi"]?.[0]?.instituteId).toBe("dpi");
+    expect(next["dpi"]?.[0]?.id).toBeTruthy();
+    expect(next["rpi"]).toHaveLength(TEACHERS.length);
+
+    const id = next["dpi"]?.[0]?.id!;
+    expect(deleteTeacher(next, "dpi", id)["dpi"]).toHaveLength(0);
+  });
+
+  it("restores admin-added teachers after a refresh and groups unknown departments", () => {
+    const teacher: Teacher = {
+      serial: "",
+      name: "Naya Teacher",
+      designation: "Instructor",
+      faculty: "Robotics",
+      facultyKey: "robotics",
+      department: "Robotics",
+      office: "",
+      email: "",
+      batch: "",
+      phoneOffice: "",
+      phoneHome: "",
+      room: "",
+      mobile: "",
+      photo: "",
+    };
+    const saved = JSON.stringify(upsertTeacher({}, "rpi", teacher));
+    const loaded = parseTeacherStore(saved);
+    expect(loaded["rpi"]?.some((t) => t.name === "Naya Teacher")).toBe(true);
+    expect(groupTeachers(allTeachers(loaded)).some((g) => g.key === "robotics")).toBe(true);
   });
 });

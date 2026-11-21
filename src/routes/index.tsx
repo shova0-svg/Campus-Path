@@ -95,6 +95,14 @@ import {
   type StartPointId,
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
+import {
+  deleteTeacher,
+  parseTeacherStore,
+  TEACHERS_STORE_KEY,
+  upsertTeacher,
+  type Teacher,
+  type TeacherStore,
+} from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -147,6 +155,7 @@ function Index() {
   const [view, setView] = useState<"list" | "routine" | "map">("list");
   const [admins, setAdmins] = useState<AdminAccount[]>(() => loadAdmins(null));
   const [buildingStore, setBuildingStore] = useState<BuildingStore>(() => parseBuildingStore(null));
+  const [teacherStore, setTeacherStore] = useState<TeacherStore>(() => parseTeacherStore(null));
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => parseRoutineStore(null));
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
@@ -168,6 +177,7 @@ function Index() {
       const mergedBuildings = parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY));
       setBuildingStore(mergedBuildings);
       window.localStorage.setItem(BUILDINGS_STORE_KEY, JSON.stringify(mergedBuildings));
+      setTeacherStore(parseTeacherStore(window.localStorage.getItem(TEACHERS_STORE_KEY)));
       setRoutines(savedRoutines);
       const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
       if (isAdminUser(session, savedAdmins)) {
@@ -383,6 +393,27 @@ function Index() {
     toast.success(`${name} removed`);
   }
 
+  function commitTeachers(next: TeacherStore) {
+    setTeacherStore(next);
+    try {
+      window.localStorage.setItem(TEACHERS_STORE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event("sohoj:teachers-changed"));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function saveTeacher(teacher: Teacher) {
+    if (!isAdmin) return;
+    commitTeachers(upsertTeacher(teacherStore, institute.id, teacher));
+    toast.success(`${teacher.name} saved`, { description: "Teachers page-e dekha jay" });
+  }
+
+  function removeTeacher(id: string) {
+    commitTeachers(deleteTeacher(teacherStore, institute.id, id));
+    toast.success("Teacher removed");
+  }
+
   function openAdmin() {
     if (isAdmin) setPanelOpen(true);
     else setLoginOpen(true);
@@ -586,25 +617,23 @@ function Index() {
             </section>
           </Link>
 
-          {/* Faculty directory — Rajshahi Polytechnic only */}
-          {institute.id === "rpi" && (
-            <Link to="/teachers" className="animate-rise block">
-              <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
-                <div className="flex items-center gap-3 p-4">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
-                    <UserRound className="size-5" />
+          {/* Faculty directory */}
+          <Link to="/teachers" className="animate-rise block">
+            <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+              <div className="flex items-center gap-3 p-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
+                  <UserRound className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Teachers</span>
+                  <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                    বিভাগভিত্তিক শিক্ষক তালিকা — দেখতে ট্যাপ করুন
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">Teachers</span>
-                    <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                      বিভাগভিত্তিক শিক্ষক তালিকা — দেখতে ট্যাপ করুন
-                    </span>
-                  </span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                </div>
-              </section>
-            </Link>
-          )}
+                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+              </div>
+            </section>
+          </Link>
 
           {/* Current location */}
           <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-float)]">
@@ -977,6 +1006,7 @@ function Index() {
             admins={admins}
             routines={routines}
             buildings={buildings}
+            teacherStore={teacherStore}
             onLogout={handleLogout}
             onAdd={openAddForm}
             onEdit={openEditForm}
@@ -987,6 +1017,8 @@ function Index() {
             onRemoveAdmin={removeAdmin}
             onSaveBuilding={saveBuilding}
             onDeleteBuilding={removeBuilding}
+            onSaveTeacher={saveTeacher}
+            onDeleteTeacher={removeTeacher}
           />
           <LocationFormDialog
             open={formOpen}

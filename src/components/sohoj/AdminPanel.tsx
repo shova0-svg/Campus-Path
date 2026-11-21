@@ -9,6 +9,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  UserRound,
   Users,
 } from "lucide-react";
 import {
@@ -53,9 +54,17 @@ import {
 } from "@/lib/campus-data";
 import { MAX_ADMINS_PER_INSTITUTE, type AdminAccount, type LocationStore } from "@/lib/admin";
 import { sortRooms, type ClassRoutine } from "@/lib/routine";
+import {
+  DEPARTMENT_OPTIONS,
+  departmentKey,
+  groupTeachers,
+  teacherId,
+  type Teacher,
+  type TeacherStore,
+} from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 
-type Tab = "rooms" | "buildings" | "routines" | "qr" | "admins";
+type Tab = "rooms" | "buildings" | "routines" | "teachers" | "qr" | "admins";
 
 interface Props {
   open: boolean;
@@ -68,6 +77,7 @@ interface Props {
   admins: AdminAccount[];
   routines: ClassRoutine[];
   buildings: Building[];
+  teacherStore: TeacherStore;
   onLogout: () => void;
   onAdd: (instituteId: string) => void;
   onEdit: (instituteId: string, loc: CampusLocation) => void;
@@ -78,6 +88,8 @@ interface Props {
   onRemoveAdmin: (email: string) => void;
   onSaveBuilding: (building: Building) => void;
   onDeleteBuilding: (buildingId: string) => void;
+  onSaveTeacher: (teacher: Teacher) => void;
+  onDeleteTeacher: (id: string) => void;
 }
 
 export function AdminPanel({
@@ -91,6 +103,7 @@ export function AdminPanel({
   admins,
   routines,
   buildings,
+  teacherStore,
   onLogout,
   onAdd,
   onEdit,
@@ -101,6 +114,8 @@ export function AdminPanel({
   onRemoveAdmin,
   onSaveBuilding,
   onDeleteBuilding,
+  onSaveTeacher,
+  onDeleteTeacher,
 }: Props) {
   const [tab, setTab] = useState<Tab>("rooms");
   const [instituteId, setInstituteId] = useState(currentInstituteId);
@@ -108,6 +123,7 @@ export function AdminPanel({
   const [pendingDelete, setPendingDelete] = useState<CampusLocation | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<ClassRoutine | "new" | null>(null);
   const [editingBuilding, setEditingBuilding] = useState<Building | "new" | null>(null);
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | "new" | null>(null);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminInstitute, setNewAdminInstitute] = useState(allowedInstituteIds[0] ?? "rpi");
 
@@ -117,6 +133,7 @@ export function AdminPanel({
       setTab("rooms");
       setEditingRoutine(null);
       setEditingBuilding(null);
+      setEditingTeacher(null);
     }
   }, [open, currentInstituteId]);
 
@@ -130,11 +147,13 @@ export function AdminPanel({
     [rooms, institute.buildings, query],
   );
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
+  const instituteTeachers = teacherStore[institute.id] ?? [];
 
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "rooms", label: "Rooms", icon: Pencil },
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "routines", label: "Routines", icon: CalendarDays },
+    { id: "teachers", label: "Teachers", icon: UserRound },
     { id: "qr", label: "QR Maker", icon: QrCode },
     ...(isSuper ? [{ id: "admins" as Tab, label: "Admins", icon: Users }] : []),
   ];
@@ -167,6 +186,7 @@ export function AdminPanel({
                       setTab(t.id);
                       setEditingRoutine(null);
                       setEditingBuilding(null);
+                      setEditingTeacher(null);
                     }}
                     className={cn(
                       "flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
@@ -434,6 +454,81 @@ export function AdminPanel({
             </div>
           )}
 
+          {tab === "teachers" && (
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {editingTeacher ? (
+                <TeacherEditor
+                  instituteName={institute.name}
+                  buildings={buildings}
+                  initial={editingTeacher === "new" ? null : editingTeacher}
+                  onSave={(teacher) => {
+                    onSaveTeacher(teacher);
+                    setEditingTeacher(null);
+                  }}
+                  onCancel={() => setEditingTeacher(null)}
+                />
+              ) : (
+                <>
+                  <Button
+                    variant="emerald"
+                    size="xl"
+                    className="w-full"
+                    onClick={() => setEditingTeacher("new")}
+                  >
+                    <Plus /> Add New Teacher
+                  </Button>
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Institute ও Department বেছে নিয়ে শিক্ষক যোগ করুন — Teachers page-এ দেখা যাবে।
+                  </p>
+                  {groupTeachers(instituteTeachers).map((group) => (
+                    <div key={group.key} className="mt-4">
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                        {group.label} ({group.teachers.length})
+                      </p>
+                      <ul className="space-y-2">
+                        {group.teachers.map((teacher) => (
+                          <li
+                            key={teacherId(teacher)}
+                            className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2.5"
+                          >
+                            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                              <UserRound className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-semibold">
+                                {teacher.name}
+                              </span>
+                              <span className="block truncate text-[10px] text-muted-foreground">
+                                {teacher.designation || group.label}
+                              </span>
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Edit ${teacher.name}`}
+                              onClick={() => setEditingTeacher(teacher)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Delete ${teacher.name}`}
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => onDeleteTeacher(teacherId(teacher))}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
           {tab === "qr" && (
             <QrMaker
               institute={institute}
@@ -662,6 +757,152 @@ function BuildingEditor({
           }
         >
           Save building
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TeacherEditor({
+  instituteName,
+  buildings,
+  initial,
+  onSave,
+  onCancel,
+}: {
+  instituteName: string;
+  buildings: Building[];
+  initial: Teacher | null;
+  onSave: (teacher: Teacher) => void;
+  onCancel: () => void;
+}) {
+  const [department, setDepartment] = useState(
+    initial?.faculty ?? DEPARTMENT_OPTIONS[0]?.label ?? "সিভিল",
+  );
+  const [name, setName] = useState(initial?.name ?? "");
+  const [designation, setDesignation] = useState(initial?.designation ?? "ইন্সট্রাক্টর");
+  const [mobile, setMobile] = useState(initial?.mobile ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [room, setRoom] = useState(initial?.room ?? "");
+  const [photo, setPhoto] = useState(initial?.photo ?? "");
+
+  const departmentNames = [
+    ...new Set([...DEPARTMENT_OPTIONS.map((o) => o.label), ...buildings.map((b) => b.name)]),
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl bg-muted/60 p-2.5 text-[11px] text-muted-foreground">
+        Institute: <span className="font-semibold text-foreground">{instituteName}</span>
+      </div>
+
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">
+          Department / বিভাগ
+        </label>
+        <Select value={department} onValueChange={setDepartment}>
+          <SelectTrigger className="h-10 rounded-xl" aria-label="Department for teacher">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {departmentNames.map((d) => (
+              <SelectItem key={d} value={d}>
+                {d}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">Name / নাম</label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="মোঃ আব্দুল্লাহ"
+          className="h-10 rounded-xl"
+        />
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">
+          Designation / পদবি
+        </label>
+        <Input
+          value={designation}
+          onChange={(e) => setDesignation(e.target.value)}
+          className="h-10 rounded-xl"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[11px] font-semibold text-muted-foreground">Mobile</label>
+          <Input
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            placeholder="০১৭..."
+            className="h-10 rounded-xl"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-muted-foreground">Room</label>
+          <Input
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            placeholder="1305"
+            className="h-10 rounded-xl"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">Email</label>
+        <Input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          type="email"
+          className="h-10 rounded-xl"
+        />
+      </div>
+      <div>
+        <label className="text-[11px] font-semibold text-muted-foreground">
+          Photo URL (optional)
+        </label>
+        <Input
+          value={photo}
+          onChange={(e) => setPhoto(e.target.value)}
+          placeholder="https://…"
+          className="h-10 rounded-xl"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          variant="emerald"
+          className="flex-1"
+          disabled={name.trim().length < 2}
+          onClick={() =>
+            onSave({
+              ...(initial ?? {}),
+              name: name.trim(),
+              designation: designation.trim(),
+              faculty: department,
+              facultyKey: departmentKey(department),
+              department,
+              office: instituteName,
+              mobile: mobile.trim(),
+              email: email.trim(),
+              room: room.trim(),
+              photo: photo.trim(),
+              serial: initial?.serial ?? "",
+              batch: initial?.batch ?? "",
+              phoneOffice: initial?.phoneOffice ?? "",
+              phoneHome: initial?.phoneHome ?? "",
+            })
+          }
+        >
+          Save teacher
         </Button>
         <Button variant="ghost" onClick={onCancel}>
           Cancel
