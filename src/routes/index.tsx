@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
   Building2,
+  CalendarClock,
   CheckCircle2,
   ChevronRight,
   List,
@@ -15,6 +16,7 @@ import {
   SearchX,
   ShieldCheck,
   Sparkles,
+  UserRound,
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +67,7 @@ import { BuildingView } from "@/components/sohoj/BuildingView";
 import { hasCampusMap } from "@/lib/campus-map";
 import {
   classesInRoom,
+  currentClasses,
   currentClassesInRoom,
   deleteRoutine,
   mergeRoutineRooms,
@@ -208,6 +211,10 @@ function Index() {
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
   const activeRoutine =
     instituteRoutines.find((r) => r.id === activeRoutineId) ?? instituteRoutines[0];
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const liveNow = currentClasses(instituteRoutines, now).slice(0, 2);
   const results = useMemo(
     () => sortRooms(searchLocations(locations, buildings, query, filter)),
     [locations, buildings, query, filter],
@@ -470,16 +477,17 @@ function Index() {
       {/* App frame */}
       <main className="mx-auto min-h-dvh w-full max-w-md bg-background pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:min-h-[calc(100dvh-5rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-border lg:shadow-[var(--shadow-float)]">
         {/* Header */}
-        <header className="bg-hero rounded-b-[2rem] px-5 pb-14 pt-6 text-primary-foreground">
+        <header className="bg-hero rounded-b-[2rem] px-5 pb-16 pt-7 text-primary-foreground">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <BrandLogo />
               <div>
-                <h1 className="text-lg font-bold leading-tight">
-                  Sohoj Rasta <span className="font-bangla font-semibold">(সহজ রাস্তা)</span>
-                </h1>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald">
+                  {greeting}
+                </p>
+                <h1 className="text-lg font-bold leading-tight">Sohoj Rasta</h1>
                 <p className="font-bangla text-xs text-primary-foreground/75">
-                  নতুন ক্যাম্পাসে আপনার বিশ্বস্ত গাইড
+                  সহজ রাস্তা · আপনার স্মার্ট ক্যাম্পাস গাইড
                 </p>
               </div>
             </div>
@@ -523,8 +531,8 @@ function Index() {
                   <Loader2 className="size-3.5 animate-spin" /> Downloading map…
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald px-2.5 py-1 font-medium text-emerald-foreground">
-                  <CheckCircle2 className="size-3.5" /> Offline Data Downloaded ✓
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald/20 px-2.5 py-1 font-medium text-emerald">
+                  <CheckCircle2 className="size-3.5" /> Offline ready
                 </span>
               )}
             </div>
@@ -532,6 +540,40 @@ function Index() {
         </header>
 
         <div className="-mt-9 space-y-5 px-4 pb-10">
+          {/* Right now */}
+          <section className="animate-rise overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-float)]">
+            <div className="flex items-center justify-between bg-primary-soft/60 px-4 py-2.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-primary">
+                <CalendarClock className="size-3.5" /> Right now on campus
+              </p>
+              <span className="font-bangla text-[10px] text-muted-foreground">এখন কী চলছে</span>
+            </div>
+            {liveNow.length > 0 ? (
+              <ul className="divide-y divide-border">
+                {liveNow.map((e) => (
+                  <li key={e.id} className="flex items-center gap-3 px-4 py-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-[10px] font-bold text-primary">
+                      {e.acronym}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{e.subject}</span>
+                      <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+                        <UserRound className="size-3 shrink-0" /> {e.teacher}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-emerald-soft px-2 py-1 text-[10px] font-bold text-emerald">
+                      R{e.room}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-4 py-4 text-center text-xs text-muted-foreground">
+                এখন কোনো ক্লাস চলছে না — Routine tab-e সাপ্তাহিক সময় দেখুন।
+              </p>
+            )}
+          </section>
+
           {/* Current location */}
           <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-float)]">
             <div className="flex items-baseline justify-between">
@@ -700,7 +742,7 @@ function Index() {
           ) : (
             <>
               {/* Search */}
-              <section className="space-y-3">
+              <section className="sticky top-0 z-20 -mx-4 space-y-3 bg-background/85 px-4 pb-2 pt-2 backdrop-blur-xl">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
                   <Input

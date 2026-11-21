@@ -545,6 +545,14 @@ export function currentClassesInRoom(
   });
 }
 
+/** Classes happening anywhere on campus right now (for the home overview). */
+export function currentClasses(routines: ClassRoutine[], now: Date = new Date()): RoutineEntry[] {
+  return routines.flatMap((routine) => {
+    const allRooms = new Set(routine.entries.map((e) => e.room).filter(Boolean));
+    return [...allRooms].flatMap((room) => currentClassesInRoom([routine], room, now));
+  });
+}
+
 /* ---------------- Cloud OCR adapter (ready for Lovable Cloud) ---------------- */
 
 /**
