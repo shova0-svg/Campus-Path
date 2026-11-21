@@ -441,6 +441,18 @@ export function sortRooms<T extends CampusLocation>(rooms: T[]): T[] {
   });
 }
 
+/** Maps a routine room number to its building at Rajshahi Polytechnic. */
+export function buildingIdForRoom(code: string): string {
+  const n = Number(code.replace(/[^0-9]/g, ""));
+  if (!Number.isFinite(n)) return "academic";
+  if (n >= 1301 && n <= 1308) return "computer";
+  if ((n >= 2101 && n <= 2107) || (n >= 2201 && n <= 2206) || (n >= 2301 && n <= 2306)) {
+    return "non-departmental";
+  }
+  if (code.trim().startsWith("5")) return "electrical";
+  return "academic";
+}
+
 /** Rooms referenced by a routine but not yet in the room store. */
 export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): CampusLocation[] {
   const seen = new Set<string>();
@@ -455,7 +467,7 @@ export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): Ca
       name: `Room ${code}`,
       nameBn: `রুম ${code}`,
       category: "classroom",
-      buildingId: "academic",
+      buildingId: buildingIdForRoom(code),
       floor: parts?.floor ?? 0,
       ...(parts ? { buildingNo: parts.buildingNo, roomNo: parts.roomNo } : {}),
       turn: "right",

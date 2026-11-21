@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classesInRoom,
   currentClassesInRoom,
+  buildingIdForRoom,
   DEFAULT_ROUTINES,
   formatRoomCode,
   mergeRoutineRooms,
@@ -81,6 +82,24 @@ describe("Rajshahi CST routines", () => {
 });
 
 describe("auto routine maker", () => {
+  it("maps routine room numbers to the right buildings", () => {
+    expect(buildingIdForRoom("1305")).toBe("computer");
+    expect(buildingIdForRoom("1301")).toBe("computer");
+    expect(buildingIdForRoom("2106")).toBe("non-departmental");
+    expect(buildingIdForRoom("2203")).toBe("non-departmental");
+    expect(buildingIdForRoom("2306")).toBe("non-departmental");
+    expect(buildingIdForRoom("5201")).toBe("electrical");
+    expect(buildingIdForRoom("5208")).toBe("electrical");
+    expect(buildingIdForRoom("3109")).toBe("academic");
+  });
+
+  it("assigns derived rooms to their mapped building", () => {
+    const rooms = roomsFromRoutine(rpi1, "rpi");
+    expect(rooms.find((r) => r.name === "Room 1308")?.buildingId).toBe("computer");
+    expect(rooms.find((r) => r.name === "Room 2106")?.buildingId).toBe("non-departmental");
+    expect(rooms.find((r) => r.name === "Room 5208")?.buildingId).toBe("electrical");
+  });
+
   it("parses pasted day/period text into entries with rooms", () => {
     const entries = parseRoutineText(
       ["Sunday", "1: 28533 MSU 2302", "2: 25922 NN 2106", "Monday", "1: 28533 AAM 1305"].join("\n"),

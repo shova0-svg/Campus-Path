@@ -365,6 +365,7 @@ const rajshahiBuildings: Building[] = [
   ...(
     [
       ["electrical", "Electrical Department Building", 95],
+      ["non-departmental", "Non-Departmental Building", 75],
       ["electronics", "Electronics Department Building", 100],
       ["computer", "Computer Department Building", 85],
       ["civil", "Civil Department Building", 90],
