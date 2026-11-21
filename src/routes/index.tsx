@@ -16,6 +16,7 @@ import {
   SearchX,
   ShieldCheck,
   Sparkles,
+  UserRound,
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -584,6 +585,26 @@ function Index() {
               </div>
             </section>
           </Link>
+
+          {/* Faculty directory — Rajshahi Polytechnic only */}
+          {institute.id === "rpi" && (
+            <Link to="/teachers" className="animate-rise block">
+              <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+                <div className="flex items-center gap-3 p-4">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
+                    <UserRound className="size-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">Teachers</span>
+                    <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                      বিভাগভিত্তিক শিক্ষক তালিকা — দেখতে ট্যাপ করুন
+                    </span>
+                  </span>
+                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                </div>
+              </section>
+            </Link>
+          )}
 
           {/* Current location */}
           <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-float)]">

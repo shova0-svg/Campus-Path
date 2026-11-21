@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { groupTeachers, phoneHref, searchTeachers, TEACHERS } from "@/lib/teachers";
 import {
   classesInRoom,
   currentClassesInRoom,
@@ -255,5 +256,35 @@ describe("auto routine maker", () => {
     const next = upsertRoutine(DEFAULT_ROUTINES, { ...rpi1, verified: true });
     expect(next).toHaveLength(DEFAULT_ROUTINES.length);
     expect(next.find((r) => r.id === rpi1.id)?.verified).toBe(true);
+  });
+});
+
+describe("RPI teacher directory", () => {
+  it("has teachers across all nine departments", () => {
+    expect(TEACHERS.length).toBeGreaterThan(100);
+    expect(groupTeachers(TEACHERS).map((g) => g.key)).toEqual([
+      "civil",
+      "computer",
+      "mechanical",
+      "electrical",
+      "power",
+      "electronics",
+      "electro-medical",
+      "mechatronics",
+      "non-tech",
+    ]);
+  });
+
+  it("keeps real details: name, designation, mobile and source photo", () => {
+    const t = TEACHERS.find((x) => x.name.includes("নূরুল আমিন"))!;
+    expect(t.designation).toBeTruthy();
+    expect(t.mobile).toMatch(/[০-৯0-9]/);
+    expect(t.photo).toMatch(/^https:\/\//);
+    expect(phoneHref(t.mobile)).toMatch(/^tel:\d+$/);
+  });
+
+  it("searches teachers by name and department", () => {
+    expect(searchTeachers(TEACHERS, "সিভিল").length).toBeGreaterThan(0);
+    expect(searchTeachers(TEACHERS, "zzzz-no-match")).toHaveLength(0);
   });
 });
