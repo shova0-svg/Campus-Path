@@ -4,6 +4,7 @@ import {
   currentClassesInRoom,
   buildingIdForRoom,
   DEFAULT_ROUTINES,
+  allCampusRooms,
   formatRoomCode,
   mergeRoutineRooms,
   parseRoomCode,
@@ -91,6 +92,20 @@ describe("auto routine maker", () => {
     expect(buildingIdForRoom("5201")).toBe("electrical");
     expect(buildingIdForRoom("5208")).toBe("electrical");
     expect(buildingIdForRoom("3109")).toBe("academic");
+  });
+
+  it("creates every room in the RPI ranges, not just the ones in routines", () => {
+    const rooms = allCampusRooms("rpi");
+    const names = rooms.map((r) => r.name);
+    for (const n of [1301, 1304, 1308, 2101, 2107, 2201, 2206, 2301, 2306, 5201, 5208]) {
+      expect(names).toContain(`Room ${n}`);
+    }
+    expect(names.filter((n) => /^Room 13/.test(n))).toHaveLength(8);
+    expect(names.filter((n) => /^Room 21|^Room 22|^Room 23/.test(n))).toHaveLength(19);
+    expect(rooms.find((r) => r.name === "Room 1301")?.buildingId).toBe("computer");
+    expect(rooms.find((r) => r.name === "Room 2201")?.buildingId).toBe("non-departmental");
+    expect(rooms.find((r) => r.name === "Room 5205")?.buildingId).toBe("electrical");
+    expect(allCampusRooms("dpi")).toHaveLength(0);
   });
 
   it("assigns derived rooms to their mapped building", () => {

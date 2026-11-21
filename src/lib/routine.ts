@@ -461,24 +461,44 @@ export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): Ca
     const code = entry.room.trim();
     if (!code || seen.has(code)) continue;
     seen.add(code);
-    const parts = parseRoomCode(code);
-    rooms.push({
-      id: routineRoomId(code),
-      name: `Room ${code}`,
-      nameBn: `রুম ${code}`,
-      category: "classroom",
-      buildingId: buildingIdForRoom(code),
-      floor: parts?.floor ?? 0,
-      ...(parts ? { buildingNo: parts.buildingNo, roomNo: parts.roomNo } : {}),
-      turn: "right",
-      landmark: parts ? `Building ${parts.buildingNo} corridor` : "Academic Building corridor",
-      side: "left",
-      door: parts?.roomNo ?? 1,
-      custom: true,
-      keywords: [code, "routine", "class", `building ${parts?.buildingNo ?? ""}`],
-    });
+    rooms.push(makeRoutineRoom(code, instituteId));
   }
-  return rooms.map((r) => ({ ...r, id: `${r.id}-${instituteId}` }));
+  return rooms;
+}
+
+function makeRoutineRoom(code: string, instituteId: string): CampusLocation {
+  const parts = parseRoomCode(code);
+  return {
+    id: `${routineRoomId(code)}-${instituteId}`,
+    name: `Room ${code}`,
+    nameBn: `রুম ${code}`,
+    category: "classroom",
+    buildingId: buildingIdForRoom(code),
+    floor: parts?.floor ?? 0,
+    ...(parts ? { buildingNo: parts.buildingNo, roomNo: parts.roomNo } : {}),
+    turn: "right",
+    landmark: parts ? `Building ${parts.buildingNo} corridor` : "Academic Building corridor",
+    side: "left",
+    door: parts?.roomNo ?? 1,
+    custom: true,
+    keywords: [code, "routine", "class", `building ${parts?.buildingNo ?? ""}`],
+  };
+}
+
+function range(from: number, to: number): string[] {
+  return Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
+}
+
+/** Every room in the RPI room-number ranges, not only the ones used by a routine. */
+export function allCampusRooms(instituteId: string): CampusLocation[] {
+  if (instituteId !== "rpi") return [];
+  return [
+    ...range(1301, 1308),
+    ...range(2101, 2107),
+    ...range(2201, 2206),
+    ...range(2301, 2306),
+    ...range(5201, 5208),
+  ].map((code) => makeRoutineRoom(code, instituteId));
 }
 
 export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEntry[] {
@@ -491,6 +511,14 @@ export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEn
 /** Adds rooms referenced by every saved routine to the room store (idempotent). */
 export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]): LocationStore {
   let next = { ...store };
+  const catalog = allCampusRooms("rpi");
+  if (catalog.length > 0) {
+    const list = [...(next["rpi"] ?? [])];
+    for (const room of catalog) {
+      if (!list.some((l) => l.id === room.id)) list.unshift(room);
+    }
+    next = { ...next, rpi: list };
+  }
   for (const routine of routines) {
     const list = next[routine.instituteId] ?? [];
     for (const room of roomsFromRoutine(routine, routine.instituteId)) {
