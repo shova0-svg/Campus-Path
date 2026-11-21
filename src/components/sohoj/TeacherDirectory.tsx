@@ -8,6 +8,7 @@ import {
   phoneHref,
   searchTeachers,
   allTeachers,
+  defaultTeacherStore,
   parseTeacherStore,
   TEACHERS_STORE_KEY,
   TEACHER_SOURCE,
@@ -21,11 +22,7 @@ interface Props {
 }
 
 export function TeacherDirectory({ instituteName }: Props) {
-  const [store, setStore] = useState<TeacherStore>(() =>
-    parseTeacherStore(
-      typeof window === "undefined" ? null : window.localStorage.getItem(TEACHERS_STORE_KEY),
-    ),
-  );
+  const [store, setStore] = useState<TeacherStore>(defaultTeacherStore);
   const [query, setQuery] = useState("");
   const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
 

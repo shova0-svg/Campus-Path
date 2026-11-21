@@ -20,9 +20,13 @@ function slotTime(routine: ClassRoutine, entry: RoutineEntry): string {
 
 export function LiveClasses() {
   const [routines, setRoutines] = useState<ClassRoutine[]>([]);
-  const [now, setNow] = useState(() => new Date());
+  // Epoch on the server and on the first client render keeps hydration stable.
+  const [now, setNow] = useState(() => new Date(0));
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    setNow(new Date());
     try {
       setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
     } catch {
@@ -65,7 +69,8 @@ export function LiveClasses() {
           </p>
           <h1 className="mt-1 font-display text-xl font-semibold">এখন কী চলছে</h1>
           <p className="mt-1 text-xs text-primary-foreground/75">
-            {day} · {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ·{" "}
+            {mounted ? day : ""} ·{" "}
+            {mounted ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""} ·{" "}
             {live.length} classes running
           </p>
         </div>
