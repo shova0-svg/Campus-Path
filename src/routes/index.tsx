@@ -149,6 +149,7 @@ function Index() {
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => parseRoutineStore(null));
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -232,6 +233,7 @@ function Index() {
       list,
     }));
   }, [results, buildings]);
+  const showBuildings = query.trim() === "" && filter === "all";
   const selected = locations.find((l) => l.id === selectedId) ?? null;
   const start = ALL_START_POINTS.find((s) => s.id === startId) ?? MAIN_GATE;
   const startOptions =
@@ -241,6 +243,8 @@ function Index() {
     setInstituteId(id);
     setView("list");
     setSelectedId(null);
+    setSelectedBuildingId(null);
+    setQrBuilding(null);
     setQuery("");
     setFilter("all");
     setDownloading(true);
@@ -439,6 +443,8 @@ function Index() {
 
   function openLocation(id: string) {
     setSelectedId(id);
+    setSelectedBuildingId(null);
+    setQrBuilding(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -686,6 +692,16 @@ function Index() {
               onSelectRoom={openLocation}
               onBack={() => setQrBuilding(null)}
             />
+          ) : selectedBuildingId ? (
+            <BuildingView
+              institute={institute}
+              buildings={buildings}
+              buildingId={selectedBuildingId}
+              rooms={locations}
+              routines={routines}
+              onSelectRoom={openLocation}
+              onBack={() => setSelectedBuildingId(null)}
+            />
           ) : selected ? (
             <NavigationView
               location={selected}
@@ -772,10 +788,40 @@ function Index() {
               {/* Results */}
               <section>
                 <div className="mb-2 flex items-baseline justify-between px-1">
-                  <h2 className="text-base font-semibold">Destinations</h2>
-                  <span className="text-xs text-muted-foreground">{results.length} found</span>
+                  <h2 className="text-base font-semibold">
+                    {showBuildings ? "Buildings" : "Destinations"}
+                  </h2>
+                  <span className="text-xs text-muted-foreground">
+                    {showBuildings ? `${buildings.length} buildings` : `${results.length} found`}
+                  </span>
                 </div>
-                {results.length === 0 ? (
+                {showBuildings ? (
+                  <div className="space-y-2.5">
+                    {buildings.map((b) => {
+                      const inBuilding = locations.filter((l) => l.buildingId === b.id);
+                      const floors = new Set(inBuilding.map((l) => l.floor)).size;
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => setSelectedBuildingId(b.id)}
+                          className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30 active:scale-[0.99]"
+                        >
+                          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                            <Building2 className="size-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{b.name}</span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {inBuilding.length} rooms · {floors} floors
+                            </span>
+                          </span>
+                          <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : results.length === 0 ? (
                   <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
                     <SearchX className="mx-auto size-8 text-muted-foreground" />
                     <p className="mt-3 font-medium">

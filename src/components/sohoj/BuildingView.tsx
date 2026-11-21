@@ -75,7 +75,7 @@ export function BuildingView({
 
         {buildingRooms.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-            Ekhono kono room nei. Admin panel-e QR maker diye building QR bananor age room add koro.
+            Ekhono kono room nei. Admin panel-e ei building-e room add koro.
           </div>
         ) : (
           <ul className="space-y-3">
