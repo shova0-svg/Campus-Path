@@ -1,6 +1,7 @@
 import type { CampusLocation } from "@/lib/campus-data";
 import type { LocationStore } from "@/lib/admin";
 import { civilRoutines } from "@/lib/civil-routines";
+import { eveningRoutines } from "@/lib/evening-routines";
 
 /* ---------------- Models ---------------- */
 
@@ -251,6 +252,7 @@ export const DEFAULT_ROUTINES: ClassRoutine[] = [
     updatedAt: STAMP,
   },
   ...civilRoutines(DEFAULT_PERIODS),
+  ...eveningRoutines(),
 ];
 
 /* ---------------- Storage ---------------- */
@@ -506,8 +508,7 @@ export function allCampusRooms(instituteId: string): CampusLocation[] {
     ...range(3401, 3406),
     ...range(4101, 4106),
     ...range(5101, 5108),
-    ...range(5201, 5208),
-    ...range(5211, 5211),
+    ...range(5201, 5211),
   ].map((code) => makeRoutineRoom(code, instituteId));
 }
 
@@ -552,14 +553,19 @@ export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]
   return next;
 }
 
-function timeToMinutes(time: string, isEnd: boolean): number {
-  const match = time.match(/(\d{1,2}):(\d{2})/);
-  if (!match) return 0;
-  let hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  // "12:30-1:15" → the end time is 13:15, not 01:15.
-  if (isEnd && hours < 8) hours += 12;
-  return hours * 60 + minutes;
+/** Handles morning (8:00-8:45), noon wrap (12:30-1:15) and 2nd shift (1:30-2:15). */
+function periodRange(time: string): [number, number] | null {
+  const [start, end] = time.split(/\s*[-–]\s*/);
+  const sm = start?.match(/(\d{1,2}):(\d{2})/);
+  const em = end?.match(/(\d{1,2}):(\d{2})/);
+  if (!sm || !em) return null;
+  let sh = Number(sm[1]);
+  let eh = Number(em[1]);
+  if (eh < sh || (sh < 8 && eh < 8)) {
+    sh += 12;
+    eh += 12;
+  }
+  return [sh * 60 + Number(sm[2]), eh * 60 + Number(em[2])];
 }
 
 /** Classes happening in a room right now, based on the wall clock and routine periods. */
@@ -574,13 +580,8 @@ export function currentClassesInRoom(
   const current = now.getHours() * 60 + now.getMinutes();
   return routines.flatMap((routine) => {
     const period = routine.periods.find((p) => {
-      const [start, end] = p.time.split(/\s*[-–]\s*/);
-      return (
-        start &&
-        end &&
-        current >= timeToMinutes(start, false) &&
-        current <= timeToMinutes(end, true)
-      );
+      const range = periodRange(p.time);
+      return range && current >= range[0] && current <= range[1];
     });
     if (!period) return [];
     return routine.entries

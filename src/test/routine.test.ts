@@ -20,15 +20,36 @@ const rpi3 = DEFAULT_ROUTINES.find((r) => r.id === "rpi-cst-3-morning")!;
 const rpi1 = DEFAULT_ROUTINES.find((r) => r.id === "rpi-cst-1-morning")!;
 
 describe("Rajshahi CST routines", () => {
-  it("ships CST and Civil morning routines", () => {
+  it("ships CST morning, Civil morning and CST 2nd-shift routines", () => {
     expect(DEFAULT_ROUTINES.slice(0, 2).map((r) => [r.semester, r.shift])).toEqual([
       [1, "Morning"],
       [3, "Morning"],
     ]);
     expect(DEFAULT_ROUTINES.filter((r) => r.department === "Civil Technology")).toHaveLength(8);
+    expect(DEFAULT_ROUTINES.filter((r) => r.shift === "Evening")).toHaveLength(4);
     expect(DEFAULT_ROUTINES.every((r) => r.instituteId === "rpi" && r.entries.length > 0)).toBe(
       true,
     );
+  });
+
+  it("uses 2nd-shift period times and keeps every evening detail", () => {
+    const eve = DEFAULT_ROUTINES.filter((r) => r.shift === "Evening");
+    expect(eve.map((r) => r.id)).toEqual([
+      "rpi-cst-eve-1",
+      "rpi-cst-eve-3",
+      "rpi-cst-eve-4",
+      "rpi-cst-eve-6",
+    ]);
+    expect(
+      eve.every((r) => r.periods[0]?.time === "1:30-2:15" && r.periods[6]?.time === "6:00-6:45"),
+    ).toBe(true);
+    const eve3 = eve.find((r) => r.id === "rpi-cst-eve-3")!;
+    expect(eve3.entries.find((e) => e.code === "28531")).toMatchObject({
+      subject: "Application Development Using Python",
+      teacher: "Md. Shahinul Islam",
+      acronym: "SI",
+    });
+    expect(eve3.entries.some((e) => e.room === "2106")).toBe(true);
   });
 
   it("has all eight Civil routines with subjects, teachers and rooms", () => {
