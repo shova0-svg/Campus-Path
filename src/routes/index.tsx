@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BookOpen,
   Building2,
@@ -16,7 +16,6 @@ import {
   SearchX,
   ShieldCheck,
   Sparkles,
-  UserRound,
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -215,7 +214,7 @@ function Index() {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const liveNow = currentClasses(instituteRoutines, now).slice(0, 2);
+  const liveNow = currentClasses(instituteRoutines, now);
   const results = useMemo(
     () => sortRooms(searchLocations(locations, buildings, query, filter)),
     [locations, buildings, query, filter],
@@ -546,39 +545,26 @@ function Index() {
         </header>
 
         <div className="-mt-9 space-y-5 px-4 pb-10">
-          {/* Right now */}
-          <section className="animate-rise overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-float)]">
-            <div className="flex items-center justify-between bg-primary-soft/60 px-4 py-2.5">
-              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-primary">
-                <CalendarClock className="size-3.5" /> Right now on campus
-              </p>
-              <span className="font-bangla text-[10px] text-muted-foreground">এখন কী চলছে</span>
-            </div>
-            {liveNow.length > 0 ? (
-              <ul className="divide-y divide-border">
-                {liveNow.map((e) => (
-                  <li key={e.id} className="flex items-center gap-3 px-4 py-3">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-[10px] font-bold text-primary">
-                      {e.acronym}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{e.subject}</span>
-                      <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-                        <UserRound className="size-3 shrink-0" /> {e.teacher}
-                      </span>
-                    </span>
-                    <span className="shrink-0 rounded-full bg-emerald-soft px-2 py-1 text-[10px] font-bold text-emerald">
-                      R{e.room}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-4 py-4 text-center text-xs text-muted-foreground">
-                এখন কোনো ক্লাস চলছে না — Routine tab-e সাপ্তাহিক সময় দেখুন।
-              </p>
-            )}
-          </section>
+          {/* Right now — details live on their own page */}
+          <Link to="/right-now" className="animate-rise block">
+            <section className="overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+              <div className="flex items-center gap-3 p-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                  <CalendarClock className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Right now on campus</span>
+                  <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                    এখন কী চলছে — দেখতে ট্যাপ করুন
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full bg-emerald-soft px-2.5 py-1 text-[10px] font-bold text-emerald">
+                  {liveNow.length} live
+                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+              </div>
+            </section>
+          </Link>
 
           {/* Current location */}
           <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-float)]">
