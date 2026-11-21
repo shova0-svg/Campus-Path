@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { DoorOpen, Expand, X } from "lucide-react";
+import { Box, DoorOpen, Map as MapIcon, Trees } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /** Hotspots follow the institute's official ground-floor site plan. */
 type Area = {
@@ -10,9 +11,10 @@ type Area = {
   y: number;
   w: number;
   h: number;
-  tone: "academic" | "office" | "lab" | "water" | "sport" | "road";
+  tone: "building" | "office" | "lab" | "water" | "sport" | "road";
   buildingId?: string;
   detail: string;
+  floors?: number;
 };
 
 const AREAS: Area[] = [
@@ -21,9 +23,9 @@ const AREAS: Area[] = [
     label: "Main Road",
     labelBn: "প্রধান সড়ক",
     x: 0,
-    y: 24,
+    y: 18,
     w: 1000,
-    h: 78,
+    h: 74,
     tone: "road",
     detail: "Main public road along the north boundary.",
   },
@@ -31,150 +33,444 @@ const AREAS: Area[] = [
     id: "gate",
     label: "Main Gate",
     labelBn: "প্রধান ফটক",
-    x: 224,
-    y: 100,
-    w: 92,
-    h: 34,
+    x: 222,
+    y: 92,
+    w: 96,
+    h: 30,
     tone: "office",
     detail: "Main entrance of Rajshahi Govt. Polytechnic Institute.",
   },
   {
     id: "b1",
-    label: "Building No. 01 · Office Room",
-    labelBn: "১ নং ভবন · অফিস রুম",
-    x: 282,
-    y: 132,
-    w: 320,
-    h: 145,
+    label: "Building 01 · Office",
+    labelBn: "১ নং ভবন · অফিস",
+    x: 280,
+    y: 124,
+    w: 324,
+    h: 138,
     tone: "office",
-    detail: "3-storey building: Office Room, Principal and admin sections.",
+    detail: "3-storey building — Office Room, Principal and admin sections.",
     buildingId: "admin",
+    floors: 3,
   },
   {
     id: "teachers",
     label: "Teachers Club",
     labelBn: "শিক্ষক ক্লাব",
-    x: 56,
-    y: 160,
-    w: 150,
-    h: 118,
+    x: 54,
+    y: 154,
+    w: 152,
+    h: 110,
     tone: "office",
     detail: "Teachers' club room on the north-west corner.",
+    floors: 2,
   },
   {
     id: "scout",
     label: "Scout Building",
     labelBn: "স্কাউট ভবন",
-    x: 604,
-    y: 166,
-    w: 168,
-    h: 112,
+    x: 606,
+    y: 158,
+    w: 170,
+    h: 104,
     tone: "office",
     detail: "Scout building next to the Office Room.",
+    floors: 2,
   },
   {
-    id: "balcony-n",
+    id: "balcony",
     label: "Balcony",
     labelBn: "ব্যালকনি",
-    x: 152,
-    y: 278,
-    w: 620,
-    h: 52,
+    x: 150,
+    y: 264,
+    w: 626,
+    h: 46,
     tone: "office",
     detail: "Common balcony in front of the office and class rooms.",
   },
   {
     id: "b2",
-    label: "Building No. 02 · Class Room",
+    label: "Building 02 · Class",
     labelBn: "২ নং ভবন · ক্লাসরুম",
-    x: 56,
-    y: 310,
+    x: 54,
+    y: 304,
     w: 152,
-    h: 388,
-    tone: "academic",
+    h: 380,
+    tone: "building",
     detail: "3-storey building with class rooms and balcony.",
     buildingId: "civil",
+    floors: 3,
   },
   {
     id: "b3",
-    label: "Building No. 03 · Class Room",
+    label: "Building 03 · Class",
     labelBn: "৩ নং ভবন · ক্লাসরুম",
     x: 826,
-    y: 390,
+    y: 382,
     w: 120,
-    h: 394,
-    tone: "academic",
+    h: 388,
+    tone: "building",
     detail: "3-storey building with class rooms and balcony.",
     buildingId: "electrical",
+    floors: 3,
   },
   {
     id: "pond",
-    label: "Pond · পুকুর",
+    label: "Pond",
     labelBn: "পুকুর",
     x: 286,
-    y: 388,
+    y: 378,
     w: 424,
-    h: 352,
+    h: 350,
     tone: "water",
     detail: "Central pond with paved banks on all four sides.",
   },
   {
     id: "b6",
-    label: "Building No. 06 · Lab Room",
-    labelBn: "৬ নং ভবন · ল্যাব রুম",
-    x: 88,
-    y: 788,
-    w: 140,
-    h: 196,
+    label: "Building 06 · Lab",
+    labelBn: "৬ নং ভবন · ল্যাব",
+    x: 86,
+    y: 782,
+    w: 142,
+    h: 194,
     tone: "lab",
     detail: "Single-storey laboratory block (south-west).",
     buildingId: "mechanical",
+    floors: 1,
   },
   {
     id: "badminton",
-    label: "Badminton Court",
+    label: "Badminton",
     labelBn: "ব্যাডমিন্টন কোর্ট",
     x: 258,
-    y: 826,
+    y: 822,
     w: 116,
-    h: 148,
+    h: 146,
     tone: "sport",
     detail: "Outdoor badminton court between the lab blocks.",
   },
   {
     id: "b5",
-    label: "Building No. 05 · Lab Room",
-    labelBn: "৫ নং ভবন · ল্যাব রুম",
+    label: "Building 05 · Lab",
+    labelBn: "৫ নং ভবন · ল্যাব",
     x: 420,
-    y: 790,
+    y: 784,
     w: 120,
-    h: 194,
+    h: 192,
     tone: "lab",
     detail: "Single-storey laboratory block (south-center).",
     buildingId: "computer",
+    floors: 1,
   },
   {
     id: "b4",
-    label: "Building No. 04 · Lab Room",
-    labelBn: "৪ নং ভবন · ল্যাব রুম",
+    label: "Building 04 · Lab",
+    labelBn: "৪ নং ভবন · ল্যাব",
     x: 642,
-    y: 790,
+    y: 784,
     w: 120,
-    h: 194,
+    h: 192,
     tone: "lab",
     detail: "Single-storey laboratory block (south-east).",
     buildingId: "electronics",
+    floors: 1,
   },
 ];
 
-const TONE: Record<Area["tone"], { fill: string; stroke: string; text: string }> = {
-  academic: { fill: "fill-[#e2f0ea]", stroke: "stroke-[#3f8b78]", text: "fill-[#1d5c4c]" },
-  office: { fill: "fill-[#eef1f4]", stroke: "stroke-[#7b8794]", text: "fill-[#334155]" },
-  lab: { fill: "fill-[#e2f0ea]", stroke: "stroke-[#3f8b78]", text: "fill-[#1d5c4c]" },
-  water: { fill: "fill-[#bfe3ef]", stroke: "stroke-[#2f8fb5]", text: "fill-[#14536e]" },
-  sport: { fill: "fill-[#b8e0c4]", stroke: "stroke-[#2f8f52]", text: "fill-[#145c31]" },
-  road: { fill: "fill-[#cfd4da]", stroke: "stroke-[#94a3b8]", text: "fill-[#334155]" },
+const TONE: Record<Area["tone"], { fill: string; side: string; stroke: string; text: string }> = {
+  building: { fill: "#dcefe8", side: "#8db8aa", stroke: "#3f8b78", text: "#164b3e" },
+  office: { fill: "#e9edf1", side: "#9da8b4", stroke: "#64748b", text: "#27364a" },
+  lab: { fill: "#dcefe8", side: "#8db8aa", stroke: "#3f8b78", text: "#164b3e" },
+  water: { fill: "#a9dcec", side: "#5aa9c6", stroke: "#2f8fb5", text: "#0f4a63" },
+  sport: { fill: "#b6e3c3", side: "#69b984", stroke: "#2f8f52", text: "#124d30" },
+  road: { fill: "#d5d9de", side: "#a3abb4", stroke: "#94a3b8", text: "#334155" },
 };
+
+function PlanSvg({
+  selected,
+  onSelect,
+  is3D,
+}: {
+  selected: Area | null;
+  onSelect: (a: Area) => void;
+  is3D: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 1000 1000"
+      className="h-auto w-full"
+      role="img"
+      aria-label="Official ground floor site plan of Rajshahi Govt. Polytechnic Institute"
+    >
+      <defs>
+        <pattern id="pondRipple" width="26" height="14" patternUnits="userSpaceOnUse">
+          <path
+            d="M0 7 Q 6 2 13 7 T 26 7"
+            fill="none"
+            stroke="#7cc6df"
+            strokeWidth="1.5"
+            opacity="0.7"
+          />
+        </pattern>
+        <pattern id="grass" width="18" height="18" patternUnits="userSpaceOnUse">
+          <circle cx="4" cy="4" r="1.6" fill="#9ccfa9" opacity="0.6" />
+          <circle cx="13" cy="12" r="1.2" fill="#8fc39e" opacity="0.5" />
+        </pattern>
+        <linearGradient id="pondFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#bce8f4" />
+          <stop offset="1" stopColor="#79c6e0" />
+        </linearGradient>
+        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#1e3a5f" floodOpacity="0.18" />
+        </filter>
+      </defs>
+
+      <rect width="1000" height="1000" fill="#f4f2ea" />
+      <rect width="1000" height="1000" fill="url(#grass)" />
+      <rect
+        x="8"
+        y="8"
+        width="984"
+        height="984"
+        rx="12"
+        fill="none"
+        stroke="#c9c3ad"
+        strokeWidth="4"
+        strokeDasharray="12 9"
+      />
+
+      {/* Walkways */}
+      <g fill="#e6e1d2">
+        <rect x="205" y="110" width="100" height="870" />
+        <rect x="700" y="260" width="120" height="520" />
+        <rect x="140" y="258" width="720" height="46" />
+        <rect x="140" y="740" width="720" height="44" />
+      </g>
+
+      {AREAS.map((area) => {
+        const tone = TONE[area.tone];
+        const active = selected?.id === area.id;
+        const isPond = area.id === "pond";
+        const isCourt = area.id === "badminton";
+        const isRoad = area.id === "road";
+        const isGate = area.id === "gate";
+        const extrusion = is3D && area.floors ? Math.min(area.floors * 9, 26) : 0;
+
+        return (
+          <g
+            key={area.id}
+            onClick={() => onSelect(area)}
+            className="cursor-pointer"
+            role="button"
+            aria-label={`${area.label} — ${area.detail}`}
+            filter={is3D && !isRoad && !isPond ? "url(#softShadow)" : undefined}
+          >
+            {extrusion > 0 && (
+              <path
+                d={`M ${area.x} ${area.y + area.h} L ${area.x + area.w} ${area.y + area.h} L ${area.x + area.w} ${area.y + area.h + extrusion} L ${area.x} ${area.y + area.h + extrusion} Z`}
+                fill={tone.side}
+              />
+            )}
+            {isPond ? (
+              <>
+                <rect
+                  x={area.x - 14}
+                  y={area.y - 14}
+                  width={area.w + 28}
+                  height={area.h + 28}
+                  rx="10"
+                  fill="#dfd8c4"
+                  stroke="#b9ad90"
+                  strokeWidth="4"
+                />
+                <rect
+                  x={area.x - 4}
+                  y={area.y - 4}
+                  width={area.w + 8}
+                  height={area.h + 8}
+                  rx="6"
+                  fill="none"
+                  stroke="#a9c8b5"
+                  strokeWidth="5"
+                />
+                <rect
+                  x={area.x}
+                  y={area.y}
+                  width={area.w}
+                  height={area.h}
+                  rx="4"
+                  fill="url(#pondFill)"
+                  stroke={tone.stroke}
+                  strokeWidth="3"
+                />
+                <rect
+                  x={area.x}
+                  y={area.y}
+                  width={area.w}
+                  height={area.h}
+                  fill="url(#pondRipple)"
+                />
+              </>
+            ) : isRoad ? (
+              <>
+                <rect x={area.x} y={area.y} width={area.w} height={area.h} fill={tone.fill} />
+                <line
+                  x1="0"
+                  y1={area.y + area.h / 2}
+                  x2="1000"
+                  y2={area.y + area.h / 2}
+                  stroke="#fff"
+                  strokeWidth="5"
+                  strokeDasharray="28 22"
+                />
+              </>
+            ) : (
+              <rect
+                x={area.x}
+                y={area.y}
+                width={area.w}
+                height={area.h}
+                rx="5"
+                fill={tone.fill}
+                stroke={active ? "#10b981" : tone.stroke}
+                strokeWidth={active ? 6 : 3}
+              />
+            )}
+
+            {isGate && (
+              <g>
+                <rect x={area.x + 26} y={area.y + 16} width="8" height="18" fill="#64748b" />
+                <rect x={area.x + 62} y={area.y + 16} width="8" height="18" fill="#64748b" />
+                <line
+                  x1={area.x + 26}
+                  y1={area.y + 18}
+                  x2={area.x + 70}
+                  y2={area.y + 18}
+                  stroke="#64748b"
+                  strokeWidth="4"
+                />
+              </g>
+            )}
+            {isCourt && (
+              <g stroke="#2f8f52" fill="none" strokeWidth="2">
+                <rect x={area.x + 8} y={area.y + 8} width={area.w - 16} height={area.h - 16} />
+                <line
+                  x1={area.x + area.w / 2}
+                  y1={area.y + 8}
+                  x2={area.x + area.w / 2}
+                  y2={area.y + area.h - 8}
+                />
+                <line
+                  x1={area.x + 8}
+                  y1={area.y + area.h / 2}
+                  x2={area.x + area.w - 8}
+                  y2={area.y + area.h / 2}
+                />
+              </g>
+            )}
+
+            {!isRoad && !isGate && (
+              <g className="pointer-events-none">
+                <rect
+                  x={area.x + area.w / 2 - (area.label.length > 20 ? 88 : 70)}
+                  y={area.y + area.h / 2 - 26}
+                  width={area.label.length > 20 ? 176 : 140}
+                  height="44"
+                  rx="10"
+                  fill="#ffffff"
+                  opacity="0.82"
+                />
+                <text
+                  x={area.x + area.w / 2}
+                  y={area.y + area.h / 2 - 5}
+                  textAnchor="middle"
+                  fill={tone.text}
+                  fontSize="15"
+                  fontWeight="700"
+                >
+                  {area.label}
+                </text>
+                <text
+                  x={area.x + area.w / 2}
+                  y={area.y + area.h / 2 + 13}
+                  textAnchor="middle"
+                  fill={tone.text}
+                  fontSize="12"
+                  className="font-bangla"
+                >
+                  {area.labelBn}
+                </text>
+              </g>
+            )}
+            {isRoad && (
+              <text
+                x="500"
+                y={area.y + 26}
+                textAnchor="middle"
+                fill={tone.text}
+                fontSize="17"
+                fontWeight="700"
+                className="pointer-events-none"
+              >
+                Main Road · প্রধান সড়ক
+              </text>
+            )}
+            {isGate && (
+              <text
+                x={area.x + area.w / 2}
+                y={area.y + 48}
+                textAnchor="middle"
+                fill={tone.text}
+                fontSize="13"
+                fontWeight="700"
+                className="pointer-events-none"
+              >
+                Main Gate
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Pond bank labels */}
+      {[
+        { y: 364, label: "Pond bank" },
+        { y: 750, label: "Pond bank" },
+      ].map((item, i) => (
+        <g key={`pond-bank-${i}`} className="pointer-events-none">
+          <rect x="450" y={item.y - 17} width="100" height="22" rx="8" fill="#fff" opacity="0.85" />
+          <text
+            x="500"
+            y={item.y}
+            textAnchor="middle"
+            fill="#0f4a63"
+            fontSize="13"
+            fontWeight="700"
+          >
+            {item.label}
+          </text>
+        </g>
+      ))}
+
+      {is3D && (
+        <g opacity="0.8" className="pointer-events-none">
+          {[
+            [110, 700],
+            [900, 700],
+            [110, 300],
+            [900, 300],
+            [500, 950],
+          ].map(([x, y], i) => (
+            <g key={`tree-${i}`}>
+              <circle cx={x} cy={y} r="20" fill="#2f7d4f" opacity="0.35" />
+              <circle cx={x} cy={(y ?? 0) - 6} r="15" fill="#3d9a63" opacity="0.8" />
+            </g>
+          ))}
+        </g>
+      )}
+    </svg>
+  );
+}
 
 export function RealCampusMap({
   onSelectBuilding,
@@ -182,210 +478,47 @@ export function RealCampusMap({
   onSelectBuilding?: (buildingId: string) => void;
 }) {
   const [selected, setSelected] = useState<Area | null>(null);
-  const [zoom, setZoom] = useState(false);
-  const [has3D, setHas3D] = useState(true);
+  const [is3D, setIs3D] = useState(true);
 
   return (
     <div className="px-3 pb-3">
-      <div className="overflow-hidden rounded-2xl border border-border bg-[#f7f6f2]">
-        <svg
-          viewBox="0 0 1000 1000"
-          className="h-auto w-full"
-          role="img"
-          aria-label="Official ground floor map of Rajshahi Govt. Polytechnic Institute"
-        >
-          <rect width="1000" height="1000" className="fill-[#f7f6f2]" />
-          <rect
-            x="6"
-            y="6"
-            width="988"
-            height="988"
-            rx="10"
-            className="fill-none stroke-border"
-            strokeWidth="3"
-            strokeDasharray="10 8"
-          />
-
-          {AREAS.map((area) => {
-            const tone = TONE[area.tone];
-            const active = selected?.id === area.id;
-            const isPond = area.id === "pond";
-            const isCourt = area.id === "badminton";
-            const isRoad = area.id === "road";
-            return (
-              <g
-                key={area.id}
-                onClick={() => setSelected(area)}
-                className="cursor-pointer"
-                role="button"
-                aria-label={`${area.label} — ${area.detail}`}
-              >
-                {isPond ? (
-                  <>
-                    <rect
-                      x={area.x - 12}
-                      y={area.y - 12}
-                      width={area.w + 24}
-                      height={area.h + 24}
-                      rx="8"
-                      className="fill-[#dfd9c8] stroke-[#b8ae94]"
-                      strokeWidth="4"
-                    />
-                    <ellipse
-                      cx={area.x + area.w / 2}
-                      cy={area.y + area.h / 2}
-                      rx={area.w / 2}
-                      ry={area.h / 2}
-                      className={`${tone.fill} ${tone.stroke}`}
-                      strokeWidth="3"
-                    />
-                  </>
-                ) : isRoad ? (
-                  <>
-                    <rect
-                      x={area.x}
-                      y={area.y}
-                      width={area.w}
-                      height={area.h}
-                      className={`${tone.fill} ${tone.stroke}`}
-                    />
-                    <line
-                      x1="0"
-                      y1={area.y + area.h / 2}
-                      x2="1000"
-                      y2={area.y + area.h / 2}
-                      className="stroke-white"
-                      strokeWidth="4"
-                      strokeDasharray="26 20"
-                    />
-                  </>
-                ) : (
-                  <rect
-                    x={area.x}
-                    y={area.y}
-                    width={area.w}
-                    height={area.h}
-                    rx="5"
-                    className={`${tone.fill} ${active ? "stroke-emerald" : tone.stroke} ${active ? "stroke-[6]" : "stroke-[3]"}`}
-                  />
-                )}
-
-                {isCourt && (
-                  <>
-                    <rect
-                      x={area.x + 10}
-                      y={area.y + 10}
-                      width={area.w - 20}
-                      height={area.h - 20}
-                      className="fill-none stroke-[#2f8f52]"
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1={area.x + area.w / 2}
-                      y1={area.y + 10}
-                      x2={area.x + area.w / 2}
-                      y2={area.y + area.h - 10}
-                      className="stroke-[#2f8f52]"
-                      strokeWidth="2"
-                    />
-                    <line
-                      x1={area.x + 10}
-                      y1={area.y + area.h / 2}
-                      x2={area.x + area.w - 10}
-                      y2={area.y + area.h / 2}
-                      className="stroke-[#2f8f52]"
-                      strokeWidth="2"
-                    />
-                  </>
-                )}
-
-                {!isRoad && (
-                  <text
-                    x={area.x + area.w / 2}
-                    y={area.y + area.h / 2 - 2}
-                    textAnchor="middle"
-                    className={`${tone.text} pointer-events-none text-[15px] font-bold`}
-                  >
-                    {area.label.split(" · ")[0]}
-                  </text>
-                )}
-                {!isRoad && (
-                  <text
-                    x={area.x + area.w / 2}
-                    y={area.y + area.h / 2 + 18}
-                    textAnchor="middle"
-                    className={`${tone.text} pointer-events-none font-bangla text-[12px]`}
-                  >
-                    {area.labelBn.split(" · ")[0]}
-                  </text>
-                )}
-                {isRoad && (
-                  <text
-                    x="500"
-                    y={area.y + 24}
-                    textAnchor="middle"
-                    className={`${tone.text} pointer-events-none text-[16px] font-bold`}
-                  >
-                    {area.label}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Pond bank labels */}
-          {[
-            ["Pond bank", 500, 372],
-            ["Pond bank", 500, 760],
-          ].map(([label, x, y], i) => (
-            <text
-              key={`pond-bank-${i}`}
-              x={Number(x)}
-              y={Number(y)}
-              textAnchor="middle"
-              className="pointer-events-none fill-[#14536e] text-[13px] font-bold"
-            >
-              {label}
-            </text>
-          ))}
-        </svg>
-
-        {zoom && (
-          <div
-            className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
-            onClick={() => setZoom(false)}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="inline-flex rounded-full bg-muted p-0.5">
+          <button
+            type="button"
+            onClick={() => setIs3D(true)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors",
+              is3D ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+            )}
           >
-            <div
-              className="max-h-[92dvh] w-full max-w-3xl overflow-auto rounded-2xl bg-white p-2"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {has3D ? (
-                <img
-                  src="/rpi-campus-3d.png"
-                  alt="3D model of Rajshahi Govt. Polytechnic campus"
-                  className="w-full"
-                  onError={() => setHas3D(false)}
-                />
-              ) : (
-                <div className="p-4 text-center">
-                  <p className="text-sm font-semibold">3D campus model</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Put the 3D render at <code>public/rpi-campus-3d.png</code> to see it here. The
-                    live plan above is the official 2D site map and works offline.
-                  </p>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setZoom(false)}
-              className="absolute right-5 top-5 rounded-full bg-white p-2 text-foreground"
-              aria-label="Close"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        )}
+            <Box className="size-3.5" /> 3D Model
+          </button>
+          <button
+            type="button"
+            onClick={() => setIs3D(false)}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors",
+              !is3D ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+            )}
+          >
+            <MapIcon className="size-3.5" /> 2D Plan
+          </button>
+        </div>
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+          <Trees className="size-3" /> Ground Floor
+        </span>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-[#f4f2ea]">
+        <div
+          className={cn(
+            "transition-transform duration-500",
+            is3D && "[transform:perspective(1400px)_rotateX(34deg)_rotateZ(-8deg)_scale(0.93)]",
+          )}
+        >
+          <PlanSvg selected={selected} onSelect={setSelected} is3D={is3D} />
+        </div>
       </div>
 
       {selected && (
@@ -395,6 +528,11 @@ export function RealCampusMap({
               <p className="text-sm font-semibold">{selected.label}</p>
               <p className="font-bangla text-xs text-muted-foreground">{selected.labelBn}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">{selected.detail}</p>
+              {selected.floors ? (
+                <p className="mt-0.5 text-[10px] font-semibold text-primary">
+                  {selected.floors} storey building
+                </p>
+              ) : null}
             </div>
             {selected.buildingId && onSelectBuilding && (
               <button
@@ -409,18 +547,9 @@ export function RealCampusMap({
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] text-muted-foreground">
-          Ground Floor · official site plan · tap a building
-        </p>
-        <button
-          type="button"
-          onClick={() => setZoom(true)}
-          className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
-        >
-          <Expand className="size-3" /> 3D view
-        </button>
-      </div>
+      <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        Rajshahi Govt. Polytechnic Institute · official site plan · tap a building
+      </p>
     </div>
   );
 }
