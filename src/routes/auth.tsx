@@ -93,6 +93,11 @@ function AuthPage() {
   }
 
   async function oauth(provider: "google" | "lovable") {
+    if (provider === "google") {
+      const { signInWithGoogle } = await import("@/lib/firebase");
+      await signInWithGoogle();
+      return;
+    }
     const result = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
@@ -108,17 +113,28 @@ function AuthPage() {
     <div className="min-h-dvh bg-background">
       <main className="mx-auto w-full max-w-md">
         <header className="bg-hero rounded-b-[2rem] px-5 pb-14 pt-7 text-primary-foreground">
-          <Link to="/" className="mb-5 inline-flex items-center gap-1 text-xs text-primary-foreground/80">
+          <Link
+            to="/"
+            className="mb-5 inline-flex items-center gap-1 text-xs text-primary-foreground/80"
+          >
             <ArrowLeft className="size-4" /> Back to app
           </Link>
           <div className="flex items-center gap-3">
             <BrandLogo />
             <div>
               <h1 className="text-lg font-bold leading-tight">
-                {mode === "signup" ? "Create account" : mode === "forgot" ? "Reset password" : "Welcome back"}
+                {mode === "signup"
+                  ? "Create account"
+                  : mode === "forgot"
+                    ? "Reset password"
+                    : "Welcome back"}
               </h1>
               <p className="font-bangla text-xs text-primary-foreground/75">
-                {mode === "signup" ? "নতুন অ্যাকাউন্ট খুলুন" : mode === "forgot" ? "পাসওয়ার্ড ভুলে গেছেন?" : "আপনার অ্যাকাউন্টে প্রবেশ করুন"}
+                {mode === "signup"
+                  ? "নতুন অ্যাকাউন্ট খুলুন"
+                  : mode === "forgot"
+                    ? "পাসওয়ার্ড ভুলে গেছেন?"
+                    : "আপনার অ্যাকাউন্টে প্রবেশ করুন"}
               </p>
             </div>
           </div>
@@ -133,10 +149,19 @@ function AuthPage() {
                 </span>
                 <h2 className="text-lg font-semibold">Check your email</h2>
                 <p className="text-sm text-muted-foreground">
-                  We sent a link to <span className="break-all font-medium text-foreground">{sentTo}</span>.
-                  {mode === "forgot" ? " Open it to set a new password." : " Open it to confirm your account."}
+                  We sent a link to{" "}
+                  <span className="break-all font-medium text-foreground">{sentTo}</span>.
+                  {mode === "forgot"
+                    ? " Open it to set a new password."
+                    : " Open it to confirm your account."}
                 </p>
-                <Button variant="ghost" onClick={() => { setSentTo(null); setMode("signin"); }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSentTo(null);
+                    setMode("signin");
+                  }}
+                >
                   Back to sign in
                 </Button>
               </div>
@@ -153,7 +178,9 @@ function AuthPage() {
                         onClick={() => setMode(m)}
                         className={cn(
                           "h-9 rounded-full text-sm font-medium transition-colors",
-                          mode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
+                          mode === m
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-muted-foreground",
                         )}
                       >
                         {m === "signin" ? "Sign in" : "Sign up"}
@@ -176,7 +203,8 @@ function AuthPage() {
                       <LovableMark /> Continue with Lovable
                     </Button>
                     <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
-                      <span className="h-px flex-1 bg-border" /> or with email <span className="h-px flex-1 bg-border" />
+                      <span className="h-px flex-1 bg-border" /> or with email{" "}
+                      <span className="h-px flex-1 bg-border" />
                     </div>
                   </div>
                 )}
@@ -231,12 +259,26 @@ function AuthPage() {
                       />
                     </div>
                   )}
-                  <Button type="submit" size="lg" className="h-12 w-full rounded-full" disabled={busy}>
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="h-12 w-full rounded-full"
+                    disabled={busy}
+                  >
                     {busy && <Loader2 className="animate-spin" />}
-                    {mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in"}
+                    {mode === "signup"
+                      ? "Create account"
+                      : mode === "forgot"
+                        ? "Send reset link"
+                        : "Sign in"}
                   </Button>
                   {mode === "forgot" && (
-                    <Button type="button" variant="ghost" className="w-full" onClick={() => setMode("signin")}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => setMode("signin")}
+                    >
                       Back to sign in
                     </Button>
                   )}
