@@ -7,6 +7,8 @@ import { StudentSetup } from "@/components/sohoj/StudentSetup";
 import { BUILDINGS_STORE_KEY, parseBuildingStore } from "@/lib/admin";
 import { parseRoutineStore, ROUTINE_STORE_KEY } from "@/lib/routine";
 import { nextClassJourney, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
+import { enablePush, firebaseConfigured, onForegroundMessage } from "@/lib/firebase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/student")({
   head: () => ({
@@ -27,7 +29,20 @@ function StudentPage() {
     setProfile(parseStudent(window.localStorage.getItem(STUDENT_KEY)));
     setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
     setBuildings(parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY)));
+    if (!firebaseConfigured) return;
+    return onForegroundMessage((payload) => {
+      toast(payload.title ?? "Class reminder", { description: payload.body });
+    });
   }, []);
+
+  async function handleEnablePush(): Promise<string | null> {
+    const token = await enablePush();
+    if (token) {
+      toast.success("Push notification on", { description: "Class reminder pathabe" });
+      window.localStorage.setItem("sohoj-rasta-fcm-token", token);
+    }
+    return token;
+  }
 
   function login(next: StudentProfile) {
     setProfile(next);
@@ -64,10 +79,10 @@ function StudentPage() {
         </div>
 
         {!profile ? (
-          <StudentSetup onLogin={login} />
+          <StudentSetup onLogin={login} onEnablePush={handleEnablePush} />
         ) : (
           <>
-            <StudentSetup onLogin={login} />
+            <StudentSetup onLogin={login} onEnablePush={handleEnablePush} />
             {journey ? (
               <JourneyCard journey={journey} />
             ) : (

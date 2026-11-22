@@ -1,6 +1,34 @@
-/* Sohoj Rasta service worker — app shell + runtime cache for offline use. */
+/* Sohoj Rasta service worker — app shell, offline cache and FCM messages. */
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
+
+fetch("/firebase-config.json")
+  .then((r) => r.json())
+  .then((config) => {
+    if (!config.apiKey || !self.firebase?.initializeApp) return;
+    try {
+      self.firebase.initializeApp(config);
+      const messaging = self.firebase.messaging();
+      messaging.onBackgroundMessage((payload) => {
+        self.registration.showNotification(payload.notification?.title || "Sohoj Rasta", {
+          body: payload.notification?.body || "Class reminder",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+        });
+      });
+    } catch (_) {
+      /* ignore invalid config */
+    }
+  })
+  .catch(() => {});
+
 const CACHE = "sohoj-rasta-v1";
 const CORE = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow("/student"));
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -10,15 +10,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { GoogleLogo } from "./GoogleLogo";
+import { firebaseConfigured, signInWithGoogle, type GoogleAccount } from "@/lib/firebase";
 import { INSTITUTES } from "@/lib/campus-data";
 import { DEPARTMENT_OPTIONS, departmentEnglish } from "@/lib/teachers";
 import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 
 interface Props {
   onLogin: (profile: StudentProfile) => void;
+  onGoogleAccount?: (account: GoogleAccount) => void;
+  onEnablePush?: () => Promise<string | null>;
 }
 
-export function StudentSetup({ onLogin }: Props) {
+export function StudentSetup({ onLogin, onGoogleAccount, onEnablePush }: Props) {
   const [step, setStep] = useState<"intro" | "form" | "verifying">("intro");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -42,11 +45,19 @@ export function StudentSetup({ onLogin }: Props) {
     }
   }, []);
 
-  function continueWithGoogle(e?: FormEvent) {
+  async function continueWithGoogle(e?: FormEvent) {
     e?.preventDefault();
-    if (!email.includes("@")) return;
     setStep("verifying");
-    window.setTimeout(() => {
+    try {
+      if (firebaseConfigured) {
+        const account = await signInWithGoogle();
+        setEmail(account.email);
+        if (account.name) setName(account.name);
+        onGoogleAccount?.(account);
+      } else {
+        if (!email.includes("@")) throw new Error("Email daw");
+        await new Promise((r) => window.setTimeout(r, 500));
+      }
       onLogin({
         email: email.trim().toLowerCase(),
         name: name.trim(),
@@ -57,7 +68,9 @@ export function StudentSetup({ onLogin }: Props) {
         shift,
       });
       setStep("form");
-    }, 700);
+    } catch {
+      setStep("intro");
+    }
   }
 
   if (step === "intro") {
@@ -89,8 +102,9 @@ export function StudentSetup({ onLogin }: Props) {
           </button>
         </form>
         <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-          Demo mode: email diye local account kholbe. Real Google sign-in-er jonno Firebase / Google
-          OAuth credential lagbe.
+          {firebaseConfigured
+            ? "Real Google account diye sign-in cholche."
+            : "Demo mode: email diye local account kholbe. Real Google sign-in-er jonno Firebase config lagbe."}
         </p>
       </section>
     );
@@ -226,6 +240,10 @@ export function StudentSetup({ onLogin }: Props) {
           size="sm"
           className="mt-2 w-full"
           onClick={async () => {
+            if (onEnablePush) {
+              const token = await onEnablePush();
+              if (token) return;
+            }
             if (typeof Notification === "undefined") return;
             const permission = await Notification.requestPermission();
             if (permission === "granted") {
