@@ -77,7 +77,8 @@ function StudentPage() {
     return scheduleJourneyReminders(journey);
   }, [journey]);
 
-  const [remindersOn, setRemindersOn] = useState(notificationsEnabled);
+  const [remindersOn, setRemindersOn] = useState(false);
+  useEffect(() => setRemindersOn(notificationsEnabled()), []);
   const iosHint = needsHomeScreenHint();
 
   async function handleTogglePush() {

@@ -5,10 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 const KEY = "sohoj-rasta-notify-enabled";
 
 export function notificationsEnabled(): boolean {
+  if (typeof window === "undefined") return false;
   return window.localStorage.getItem(KEY) === "1";
 }
 
 function setEnabled(value: boolean): void {
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(KEY, value ? "1" : "0");
 }
 
@@ -23,7 +25,7 @@ export function pushSupported(): boolean {
 
 /** iOS needs the PWA installed to the home screen before Web Push works. */
 export function needsHomeScreenHint(): boolean {
-  if (typeof navigator === "undefined") return false;
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
   const ua = navigator.userAgent;
   const ios =
     /iPad|iPhone|iPod/.test(ua) ||

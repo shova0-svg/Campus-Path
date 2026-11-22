@@ -1,5 +1,5 @@
 /* Campus Path service worker — offline-first app shell + data cache. */
-const CACHE = "campus-path-v1";
+const CACHE = "campus-path-v2";
 const CORE = [
   "/",
   "/auth",

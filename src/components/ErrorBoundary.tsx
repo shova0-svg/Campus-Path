@@ -17,12 +17,17 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("Campus Path error boundary:", error, info.componentStack);
+    // Always log the REAL error and component stack, including in production.
+    console.error("Campus Path error boundary:", error, info);
   }
 
   override render() {
     const { error } = this.state;
     if (!error) return this.props.children;
+
+    const showDebug =
+      import.meta.env.DEV ||
+      (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug"));
 
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-4">
@@ -60,6 +65,13 @@ export class ErrorBoundary extends Component<Props, State> {
               Report this / জানান
             </button>
           </div>
+          {showDebug && (
+            <pre className="mt-4 max-h-48 overflow-auto rounded-xl bg-muted p-2 text-left font-mono text-[10px] text-destructive">
+              {error.message}
+              {"\n"}
+              {(error.stack ?? "").split("\n").slice(0, 8).join("\n")}
+            </pre>
+          )}
         </div>
       </div>
     );

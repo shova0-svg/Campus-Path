@@ -21,6 +21,7 @@ const CACHE_KEY = "sohoj-rasta-auth-cache";
 type CachedUser = { id: string; email: string; name: string };
 
 function readCache(): CachedUser | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(CACHE_KEY);
     return raw ? (JSON.parse(raw) as CachedUser) : null;
