@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   CalendarDays,
+  FileUp,
   LogOut,
   Pencil,
   Plus,
@@ -9,6 +10,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  Undo2,
   UserRound,
   Users,
 } from "lucide-react";
@@ -42,6 +44,8 @@ import {
 } from "@/components/ui/select";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
 import { RoutineEditor } from "./RoutineEditor";
+import { lazy, Suspense } from "react";
+const RoutineImportDialog = lazy(() => import("./RoutineImportDialog"));
 import { QrMaker } from "./QrMaker";
 import {
   floorLabel,
@@ -84,6 +88,8 @@ interface Props {
   onDelete: (instituteId: string, loc: CampusLocation) => void;
   onSaveRoutine: (routine: ClassRoutine) => void;
   onDeleteRoutine: (id: string) => void;
+  onPublishRoutine: (routine: ClassRoutine, newRooms: string[]) => void;
+  onRestoreRoutine: (id: string) => void;
   onAddAdmin: (email: string, instituteId: string) => void;
   onRemoveAdmin: (email: string) => void;
   onSaveBuilding: (building: Building) => void;
@@ -110,6 +116,8 @@ export function AdminPanel({
   onDelete,
   onSaveRoutine,
   onDeleteRoutine,
+  onPublishRoutine,
+  onRestoreRoutine,
   onAddAdmin,
   onRemoveAdmin,
   onSaveBuilding,
@@ -122,6 +130,7 @@ export function AdminPanel({
   const [query, setQuery] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CampusLocation | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<ClassRoutine | "new" | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | "new" | null>(null);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | "new" | null>(null);
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -134,6 +143,7 @@ export function AdminPanel({
       setEditingRoutine(null);
       setEditingBuilding(null);
       setEditingTeacher(null);
+      setImportOpen(false);
     }
   }, [open, currentInstituteId]);
 
@@ -405,14 +415,24 @@ export function AdminPanel({
                 />
               ) : (
                 <>
-                  <Button
-                    variant="emerald"
-                    size="xl"
-                    className="w-full"
-                    onClick={() => setEditingRoutine("new")}
-                  >
-                    <Plus /> Upload / make routine
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="emerald"
+                      size="xl"
+                      className="w-full"
+                      onClick={() => setImportOpen(true)}
+                    >
+                      <FileUp /> Import routine
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="xl"
+                      className="w-full"
+                      onClick={() => setEditingRoutine("new")}
+                    >
+                      <Plus /> Manual
+                    </Button>
+                  </div>
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     Image/PDF upload ba text paste — software auto routine banabe ar room-gulo auto
                     create hobey.
@@ -429,10 +449,21 @@ export function AdminPanel({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold">{r.title}</span>
                           <span className="block truncate text-xs text-muted-foreground">
-                            Semester {r.semester} · {r.shift} · {r.entries.length} classes
-                            {r.file ? ` · ${r.file}` : ""}
+                            Semester {r.semester} · {r.shift} · {r.entries.length} classes · v
+                            {r.version ?? 1}
+                            {r._previous ? " · undo available" : ""}
                           </span>
                         </span>
+                        {r._previous && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Undo ${r.title}`}
+                            onClick={() => onRestoreRoutine(r.id)}
+                          >
+                            <Undo2 />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -612,6 +643,19 @@ export function AdminPanel({
           )}
         </DialogContent>
       </Dialog>
+
+      <Suspense fallback={null}>
+        <RoutineImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          instituteId={institute.id}
+          teachers={Object.values(teacherStore).flat()}
+          knownRooms={Object.values(store)
+            .flat()
+            .map((r) => r.name)}
+          onPublish={onPublishRoutine}
+        />
+      </Suspense>
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent className="max-w-sm rounded-3xl">

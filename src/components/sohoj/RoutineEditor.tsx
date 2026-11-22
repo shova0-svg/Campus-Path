@@ -20,8 +20,11 @@ interface Props {
   instituteId: string;
   initial: ClassRoutine | null;
   onSave: (routine: ClassRoutine) => void;
-  onDelete: (id: string) => void;
+  onDelete?: (id: string) => void;
   onCancel: () => void;
+  /** Review mode: hide the text parser and relabel the save action. */
+  hideParser?: boolean;
+  publishLabel?: string;
 }
 
 function blankRoutine(instituteId: string): ClassRoutine {
@@ -45,7 +48,15 @@ function blankRoutine(instituteId: string): ClassRoutine {
 
 const field = "h-10 rounded-xl";
 
-export function RoutineEditor({ instituteId, initial, onSave, onDelete, onCancel }: Props) {
+export function RoutineEditor({
+  instituteId,
+  initial,
+  onSave,
+  onDelete,
+  onCancel,
+  hideParser = false,
+  publishLabel = "Save routine",
+}: Props) {
   const [draft, setDraft] = useState<ClassRoutine>(
     initial ? { ...initial } : blankRoutine(instituteId),
   );
@@ -160,42 +171,44 @@ export function RoutineEditor({ instituteId, initial, onSave, onDelete, onCancel
         />
       </div>
 
-      <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-3">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
-          <WandSparkles className="size-3.5" /> Auto routine maker
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Image/PDF upload (Cloud OCR configured hole) ba niche routine text paste koro — software
-          itself subject, teacher, room chine grid banabe.
-        </p>
-        <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/40">
-          <FileUp className="size-4 text-primary" /> {draft.file ?? "Image / PDF upload"}
-          <input
-            type="file"
-            accept="image/*,.pdf,.txt,.csv"
-            className="hidden"
-            onChange={(e) => handleFile(e.target.files?.[0])}
+      {!hideParser && (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <WandSparkles className="size-3.5" /> Auto routine maker
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Image/PDF upload (Cloud OCR configured hole) ba niche routine text paste koro — software
+            itself subject, teacher, room chine grid banabe.
+          </p>
+          <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/40">
+            <FileUp className="size-4 text-primary" /> {draft.file ?? "Image / PDF upload"}
+            <input
+              type="file"
+              accept="image/*,.pdf,.txt,.csv"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+          </label>
+          <textarea
+            value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            rows={4}
+            placeholder={"Sunday\n1: 28533 MSU 2302\n2: 25922 NN 2106\nMonday\n1: 28533 AAM 1305"}
+            className="mt-2 w-full rounded-xl border border-input bg-background p-2 font-mono text-[11px]"
           />
-        </label>
-        <textarea
-          value={paste}
-          onChange={(e) => setPaste(e.target.value)}
-          rows={4}
-          placeholder={"Sunday\n1: 28533 MSU 2302\n2: 25922 NN 2106\nMonday\n1: 28533 AAM 1305"}
-          className="mt-2 w-full rounded-xl border border-input bg-background p-2 font-mono text-[11px]"
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="emerald"
-          className="mt-2 w-full"
-          onClick={autoParse}
-          disabled={busy}
-        >
-          <Sparkles className="size-3.5" /> Auto parse & make routine
-        </Button>
-        {message && <p className="mt-2 text-[11px] text-muted-foreground">{message}</p>}
-      </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="emerald"
+            className="mt-2 w-full"
+            onClick={autoParse}
+            disabled={busy}
+          >
+            <Sparkles className="size-3.5" /> Auto parse & make routine
+          </Button>
+          {message && <p className="mt-2 text-[11px] text-muted-foreground">{message}</p>}
+        </div>
+      )}
 
       <div>
         <p className="mb-1.5 text-xs font-semibold">
@@ -285,9 +298,9 @@ export function RoutineEditor({ instituteId, initial, onSave, onDelete, onCancel
             })
           }
         >
-          Save routine + auto rooms
+          {publishLabel}
         </Button>
-        {initial && (
+        {initial && onDelete && (
           <Button
             variant="outline"
             onClick={() => onDelete(initial.id)}

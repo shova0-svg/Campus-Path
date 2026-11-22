@@ -60,6 +60,9 @@ export interface ClassRoutine {
   verified: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Incremented on every publish; previous snapshot kept for undo. */
+  version?: number;
+  _previous?: ClassRoutine;
 }
 
 export const DEFAULT_PERIODS: Period[] = [
@@ -474,7 +477,7 @@ export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): Ca
   return rooms;
 }
 
-function makeRoutineRoom(code: string, instituteId: string): CampusLocation {
+export function makeRoutineRoom(code: string, instituteId: string): CampusLocation {
   const parts = parseRoomCode(code);
   return {
     id: `${routineRoomId(code)}-${instituteId}`,

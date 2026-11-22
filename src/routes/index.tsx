@@ -85,6 +85,7 @@ import {
   currentClasses,
   currentClassesInRoom,
   deleteRoutine,
+  makeRoutineRoom,
   mergeRoutineRooms,
   roomsFromRoutine,
   sortRooms,
@@ -340,22 +341,43 @@ function Index() {
     toast.success(`${loc.name} deleted`);
   }
 
-  function saveRoutine(routine: ClassRoutine) {
+  function saveRoutine(routine: ClassRoutine, extraRooms: string[] = []) {
     if (!isAdmin) return;
-    const next = upsertRoutine(routines, routine);
-    routinesResource.set(next);
-    void upsertRoutineRow(routine).catch(() => {});
-    const autoRooms = roomsFromRoutine(routine, routine.instituteId);
+    const previous = routines.find((r) => r.id === routine.id);
+    const published: ClassRoutine = {
+      ...routine,
+      version: (previous?.version ?? routine.version ?? 1) + (previous ? 1 : 0),
+      ...(previous ? { _previous: previous } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    routinesResource.set(upsertRoutine(routines, published));
+    void upsertRoutineRow(published).catch(() => {});
+
+    const autoRooms = [
+      ...roomsFromRoutine(routine, routine.instituteId),
+      ...extraRooms.map((code) => makeRoutineRoom(code, routine.instituteId)),
+    ];
     let nextStore = store;
-    for (const room of autoRooms) {
+    const seen = new Set(autoRooms.map((r) => r.id));
+    for (const room of [...new Map(autoRooms.map((r) => [r.id, r])).values()]) {
       if (!(nextStore[routine.instituteId] ?? []).some((l) => l.id === room.id)) {
         nextStore = upsertLocation(nextStore, routine.instituteId, room);
       }
+      void upsertRoomRow({ ...room, instituteId: routine.instituteId }).catch(() => {});
     }
     commit(nextStore);
-    toast.success("Routine saved", {
-      description: `${autoRooms.length} ta room auto create hoyeche`,
+    toast.success("Routine published", {
+      description: `${seen.size} ta room auto create hoyeche`,
     });
+  }
+
+  function restoreRoutineVersion(id: string) {
+    const current = routines.find((r) => r.id === id);
+    if (!current?._previous || !isAdmin) return;
+    const restored = { ...current._previous, version: (current.version ?? 1) + 1 };
+    routinesResource.set(upsertRoutine(routines, restored));
+    void upsertRoutineRow(restored).catch(() => {});
+    toast.success("Last version restored");
   }
 
   function removeRoutine(id: string) {
@@ -1078,6 +1100,8 @@ function Index() {
               onDelete={removeLocation}
               onSaveRoutine={saveRoutine}
               onDeleteRoutine={removeRoutine}
+              onPublishRoutine={saveRoutine}
+              onRestoreRoutine={restoreRoutineVersion}
               onAddAdmin={addAdmin}
               onRemoveAdmin={removeAdmin}
               onSaveBuilding={saveBuilding}
