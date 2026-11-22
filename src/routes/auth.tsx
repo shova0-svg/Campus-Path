@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
-import { LovableMark } from "@lovable.dev/cloud-auth-js/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/sohoj/BrandLogo";
 import { GoogleLogo } from "@/components/sohoj/GoogleLogo";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
@@ -92,21 +90,9 @@ function AuthPage() {
     }
   }
 
-  async function oauth(provider: "google" | "lovable") {
-    if (provider === "google") {
-      const { signInWithGoogle } = await import("@/lib/firebase");
-      await signInWithGoogle();
-      return;
-    }
-    const result = await lovable.auth.signInWithOAuth(provider, {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message || "Sign in failed");
-      return;
-    }
-    if (result.redirected) return;
-    navigate({ to: "/", replace: true });
+  async function signInWithGoogle() {
+    const { signInWithGoogle: google } = await import("@/lib/firebase");
+    await google();
   }
 
   return (
@@ -191,17 +177,9 @@ function AuthPage() {
 
                 {mode !== "forgot" && (
                   <div className="space-y-2.5">
-                    <button type="button" className={googleButton} onClick={() => oauth("google")}>
+                    <button type="button" className={googleButton} onClick={signInWithGoogle}>
                       <GoogleLogo /> Continue with Google
                     </button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 w-full rounded-full"
-                      onClick={() => oauth("lovable")}
-                    >
-                      <LovableMark /> Continue with Lovable
-                    </Button>
                     <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
                       <span className="h-px flex-1 bg-border" /> or with email{" "}
                       <span className="h-px flex-1 bg-border" />
