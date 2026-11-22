@@ -32,3 +32,6 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+supabase/.temp
+supabase/backup-*.sql
+*.key
