@@ -7,7 +7,13 @@ import { StudentSetup } from "@/components/sohoj/StudentSetup";
 import { buildingsResource, routinesResource } from "@/lib/resources";
 import { loadStudentProfile, saveStudentProfile } from "@/lib/repo/student";
 import { nextClassJourney, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
-import { enableNotifications, notificationsEnabled, scheduleJourneyReminders } from "@/lib/notify";
+import {
+  disableNotifications,
+  enableNotifications,
+  needsHomeScreenHint,
+  notificationsEnabled,
+  scheduleJourneyReminders,
+} from "@/lib/notify";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -70,12 +76,25 @@ function StudentPage() {
     return scheduleJourneyReminders(journey);
   }, [journey]);
 
-  async function handleEnablePush(): Promise<string | null> {
+  const [remindersOn, setRemindersOn] = useState(notificationsEnabled);
+  const iosHint = needsHomeScreenHint();
+
+  async function handleTogglePush() {
+    if (remindersOn) {
+      await disableNotifications();
+      setRemindersOn(false);
+      if (user?.id) void saveStudentProfile(user.id, profile!, false).catch(() => {});
+      toast("Class reminders off");
+      return;
+    }
     const ok = await enableNotifications();
+    setRemindersOn(ok);
     toast(ok ? "Class reminders on" : "Notification permission denied", {
-      description: ok ? "Routine er upor base kore reminder jay" : "Browser setting-e allow koro",
+      description: ok
+        ? "Class close thakleo push jay — app band thakleo chalbe"
+        : "Browser setting-e allow koro / iOS-e PWA home screen-e add koro",
     });
-    return ok ? "enabled" : null;
+    if (ok && user?.id && profile) void saveStudentProfile(user.id, profile, true).catch(() => {});
   }
 
   function login(next: StudentProfile) {
@@ -106,13 +125,23 @@ function StudentPage() {
         </div>
 
         {!profile ? (
-          <StudentSetup onLogin={login} onEnablePush={handleEnablePush} />
+          <StudentSetup onLogin={login} onEnablePush={handleTogglePush} />
         ) : (
           <>
-            <StudentSetup onLogin={login} onEnablePush={handleEnablePush} />
-            <Button variant="outline" className="w-full" onClick={handleEnablePush}>
-              <Bell className="size-4" /> Enable class reminders
+            <StudentSetup onLogin={login} onEnablePush={handleTogglePush} />
+            <Button
+              variant={remindersOn ? "emerald" : "outline"}
+              className="w-full"
+              onClick={handleTogglePush}
+            >
+              <Bell className="size-4" />{" "}
+              {remindersOn ? "Reminders on — tap to off" : "Enable class reminders"}
             </Button>
+            {iosHint && (
+              <p className="text-center font-bangla text-[11px] text-muted-foreground">
+                iPhone-e push-er jonno app-ta Home Screen-e add koro (Share → Add to Home Screen)।
+              </p>
+            )}
             {journey ? (
               <JourneyCard journey={journey} />
             ) : (

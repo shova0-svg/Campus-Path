@@ -16,7 +16,7 @@ import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 
 interface Props {
   onLogin: (profile: StudentProfile) => void;
-  onEnablePush?: () => Promise<string | null>;
+  onEnablePush?: () => void | Promise<void>;
 }
 
 export function StudentSetup({ onLogin, onEnablePush }: Props) {

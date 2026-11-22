@@ -23,9 +23,34 @@ self.addEventListener("message", (event) => {
   }
 });
 
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (_) {
+    payload = { body: event.data?.text() || "" };
+  }
+  const title = payload.title || "Sohoj Rasta";
+  const options = {
+    body: payload.body || "",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    tag: payload.tag || "sohoj-class",
+    data: { url: payload.url || "/student" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow(event.notification.data?.url || "/student"));
+  const url = event.notification.data?.url || "/student";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => new URL(c.url).origin === self.location.origin);
+      if (existing) return existing.focus().then(() => existing.navigate(url));
+      return self.clients.openWindow(url);
+    }),
+  );
 });
 
 self.addEventListener("install", (event) => {

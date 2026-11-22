@@ -1,4 +1,6 @@
 import type { Journey } from "@/lib/student";
+import { removePushSubscription, savePushSubscription, subscriptionToRow } from "@/lib/repo/push";
+import { supabase } from "@/integrations/supabase/client";
 
 const KEY = "sohoj-rasta-notify-enabled";
 
@@ -10,17 +12,71 @@ function setEnabled(value: boolean): void {
   window.localStorage.setItem(KEY, value ? "1" : "0");
 }
 
+export function pushSupported(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    "Notification" in window &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window
+  );
+}
+
+/** iOS needs the PWA installed to the home screen before Web Push works. */
+export function needsHomeScreenHint(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  const ios =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return ios && !window.matchMedia("(display-mode: standalone)").matches;
+}
+
 export async function enableNotifications(): Promise<boolean> {
-  if (typeof Notification === "undefined") return false;
+  if (!pushSupported()) return false;
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return false;
   setEnabled(true);
-  await navigator.serviceWorker?.ready;
+
+  // Real Web Push when VAPID public key is configured.
+  const publicKey = import.meta.env["VITE_VAPID_PUBLIC_KEY"] as string | undefined;
+  if (publicKey) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+      });
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user)
+        await savePushSubscription(data.session.user.id, subscriptionToRow(sub));
+      window.localStorage.setItem("sohoj-rasta-push-endpoint", sub.endpoint);
+    } catch {
+      // Keep the local fallback if push subscribe fails.
+    }
+  }
   return true;
 }
 
-export function disableNotifications(): void {
+export async function disableNotifications(): Promise<void> {
   setEnabled(false);
+  const endpoint = window.localStorage.getItem("sohoj-rasta-push-endpoint");
+  if (endpoint) {
+    try {
+      const registration = await navigator.serviceWorker?.ready;
+      const sub = await registration.pushManager.getSubscription();
+      if (sub?.endpoint === endpoint) await sub.unsubscribe();
+      await removePushSubscription(endpoint);
+    } catch {
+      /* ignore */
+    }
+    window.localStorage.removeItem("sohoj-rasta-push-endpoint");
+  }
+}
+
+function urlBase64ToUint8Array(base64: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+  const raw = atob(base64.replace(/-/g, "+").replace(/_/g, "/") + padding);
+  return new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
 }
 
 function fire(title: string, body: string): void {

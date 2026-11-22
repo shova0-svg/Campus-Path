@@ -50,6 +50,19 @@ use the editor.
 
 <!-- PHASE1:END -->
 
+<!-- PHASE3:BEGIN -->
+
+## Web push class reminders (Phase 3)
+
+- Schema: `supabase/migrations/20261122000003_push_notifications.sql` — `push_subscriptions` (RLS: own rows only), `notification_log` (unique `(user_id, kind, class_key)` dedupe), and a pg_cron job calling `send-class-reminders` every 5 minutes.
+- VAPID keys generate: `npx web-push generate-vapid-keys` (or `openssl ecparam -name prime256v1 -genkey ...` + base64url). Put **public** key in client env `VITE_VAPID_PUBLIC_KEY`; put **private** key in Edge Function secret `VAPID_PRIVATE_KEY` (also set `VAPID_PUBLIC_KEY`, optional `VAPID_SUBJECT`). Never commit the private key.
+- Edge Function: `supabase/functions/send-class-reminders` — deploy in Lovable Cloud. Secrets needed: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, optional `VAPID_SUBJECT`. Pure logic in `reminders.ts` (tested in `src/test/reminders.test.ts`). `src/lib/reminders.ts` re-exports it for the client; local `notify.ts` scheduling stays as fallback when push is unsupported.
+- Cron note: pg_cron + pg_net must be enabled in Lovable Cloud. The migration reads `app.settings.functions_url` and `app.settings.service_role_key` — set these via Lovable (or harden the cron command there) since secrets must not live in SQL. If extensions are unavailable, schedule the function externally (e.g. cron-hit the URL with the service-role header).
+- iOS: Web Push needs the PWA added to Home Screen; the Student page shows a hint. Without `VITE_VAPID_PUBLIC_KEY`, reminders use the local-only fallback (works only while the tab is open).
+- Manual test: (1) apply migration + deploy function + set secrets, (2) sign in as a test student, set routine (CST, sem 3, group A, Morning), (3) Student page → "Enable class reminders" → allow notifications, (4) close the app / kill the tab, (5) at a scheduled time (e.g. ~5 min before class ends, or ~8 min before the next class in another building) a push arrives; (6) tapping it opens `/student`. Dedupe: a second cron run same day must not repeat the same reminder.
+
+<!-- PHASE3:END -->
+
 <!-- AGENT-SKILLS:BEGIN -->
 
 ## Skills to use going forward
