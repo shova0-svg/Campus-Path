@@ -63,6 +63,19 @@ use the editor.
 
 <!-- PHASE3:END -->
 
+<!-- PHASE4:BEGIN -->
+
+## Pilot readiness (Phase 4)
+
+- Schema: `supabase/migrations/20261122000004_pilot.sql` — `feedback` (own insert, institute-admin read) + `usage_events` (own insert, institute-admin read). Only 5 events allowed: app_open, qr_scan, search, journey_view, reminder_enabled.
+- Pure helpers: `src/lib/feedback.ts` (validation, `openFeedback()` event), `src/lib/stats.ts` (`aggregateUsage` with Asia/Dhaka day keys), `src/lib/analytics.ts` (`logEvent()` fire-and-forget, never throws). Tests in `src/test/pilot.test.ts`.
+- One global `FeedbackHost` lives in `__root.tsx`; cards/pages/error boundary call `openFeedback({ category, message, page })` to prefill it. "Report wrong info" flags live on room cards (home), teacher cards, routine cards and the student journey.
+- Admin Panel has **Feedback** (filter by category) and **Stats** (7/30-day active users, QR scans, top searched rooms, reminder opt-ins) tabs, loaded from Supabase on tab open; empty/error degrades to empty lists.
+- First-visit 3-step intro (`Onboarding`, localStorage `sohoj-rasta-onboarded-v1`) + `InstallHint` (Android `beforeinstallprompt`, manual iOS hint). Global error boundary + enhanced TanStack root error component with **Report this**.
+- Full architecture, env vars, migration/seed/Edge Function steps and the pilot checklist are in `README.md`.
+
+<!-- PHASE4:END -->
+
 <!-- AGENT-SKILLS:BEGIN -->
 
 ## Skills to use going forward

@@ -7,6 +7,8 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
+  Flag,
+  MessageSquare,
   List,
   Loader2,
   LocateFixed,
@@ -112,6 +114,9 @@ import { decodeQr, type QrTarget } from "@/lib/qr";
 import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import { deleteTeacher, upsertTeacher, type Teacher, type TeacherStore } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
+import { openFeedback } from "@/lib/feedback";
+import { logEvent } from "@/lib/analytics";
+import { Onboarding, InstallHint } from "@/components/sohoj/Onboarding";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -219,6 +224,7 @@ function Index() {
   useEffect(() => {
     // Background revalidation from Supabase; offline serves the local cache.
     startSync();
+    logEvent("app_open");
     // Shared QR links: /?qr=SOHOJ1|rpi|academic|building
     try {
       const target = decodeQr(new URLSearchParams(window.location.search).get("qr"));
@@ -226,6 +232,7 @@ function Index() {
         setInstituteId(target.instituteId);
         setFormInstituteId(target.instituteId);
         setQrBuilding(target);
+        logEvent("qr_scan", { kind: "link" });
       }
     } catch {
       /* ignore bad link */
@@ -502,6 +509,7 @@ function Index() {
       setView("list");
       setStartBuildingId(target.buildingId);
       setStartId(target.buildingId === "academic" ? QR_START_POINT.id : "main-gate");
+      logEvent("qr_scan", { kind: "scan" });
       if (target.kind === "room" && target.room) {
         const found = (store[target.instituteId] ?? []).find(
           (l) => l.name === `Room ${target.room}`,
@@ -523,6 +531,10 @@ function Index() {
   );
 
   function openLocation(id: string) {
+    const loc = Object.values(store)
+      .flat()
+      .find((l) => l.id === id);
+    if (loc) logEvent("search", { room: loc.name });
     setSelectedId(id);
     setSelectedBuildingId(null);
     setQrBuilding(null);
@@ -570,6 +582,8 @@ function Index() {
 
         {/* App frame */}
         <main className="mx-auto min-h-dvh w-full max-w-md bg-background pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:min-h-[calc(100dvh-5rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-border lg:shadow-[var(--shadow-float)]">
+          <Onboarding />
+
           {/* Header */}
           <header className="bg-hero rounded-b-[2rem] px-5 pb-16 pt-7 text-primary-foreground">
             <div className="flex items-center justify-between gap-3">
@@ -608,6 +622,14 @@ function Index() {
                     </Link>
                   </Button>
                 )}
+                <Button
+                  variant="glass"
+                  size="sm"
+                  onClick={() => openFeedback({ page: "home" })}
+                  aria-label="Send feedback"
+                >
+                  <MessageSquare /> Feedback
+                </Button>
                 <Button
                   variant="glass"
                   size="sm"
@@ -922,6 +944,10 @@ function Index() {
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && query.trim())
+                          logEvent("search", { room: query.trim() });
+                      }}
                       placeholder="Search room 205, Computer Lab, উপবৃত্তি…"
                       aria-label="Search destinations"
                       className="h-13 rounded-2xl border-border bg-card pl-12 text-base shadow-[var(--shadow-card)] focus-visible:shadow-[var(--shadow-glow)]"
@@ -1012,35 +1038,50 @@ function Index() {
                                   className="animate-rise"
                                   style={{ animationDelay: `${i * 40}ms` }}
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => openLocation(loc.id)}
-                                    className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30 active:scale-[0.99]"
-                                  >
-                                    <span
-                                      className={cn(
-                                        "grid size-11 shrink-0 place-items-center rounded-xl",
-                                        CATEGORY_TONE[loc.category],
-                                      )}
+                                  <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-3.5 shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+                                    <button
+                                      type="button"
+                                      onClick={() => openLocation(loc.id)}
+                                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
                                     >
-                                      <Icon className="size-5" />
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                      <span className="flex items-center gap-2">
-                                        <span className="truncate font-semibold">{loc.name}</span>
-                                        {loc.custom && (
-                                          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
-                                            <Sparkles className="size-3" /> New
-                                          </span>
+                                      <span
+                                        className={cn(
+                                          "grid size-11 shrink-0 place-items-center rounded-xl",
+                                          CATEGORY_TONE[loc.category],
                                         )}
+                                      >
+                                        <Icon className="size-5" />
                                       </span>
-                                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                                        {loc.buildingNo ? `Building ${loc.buildingNo} · ` : ""}
-                                        {floorLabel(loc.floor)}
+                                      <span className="min-w-0 flex-1">
+                                        <span className="flex items-center gap-2">
+                                          <span className="truncate font-semibold">{loc.name}</span>
+                                          {loc.custom && (
+                                            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-emerald-soft px-2 py-0.5 text-[10px] font-semibold text-emerald">
+                                              <Sparkles className="size-3" /> New
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                          {loc.buildingNo ? `Building ${loc.buildingNo} · ` : ""}
+                                          {floorLabel(loc.floor)}
+                                        </span>
                                       </span>
-                                    </span>
-                                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                                  </button>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      aria-label={`Report wrong info about ${loc.name}`}
+                                      onClick={() =>
+                                        openFeedback({
+                                          category: "missing_room",
+                                          message: `Room ${loc.name} — `,
+                                          page: "home",
+                                        })
+                                      }
+                                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                                    >
+                                      <Flag className="size-4" />
+                                    </button>
+                                  </div>
                                 </li>
                               );
                             })}
@@ -1052,6 +1093,8 @@ function Index() {
                 </section>
               </>
             )}
+
+            <InstallHint />
 
             {/* Ambassador CTA */}
             <section className="rounded-3xl bg-primary-soft p-5">

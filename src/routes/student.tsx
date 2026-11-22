@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Bell, LogOut } from "lucide-react";
+import { ArrowLeft, Bell, Flag, LogOut, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JourneyCard } from "@/components/sohoj/JourneyCard";
 import { StudentSetup } from "@/components/sohoj/StudentSetup";
@@ -16,6 +16,9 @@ import {
 } from "@/lib/notify";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { openFeedback } from "@/lib/feedback";
+import { logEvent } from "@/lib/analytics";
+import { InstallHint } from "@/components/sohoj/Onboarding";
 
 export const Route = createFileRoute("/student")({
   head: () => ({
@@ -72,7 +75,9 @@ function StudentPage() {
   );
 
   useEffect(() => {
-    if (!journey || !notificationsEnabled()) return;
+    if (!journey) return;
+    logEvent("journey_view");
+    if (!notificationsEnabled()) return;
     return scheduleJourneyReminders(journey);
   }, [journey]);
 
@@ -95,6 +100,7 @@ function StudentPage() {
         : "Browser setting-e allow koro / iOS-e PWA home screen-e add koro",
     });
     if (ok && user?.id && profile) void saveStudentProfile(user.id, profile, true).catch(() => {});
+    if (ok) logEvent("reminder_enabled");
   }
 
   function login(next: StudentProfile) {
@@ -117,11 +123,16 @@ function StudentPage() {
               <ArrowLeft /> Back to home
             </Button>
           </Link>
-          {profile && (
-            <Button variant="ghost" size="sm" onClick={logout}>
-              <LogOut /> Logout
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => openFeedback({ page: "student" })}>
+              <MessageSquare /> Feedback
             </Button>
-          )}
+            {profile && (
+              <Button variant="ghost" size="sm" onClick={logout}>
+                <LogOut /> Logout
+              </Button>
+            )}
+          </div>
         </div>
 
         {!profile ? (
@@ -142,8 +153,25 @@ function StudentPage() {
                 iPhone-e push-er jonno app-ta Home Screen-e add koro (Share → Add to Home Screen)।
               </p>
             )}
+            <InstallHint />
             {journey ? (
-              <JourneyCard journey={journey} />
+              <>
+                <JourneyCard journey={journey} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() =>
+                    openFeedback({
+                      category: "wrong_routine",
+                      message: "Routine / class info is wrong — ",
+                      page: "student",
+                    })
+                  }
+                >
+                  <Flag /> Report wrong class info
+                </Button>
+              </>
             ) : (
               <p className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
                 Ei profile-er jonno kono routine paoa jay ni. Department/semester/shift thik kore

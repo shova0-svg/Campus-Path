@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
+  BarChart3,
   CalendarDays,
   FileUp,
+  Flag,
   LogOut,
+  MessageSquare,
   Pencil,
   Plus,
   QrCode,
@@ -67,8 +70,16 @@ import {
   type TeacherStore,
 } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
+import { listFeedback, listUsageEvents, type FeedbackRow } from "@/lib/repo/feedback";
+import { aggregateUsage, type UsageEvent } from "@/lib/stats";
+import {
+  categoryLabel,
+  FEEDBACK_CATEGORIES,
+  openFeedback,
+  type FeedbackCategory,
+} from "@/lib/feedback";
 
-type Tab = "rooms" | "buildings" | "routines" | "teachers" | "qr" | "admins";
+type Tab = "rooms" | "buildings" | "routines" | "teachers" | "qr" | "feedback" | "stats" | "admins";
 
 interface Props {
   open: boolean;
@@ -135,6 +146,11 @@ export function AdminPanel({
   const [editingTeacher, setEditingTeacher] = useState<Teacher | "new" | null>(null);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminInstitute, setNewAdminInstitute] = useState(allowedInstituteIds[0] ?? "rpi");
+  const [feedbackRows, setFeedbackRows] = useState<FeedbackRow[]>([]);
+  const [feedbackFilter, setFeedbackFilter] = useState<FeedbackCategory | "all">("all");
+  const [usageEvents, setUsageEvents] = useState<UsageEvent[]>([]);
+  const [statsDays, setStatsDays] = useState(7);
+  const [panelLoading, setPanelLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -151,6 +167,32 @@ export function AdminPanel({
     ? INSTITUTES
     : INSTITUTES.filter((i) => allowedInstituteIds.includes(i.id));
   const institute = manageable.find((i) => i.id === instituteId) ?? manageable[0] ?? INSTITUTES[0];
+  useEffect(() => {
+    if (!open || (tab !== "feedback" && tab !== "stats")) return;
+    setPanelLoading(true);
+    const load =
+      tab === "feedback" ? listFeedback(institute.id) : listUsageEvents(institute.id, 30);
+    void load
+      .then((rows) => {
+        if (tab === "feedback") setFeedbackRows(rows as FeedbackRow[]);
+        else setUsageEvents(rows as UsageEvent[]);
+      })
+      .catch(() => {
+        if (tab === "feedback") setFeedbackRows([]);
+        else setUsageEvents([]);
+      })
+      .finally(() => setPanelLoading(false));
+  }, [open, tab, institute.id]);
+
+  const stats = useMemo(() => aggregateUsage(usageEvents, statsDays), [usageEvents, statsDays]);
+  const shownFeedback = useMemo(
+    () =>
+      feedbackFilter === "all"
+        ? feedbackRows
+        : feedbackRows.filter((f) => f.category === feedbackFilter),
+    [feedbackRows, feedbackFilter],
+  );
+
   const rooms = useMemo(() => store[institute.id] ?? [], [store, institute.id]);
   const shown = useMemo(
     () => sortRooms(searchLocations(rooms, institute.buildings, query, "all")),
@@ -164,14 +206,21 @@ export function AdminPanel({
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "routines", label: "Routines", icon: CalendarDays },
     { id: "teachers", label: "Teachers", icon: UserRound },
-    { id: "qr", label: "QR Maker", icon: QrCode },
+    { id: "qr", label: "QR", icon: QrCode },
+    { id: "feedback", label: "Feedback", icon: MessageSquare },
+    { id: "stats", label: "Stats", icon: BarChart3 },
     ...(isSuper ? [{ id: "admins" as Tab, label: "Admins", icon: Users }] : []),
   ];
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[92vh] max-w-md flex-col gap-0 overflow-hidden rounded-3xl p-0">
+        <DialogContent
+          className={cn(
+            "flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-3xl p-0",
+            tab === "feedback" || tab === "stats" ? "max-w-lg" : "max-w-md",
+          )}
+        >
           <div className="bg-hero px-5 pb-4 pt-5 text-primary-foreground">
             <DialogHeader className="space-y-0 pr-6 text-left">
               <DialogTitle className="flex items-center gap-2 text-lg">
@@ -467,6 +516,21 @@ export function AdminPanel({
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label={`Report ${r.title}`}
+                          onClick={() =>
+                            openFeedback({
+                              category: "wrong_routine",
+                              message: `Routine ${r.title} — `,
+                              page: "admin-routines",
+                              instituteId: institute.id,
+                            })
+                          }
+                        >
+                          <Flag className="text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           aria-label={`Edit ${r.title}`}
                           onClick={() => setEditingRoutine(r)}
                         >
@@ -639,6 +703,130 @@ export function AdminPanel({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {(tab === "feedback" || tab === "stats") && (
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {panelLoading && (
+                <p className="py-6 text-center text-xs text-muted-foreground">Loading…</p>
+              )}
+              {!panelLoading && tab === "feedback" && (
+                <>
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {(["all", ...FEEDBACK_CATEGORIES.map((c) => c.id)] as const).map((id) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setFeedbackFilter(id)}
+                        className={cn(
+                          "rounded-full px-2.5 py-1 text-[10px] font-semibold",
+                          feedbackFilter === id
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {id === "all" ? "All" : categoryLabel(id).split(" / ")[0]}
+                      </button>
+                    ))}
+                  </div>
+                  {shownFeedback.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                      Ekhono kono feedback nei.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {shownFeedback.map((f) => (
+                        <li key={f.id} className="rounded-2xl border border-border bg-card p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-amber-500">
+                              {"★".repeat(f.rating)}
+                            </span>
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {categoryLabel(f.category).split(" / ")[0]}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-foreground">{f.message || "—"}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">
+                            {f.page ? `${f.page} · ` : ""}
+                            {new Date(f.created_at).toLocaleString()}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+              {!panelLoading && tab === "stats" && (
+                <>
+                  <div className="mb-3 flex gap-1 rounded-full bg-muted p-1">
+                    {[7, 30].map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setStatsDays(d)}
+                        className={cn(
+                          "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold",
+                          statsDays === d
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        Last {d} days
+                      </button>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      ["Active students", stats.activeUsers],
+                      ["Events", stats.totalEvents],
+                      ["QR scans", stats.qrScans],
+                      ["Reminder opt-ins", stats.reminderOptIns],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label as string}
+                        className="rounded-2xl border border-border bg-card p-3"
+                      >
+                        <p className="text-xl font-bold text-primary">{value as number}</p>
+                        <p className="text-[10px] text-muted-foreground">{label as string}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 rounded-2xl border border-border bg-card p-3">
+                    <p className="text-xs font-semibold">Most searched rooms</p>
+                    {stats.topRooms.length === 0 ? (
+                      <p className="mt-1 text-[11px] text-muted-foreground">No searches yet.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-1">
+                        {stats.topRooms.map((r) => (
+                          <li key={r.room} className="flex justify-between text-xs">
+                            <span>{r.room}</span>
+                            <span className="font-semibold text-primary">{r.count}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+                    <p className="text-xs font-semibold">Daily active students</p>
+                    <div className="mt-2 flex h-20 items-end gap-1">
+                      {stats.dailyActiveUsers.slice(-statsDays).map((d) => (
+                        <div key={d.day} className="flex flex-1 flex-col items-center gap-1">
+                          <div
+                            className="w-full rounded-t bg-primary/70"
+                            style={{
+                              height: `${Math.max(4, (d.count / Math.max(1, ...stats.dailyActiveUsers.map((x) => x.count))) * 100)}%`,
+                            }}
+                          />
+                          <span className="text-[8px] text-muted-foreground">{d.day.slice(5)}</span>
+                        </div>
+                      ))}
+                      {stats.dailyActiveUsers.length === 0 && (
+                        <p className="text-[11px] text-muted-foreground">No activity yet.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>

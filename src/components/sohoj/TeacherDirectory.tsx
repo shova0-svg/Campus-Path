@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Building2, ExternalLink, Mail, Phone, Search, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  ExternalLink,
+  Flag,
+  Mail,
+  Phone,
+  Search,
+  UserRound,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +23,7 @@ import {
   type TeacherStore,
 } from "@/lib/teachers";
 import { teachersResource } from "@/lib/resources";
+import { openFeedback } from "@/lib/feedback";
 
 interface Props {
   instituteName: string;
@@ -188,6 +198,20 @@ function TeacherCard({ teacher }: { teacher: Teacher }) {
           )}
         </div>
       </div>
+      <button
+        type="button"
+        aria-label={`Report wrong info about ${teacher.name}`}
+        onClick={() =>
+          openFeedback({
+            category: "wrong_routine",
+            message: `Teacher ${teacher.name} — `,
+            page: "teachers",
+          })
+        }
+        className="shrink-0 self-start rounded-lg p-1.5 text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive"
+      >
+        <Flag className="size-3.5" />
+      </button>
     </li>
   );
 }

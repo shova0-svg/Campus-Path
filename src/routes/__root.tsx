@@ -11,6 +11,9 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { FeedbackHost } from "@/components/sohoj/FeedbackDialog";
+import { openFeedback } from "@/lib/feedback";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -52,8 +55,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+        <p className="font-bangla mt-2 text-sm text-muted-foreground">
+          কোনো সমস্যা হয়েছে। আবার চেষ্টা করুন, হোমে যান বা আমাদের জানান।
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -71,6 +74,18 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
           >
             Go home
           </a>
+          <button
+            onClick={() =>
+              openFeedback({
+                category: "bug",
+                message: `Auto error report: ${(error as Error).message.slice(0, 300)}`,
+                page: "route-error",
+              })
+            }
+            className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
+          >
+            Report this / জানান
+          </button>
         </div>
       </div>
     </div>
@@ -151,9 +166,12 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AuthProvider>
-        <Outlet />
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      </ErrorBoundary>
+      <FeedbackHost />
       <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );
