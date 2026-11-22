@@ -31,7 +31,7 @@ use the editor.
 
 <!-- AGENT-MEMORY:BEGIN -->
 - Campus data, search and route generation live in `src/lib/campus-data.ts` as pure functions; UI pieces in `src/components/sohoj/`. Why: keeps the demo data testable (`src/test/campus-data.test.ts`).
-- No backend yet: all rooms (built-in + admin edits) live in one per-institute store in localStorage via `src/lib/admin.ts`; admin sign-in is a simulated Google flow checked by `isAdminEmail`. Why: offline-first MVP demo; real Google sign-in needs Lovable Cloud.
+- Lovable Cloud is enabled but not yet used by the app: all rooms (built-in + admin edits) still live in one per-institute store in localStorage via `src/lib/admin.ts`; admin sign-in is still a simulated Google flow checked by `isAdminEmail`. Why: offline-first MVP demo; moving rooms and Google sign-in to Cloud is a separate step.
 <!-- AGENT-MEMORY:END -->
 
 <!-- AGENT-SKILLS:BEGIN -->
