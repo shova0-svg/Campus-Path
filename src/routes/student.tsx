@@ -7,7 +7,7 @@ import { StudentSetup } from "@/components/sohoj/StudentSetup";
 import { BUILDINGS_STORE_KEY, parseBuildingStore } from "@/lib/admin";
 import { parseRoutineStore, ROUTINE_STORE_KEY } from "@/lib/routine";
 import { nextClassJourney, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
-import { enablePush, firebaseConfigured, onForegroundMessage } from "@/lib/firebase";
+import { enableNotifications, notificationsEnabled, scheduleJourneyReminders } from "@/lib/notify";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/student")({
@@ -29,19 +29,27 @@ function StudentPage() {
     setProfile(parseStudent(window.localStorage.getItem(STUDENT_KEY)));
     setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
     setBuildings(parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY)));
-    if (!firebaseConfigured) return;
-    return onForegroundMessage((payload) => {
-      toast(payload.title ?? "Class reminder", { description: payload.body });
-    });
   }, []);
 
+  const journey = useMemo(
+    () =>
+      profile
+        ? nextClassJourney(profile, routines, buildings[profile.instituteId] ?? [], new Date())
+        : null,
+    [profile, routines, buildings],
+  );
+
+  useEffect(() => {
+    if (!journey || !notificationsEnabled()) return;
+    return scheduleJourneyReminders(journey);
+  }, [journey]);
+
   async function handleEnablePush(): Promise<string | null> {
-    const token = await enablePush();
-    if (token) {
-      toast.success("Push notification on", { description: "Class reminder pathabe" });
-      window.localStorage.setItem("sohoj-rasta-fcm-token", token);
-    }
-    return token;
+    const ok = await enableNotifications();
+    toast(ok ? "Class reminders on" : "Notification permission denied", {
+      description: ok ? "Routine er upor base kore reminder jay" : "Browser setting-e allow koro",
+    });
+    return ok ? "enabled" : null;
   }
 
   function login(next: StudentProfile) {
@@ -53,14 +61,6 @@ function StudentPage() {
     setProfile(null);
     window.localStorage.removeItem(STUDENT_KEY);
   }
-
-  const journey = useMemo(
-    () =>
-      profile
-        ? nextClassJourney(profile, routines, buildings[profile.instituteId] ?? [], new Date())
-        : null,
-    [profile, routines, buildings],
-  );
 
   return (
     <div className="bg-desk min-h-dvh px-4 py-6 lg:flex lg:justify-center">

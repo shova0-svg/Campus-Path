@@ -2,9 +2,20 @@
 const CACHE = "sohoj-rasta-v2";
 const CORE = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SHOW_NOTIFICATION") {
+    self.registration.showNotification(event.data.title || "Sohoj Rasta", {
+      body: event.data.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: "/student" },
+    });
+  }
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  event.waitUntil(self.clients.openWindow("/student"));
+  event.waitUntil(self.clients.openWindow(event.notification.data?.url || "/student"));
 });
 
 self.addEventListener("install", (event) => {

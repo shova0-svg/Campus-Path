@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Google sign-in is handled by Lovable Cloud (Supabase Auth). The old Firebase
- * module name is kept so the student UI does not need a rename.
+ * Google sign-in via Lovable Cloud (Supabase Auth). Kept under the old filename
+ * so the student UI imports do not need renaming.
  */
 export const firebaseConfigured = true;
 
@@ -33,8 +33,8 @@ export function watchGoogleAuth(callback: (user: GoogleAccount | null) => void):
   const { data } = supabase.auth.onAuthStateChange((_event, session) => {
     callback(session?.user ? toAccount(session.user) : null);
   });
-  void supabase.auth.getUser().then(({ data: { user } }) => {
-    callback(user ? toAccount(user) : null);
+  void supabase.auth.getUser().then(({ data: res }) => {
+    callback(res.user ? toAccount(res.user) : null);
   });
   return () => data.subscription.unsubscribe();
 }
@@ -52,16 +52,4 @@ export async function signInWithGoogle(): Promise<GoogleAccount> {
 
 export async function signOutGoogle(): Promise<void> {
   await supabase.auth.signOut();
-}
-
-/** Push notifications need Firebase Cloud Messaging credentials. Not configured yet. */
-export async function enablePush(): Promise<string | null> {
-  const token = window.localStorage.getItem("sohoj-rasta-fcm-token");
-  return token ?? null;
-}
-
-export function onForegroundMessage(
-  _callback: (payload: { title?: string; body?: string }) => void,
-): () => void {
-  return () => {};
 }
