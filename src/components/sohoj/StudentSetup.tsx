@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Bell, BookOpen, LogOut, UserRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookOpen, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,125 +9,76 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { GoogleLogo } from "./GoogleLogo";
-import { firebaseConfigured, signInWithGoogle, type GoogleAccount } from "@/lib/firebase";
+import { useAuth } from "@/hooks/use-auth";
 import { INSTITUTES } from "@/lib/campus-data";
 import { DEPARTMENT_OPTIONS, departmentEnglish } from "@/lib/teachers";
 import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 
 interface Props {
   onLogin: (profile: StudentProfile) => void;
-  onGoogleAccount?: (account: GoogleAccount) => void;
   onEnablePush?: () => Promise<string | null>;
 }
 
-export function StudentSetup({ onLogin, onGoogleAccount, onEnablePush }: Props) {
-  const [step, setStep] = useState<"intro" | "form" | "verifying">("intro");
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+export function StudentSetup({ onLogin, onEnablePush }: Props) {
+  const { user, displayName } = useAuth();
+  const [name, setName] = useState(displayName ?? "");
   const [instituteId, setInstituteId] = useState(INSTITUTES[0]?.id ?? "rpi");
   const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[1]?.english ?? "");
   const [semester, setSemester] = useState("1");
   const [group, setGroup] = useState("A");
   const [shift, setShift] = useState("Morning");
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const saved = parseStudent(window.localStorage.getItem(STUDENT_KEY));
-    if (saved) {
-      setEmail(saved.email);
-      setName(saved.name);
-      setInstituteId(saved.instituteId);
-      setDepartment(departmentEnglish(saved.department));
-      setSemester(String(saved.semester));
-      setGroup(saved.group);
-      setShift(saved.shift);
-      setStep("form");
+    const existing = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    if (existing) {
+      setName(existing.name);
+      setInstituteId(existing.instituteId);
+      setDepartment(departmentEnglish(existing.department));
+      setSemester(String(existing.semester));
+      setGroup(existing.group);
+      setShift(existing.shift);
+      setSaved(true);
     }
   }, []);
 
-  async function continueWithGoogle(e?: FormEvent) {
-    e?.preventDefault();
-    setStep("verifying");
-    try {
-      if (firebaseConfigured) {
-        const account = await signInWithGoogle();
-        setEmail(account.email);
-        if (account.name) setName(account.name);
-        onGoogleAccount?.(account);
-      } else {
-        if (!email.includes("@")) throw new Error("Email daw");
-        await new Promise((r) => window.setTimeout(r, 500));
-      }
-      onLogin({
-        email: email.trim().toLowerCase(),
-        name: name.trim(),
-        instituteId,
-        department,
-        semester: Number(semester) || 1,
-        group,
-        shift,
-      });
-      setStep("form");
-    } catch {
-      setStep("intro");
-    }
-  }
-
-  if (step === "intro") {
-    return (
-      <section className="animate-rise rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-        <span className="grid size-14 place-items-center rounded-2xl bg-primary-soft text-primary">
-          <UserRound className="size-7" />
-        </span>
-        <h1 className="mt-4 font-display text-xl font-semibold">Student account</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Continue with Google — Class-er information ar Next Class Journey dekhte.
-        </p>
-        <form onSubmit={continueWithGoogle} className="mt-5 space-y-3">
-          <div>
-            <label className="text-[11px] font-semibold text-muted-foreground">Email</label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@gmail.com"
-              className="mt-1 h-11 rounded-xl"
-            />
-          </div>
-          <button
-            type="submit"
-            className="inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-[#747775] bg-white px-3 text-sm font-medium text-[#1F1F1F] hover:bg-[#F2F2F2]"
-          >
-            <GoogleLogo className="size-5" /> Continue with Google
-          </button>
-        </form>
-        <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-          {firebaseConfigured
-            ? "Real Google account diye sign-in cholche."
-            : "Demo mode: email diye local account kholbe. Real Google sign-in-er jonno Firebase config lagbe."}
-        </p>
-      </section>
-    );
+  function save() {
+    onLogin({
+      email: user?.email ?? "",
+      name: name.trim() || displayName || "",
+      instituteId,
+      department,
+      semester: Number(semester) || 1,
+      group,
+      shift,
+    });
+    setSaved(true);
   }
 
   return (
     <section className="animate-rise space-y-4 rounded-3xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-      <div className="flex items-center gap-2">
-        <span className="grid size-10 place-items-center rounded-xl bg-primary-soft text-primary">
-          <BookOpen className="size-5" />
+      <div className="flex items-center gap-3">
+        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary-soft text-primary">
+          <BookOpen className="size-6" />
         </span>
         <div className="min-w-0">
-          <h1 className="text-sm font-semibold">Your class profile</h1>
-          <p className="truncate text-[11px] text-muted-foreground">{email}</p>
+          <h1 className="font-display text-lg font-semibold">Your class profile</h1>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {user?.email ?? "Sign in first"} · {displayName ?? ""}
+          </p>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Ei information-er upor base kore tomake class reminder jay — shudhu tomar polytechnic-er
+        information dekha jay.
+      </p>
 
       <div>
         <label className="text-[11px] font-semibold text-muted-foreground">Name</label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="আপনার নাম"
+          placeholder="তোমার নাম"
           className="mt-1 h-10 rounded-xl"
         />
       </div>
@@ -209,51 +160,10 @@ export function StudentSetup({ onLogin, onGoogleAccount, onEnablePush }: Props) 
         </div>
       </div>
 
-      <Button
-        variant="emerald"
-        className="w-full"
-        onClick={() =>
-          onLogin({
-            email,
-            name,
-            instituteId,
-            department,
-            semester: Number(semester) || 1,
-            group,
-            shift,
-          })
-        }
-      >
-        Save profile
+      <Button variant="emerald" className="w-full" onClick={save}>
+        {saved ? <CheckCircle2 className="size-4" /> : null}
+        {saved ? "Update profile" : "Save profile"}
       </Button>
-
-      <div className="rounded-2xl bg-muted/60 p-3">
-        <p className="flex items-center gap-1.5 text-xs font-semibold">
-          <Bell className="size-3.5 text-primary" /> Phone notification
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          App install korle class-er age local reminder dekha jay. Real push notification-er jonno
-          Firebase Cloud Messaging setup lagbe.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2 w-full"
-          onClick={async () => {
-            if (onEnablePush) {
-              const token = await onEnablePush();
-              if (token) return;
-            }
-            if (typeof Notification === "undefined") return;
-            const permission = await Notification.requestPermission();
-            if (permission === "granted") {
-              new Notification("Sohoj Rasta", { body: "Class reminder on kora hoyeche ✅" });
-            }
-          }}
-        >
-          Enable reminders
-        </Button>
-      </div>
     </section>
   );
 }

@@ -94,6 +94,7 @@ import {
   type StartPointId,
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
+import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import {
   deleteTeacher,
   parseTeacherStore,
@@ -139,7 +140,7 @@ function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
   const [store, setStore] = useState<LocationStore>(() => defaultStore());
   const navigate = useNavigate();
-  const { user, displayName, signOut } = useAuth();
+  const { user, displayName, signOut, loading: authLoading } = useAuth();
   // Admin mode follows the real signed-in account's email.
   const adminEmail = user?.email ?? null;
   const [panelOpen, setPanelOpen] = useState(false);
@@ -161,6 +162,22 @@ function Index() {
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+
+  // Entry gate: login first, then class profile, then the app.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      void navigate({ to: "/auth", replace: true });
+      return;
+    }
+    const saved = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    if (!saved) {
+      void navigate({ to: "/student", replace: true });
+      return;
+    }
+    setInstituteId(saved.instituteId);
+    setFormInstituteId(saved.instituteId);
+  }, [authLoading, user, navigate]);
 
   useEffect(() => {
     try {
@@ -567,13 +584,13 @@ function Index() {
             <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-primary-foreground/70">
               Your institute
             </label>
-            <Select value={instituteId} onValueChange={changeInstitute}>
-              <SelectTrigger className="h-12 rounded-2xl border-primary-foreground/20 bg-primary-foreground/10 text-left text-primary-foreground [&_svg]:text-primary-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(isSuper || !profile ? INSTITUTE_GROUPS : groupInstitutes(visibleInstitutes)).map(
-                  (group) => (
+            {isAdmin && isSuper ? (
+              <Select value={instituteId} onValueChange={changeInstitute}>
+                <SelectTrigger className="h-12 rounded-2xl border-primary-foreground/20 bg-primary-foreground/10 text-left text-primary-foreground [&_svg]:text-primary-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INSTITUTE_GROUPS.map((group) => (
                     <SelectGroup key={group.id}>
                       <SelectLabel>{group.label}</SelectLabel>
                       {group.items.map((i) => (
@@ -582,10 +599,15 @@ function Index() {
                         </SelectItem>
                       ))}
                     </SelectGroup>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex h-12 items-center gap-2 rounded-2xl border border-primary-foreground/20 bg-primary-foreground/10 px-4 text-left text-primary-foreground">
+                <Building2 className="size-4 shrink-0 text-emerald" />
+                <span className="truncate font-medium">{institute.name}</span>
+              </div>
+            )}
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className="font-bangla text-primary-foreground/75">{institute.nameBn}</span>
               {downloading ? (

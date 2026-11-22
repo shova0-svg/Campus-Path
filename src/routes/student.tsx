@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, LogOut } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JourneyCard } from "@/components/sohoj/JourneyCard";
 import { StudentSetup } from "@/components/sohoj/StudentSetup";
@@ -9,6 +9,7 @@ import { parseRoutineStore, ROUTINE_STORE_KEY } from "@/lib/routine";
 import { nextClassJourney, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import { enableNotifications, notificationsEnabled, scheduleJourneyReminders } from "@/lib/notify";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/student")({
   head: () => ({
@@ -21,11 +22,17 @@ export const Route = createFileRoute("/student")({
 });
 
 function StudentPage() {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [routines, setRoutines] = useState(() => parseRoutineStore(null));
   const [buildings, setBuildings] = useState(() => parseBuildingStore(null));
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      void navigate({ to: "/auth", replace: true });
+      return;
+    }
     setProfile(parseStudent(window.localStorage.getItem(STUDENT_KEY)));
     setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
     setBuildings(parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY)));
@@ -83,6 +90,9 @@ function StudentPage() {
         ) : (
           <>
             <StudentSetup onLogin={login} onEnablePush={handleEnablePush} />
+            <Button variant="outline" className="w-full" onClick={handleEnablePush}>
+              <Bell className="size-4" /> Enable class reminders
+            </Button>
             {journey ? (
               <JourneyCard journey={journey} />
             ) : (
