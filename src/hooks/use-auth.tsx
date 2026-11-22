@@ -16,13 +16,65 @@ const AuthContext = createContext<AuthState>({
   signOut: async () => {},
 });
 
+const CACHE_KEY = "sohoj-rasta-auth-cache";
+
+type CachedUser = { id: string; email: string; name: string };
+
+function readCache(): CachedUser | null {
+  try {
+    const raw = window.localStorage.getItem(CACHE_KEY);
+    return raw ? (JSON.parse(raw) as CachedUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(user: User): void {
+  try {
+    const meta = user.user_metadata ?? {};
+    const name =
+      typeof meta["full_name"] === "string"
+        ? meta["full_name"]
+        : typeof meta["name"] === "string"
+          ? meta["name"]
+          : "";
+    window.localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify({ id: user.id, email: user.email ?? "", name } satisfies CachedUser),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Offline fallback: a local, read-only identity so the app still opens. */
+function offlineUser(): User | null {
+  const cached = readCache();
+  if (!cached) return null;
+  return {
+    id: cached.id,
+    email: cached.email,
+    app_metadata: {},
+    user_metadata: { full_name: cached.name },
+    aud: "authenticated",
+    created_at: "",
+  } as User;
+}
+
 async function loadDisplayName(user: User): Promise<string> {
-  const { data } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .maybeSingle();
-  return data?.display_name || (user.email ?? "").split("@")[0] || "Student";
+  const cached = readCache();
+  const fallback = cached?.name || (user.email ?? "").split("@")[0] || "Student";
+  if (!navigator.onLine) return fallback;
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    return data?.display_name || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 /** Single place that listens to sign-in / sign-out for the whole app. */
@@ -41,16 +93,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setDisplayName(null);
         return;
       }
-      // Defer the profile read so it never runs inside the auth callback.
+      writeCache(next);
       window.setTimeout(() => {
-        loadDisplayName(next).then((name) => active && setDisplayName(name));
+        void loadDisplayName(next).then((name) => active && setDisplayName(name));
       }, 0);
     };
+
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "TOKEN_REFRESHED") return;
-      apply(session?.user ?? null);
+      apply(session?.user ?? (navigator.onLine ? null : offlineUser()));
     });
-    supabase.auth.getUser().then(({ data: res }) => apply(res.user ?? null));
+
+    // getSession() reads local storage — no network needed, so offline boot stays fast.
+    void supabase.auth
+      .getSession()
+      .then(({ data: result }) =>
+        apply(result.session?.user ?? (navigator.onLine ? null : offlineUser())),
+      )
+      .catch(() => apply(navigator.onLine ? null : offlineUser()));
+
     return () => {
       active = false;
       data.subscription.unsubscribe();
@@ -58,7 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      window.localStorage.removeItem(CACHE_KEY);
+    }
   };
 
   return (
