@@ -173,6 +173,8 @@ export function CampusPhoto({
       <img
         src="/rpi-campus-3d.jpg"
         alt="3D model of Rajshahi Govt. Polytechnic Institute campus"
+        loading="lazy"
+        decoding="async"
         className="block h-auto w-full"
       />
 

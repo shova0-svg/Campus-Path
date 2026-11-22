@@ -144,14 +144,27 @@
     -webkit-text-size-adjust: 100%;
   }
 
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeSpeed;
     min-height: 100dvh;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
       env(safe-area-inset-left);
+    overscroll-behavior-y: none;
+  }
+
+  /* Instant tap feedback without the 300ms delay. */
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
   }
 
   /* Prevent iOS from zooming form fields on focus; utilities still override. */
