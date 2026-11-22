@@ -153,7 +153,7 @@ function AuthPage() {
                         onClick={() => setMode(m)}
                         className={cn(
                           "h-9 rounded-full text-sm font-medium transition-colors",
-                          mode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+                          mode === m ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground",
                         )}
                       >
                         {m === "signin" ? "Sign in" : "Sign up"}
