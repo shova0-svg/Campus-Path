@@ -554,7 +554,7 @@ export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]
 }
 
 /** Handles morning (8:00-8:45), noon wrap (12:30-1:15) and 2nd shift (1:30-2:15). */
-function periodRange(time: string): [number, number] | null {
+export function periodRange(time: string): [number, number] | null {
   const [start, end] = time.split(/\s*[-–]\s*/);
   const sm = start?.match(/(\d{1,2}):(\d{2})/);
   const em = end?.match(/(\d{1,2}):(\d{2})/);

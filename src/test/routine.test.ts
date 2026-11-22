@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { matchRoutine, nextClassJourney, parseStudent } from "@/lib/student";
 import {
   allTeachers,
   deleteTeacher,
@@ -351,5 +352,63 @@ describe("Admin-managed teachers", () => {
     const loaded = parseTeacherStore(saved);
     expect(loaded["rpi"]?.some((t) => t.name === "Naya Teacher")).toBe(true);
     expect(groupTeachers(allTeachers(loaded)).some((g) => g.key === "robotics")).toBe(true);
+  });
+});
+
+describe("Student class journey", () => {
+  const profile = {
+    email: "student@example.com",
+    name: "Test Student",
+    instituteId: "rpi",
+    department: "Computer Science & Technology",
+    semester: 3,
+    group: "A",
+    shift: "Morning",
+  };
+
+  it("matches a routine by institute, semester, department and shift", () => {
+    const r = matchRoutine(profile, DEFAULT_ROUTINES);
+    expect(r?.id).toBe("rpi-cst-3-morning");
+    const civil = matchRoutine(
+      { ...profile, department: "Civil Technology", semester: 4, group: "B" },
+      DEFAULT_ROUTINES,
+    );
+    expect(civil?.id).toBe("rpi-civil-4-b");
+  });
+
+  it("computes current/next class, walking time and leave-at from routine + map", () => {
+    // Sunday 09:40 — inside P3–P4 (9:30–11:00) in the CST 3rd-sem morning routine.
+    const journey = nextClassJourney(
+      profile,
+      DEFAULT_ROUTINES,
+      [
+        {
+          id: "academic",
+          name: "Academic",
+          look: "",
+          isAcademic: true,
+          distance: {
+            "main-gate": 80,
+            "shaheed-minar": 35,
+            "academic-ground": 0,
+            "academic-entrance": 0,
+          },
+        },
+      ],
+      new Date("2026-11-22T09:40:00"),
+    );
+    expect(journey).not.toBeNull();
+    expect(journey?.routine.id).toBe("rpi-cst-3-morning");
+    expect(journey?.currentEndsAt).toBe("11:00");
+    expect(journey?.nextStartsAt).toBe("11:00");
+    expect(journey?.walkingMinutes).toBeGreaterThan(0);
+    expect(journey?.leaveAt).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("returns null for a profile with no matching routine", () => {
+    expect(
+      nextClassJourney({ ...profile, semester: 12 }, DEFAULT_ROUTINES, [], new Date()),
+    ).toBeNull();
+    expect(parseStudent("{bad")).toBeNull();
   });
 });

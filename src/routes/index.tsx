@@ -617,6 +617,24 @@ function Index() {
             </section>
           </Link>
 
+          {/* Student account + class journey */}
+          <Link to="/student" className="animate-rise block">
+            <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+              <div className="flex items-center gap-3 p-4">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                  <UserRound className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Student Account</span>
+                  <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                    Next Class Journey — দেখতে ট্যাপ করুন
+                  </span>
+                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+              </div>
+            </section>
+          </Link>
+
           {/* Faculty directory */}
           <Link to="/teachers" className="animate-rise block">
             <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">

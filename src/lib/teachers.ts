@@ -95,17 +95,28 @@ export const DEPARTMENT_ORDER = [
   "non-tech",
 ] as const;
 
-export const DEPARTMENT_OPTIONS: { key: string; label: string }[] = [
-  { key: "civil", label: "সিভিল" },
-  { key: "computer", label: "কম্পিউটার সাইন্স এন্ড টেকনোলজি" },
-  { key: "mechanical", label: "মেকানিক্যাল" },
-  { key: "electrical", label: "ইলেকট্রিক্যাল" },
-  { key: "power", label: "পাওয়ার" },
-  { key: "electronics", label: "ইলেকট্রোনিক্স" },
-  { key: "electro-medical", label: "ইলেকট্রোমেডিকেল" },
-  { key: "mechatronics", label: "মেকাট্রনিক্স" },
-  { key: "non-tech", label: "নন-টেক" },
+export const DEPARTMENT_OPTIONS: { key: string; label: string; english: string }[] = [
+  { key: "civil", label: "সিভিল", english: "Civil Technology" },
+  {
+    key: "computer",
+    label: "কম্পিউটার সাইন্স এন্ড টেকনোলজি",
+    english: "Computer Science & Technology",
+  },
+  { key: "mechanical", label: "মেকানিক্যাল", english: "Mechanical Technology" },
+  { key: "electrical", label: "ইলেকট্রিক্যাল", english: "Electrical Technology" },
+  { key: "power", label: "পাওয়ার", english: "Power Technology" },
+  { key: "electronics", label: "ইলেকট্রোনিক্স", english: "Electronics Technology" },
+  { key: "electro-medical", label: "ইলেকট্রোমেডিকেল", english: "Electro-Medical Technology" },
+  { key: "mechatronics", label: "মেকাট্রনিক্স", english: "Mechatronics Technology" },
+  { key: "non-tech", label: "নন-টেক", english: "Non-Tech" },
 ];
+
+export function departmentEnglish(keyOrLabel: string): string {
+  return (
+    DEPARTMENT_OPTIONS.find((d) => d.key === keyOrLabel || d.label === keyOrLabel)?.english ??
+    keyOrLabel
+  );
+}
 
 export function departmentKey(label: string): string {
   return (
