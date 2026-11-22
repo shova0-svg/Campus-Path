@@ -45,6 +45,8 @@ export interface ClassRoutine {
   semester: number;
   shift: Shift;
   department: string;
+  /** Group label (A/B), kept in sync with the title for the DB layer. */
+  group?: string;
   title: string;
   classStart: string;
   classLoad?: number;

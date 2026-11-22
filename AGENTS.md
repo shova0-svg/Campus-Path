@@ -1,4 +1,5 @@
 <!-- LOVABLE:BEGIN -->
+
 > [!IMPORTANT]
 > This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
 > published git history — force pushing, or rebasing/amending/squashing commits
@@ -27,14 +28,29 @@ use the editor.
   `LOVABLE_API_KEY`. When Lovable does not provide one, users can bring their
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
+
 <!-- LOVABLE:END -->
 
 <!-- AGENT-MEMORY:BEGIN -->
+
 - Campus data, search and route generation live in `src/lib/campus-data.ts` as pure functions; UI pieces in `src/components/sohoj/`. Why: keeps the demo data testable (`src/test/campus-data.test.ts`).
 - Accounts use Lovable Cloud auth (email/password, Google, Lovable) via the single `AuthProvider` in `src/hooks/use-auth.tsx`; display names live in `public.profiles` (filled by a signup trigger). Admin mode = signed-in email checked against the admin list in `src/lib/admin.ts`. Rooms, routines and admin lists still live in localStorage. Why: real sign-in first; moving campus data to Cloud is a separate step.
+
 <!-- AGENT-MEMORY:END -->
 
+<!-- PHASE1:BEGIN -->
+
+## Supabase data sync (Phase 1)
+
+- Schema: `supabase/migrations/20261122000001_campus_data.sql` (apply in Lovable Cloud / Supabase).
+- One-time idempotent seed: `npx tsx scripts/seed-supabase.ts` (needs `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in the environment; publishable key works only where RLS allows writes).
+- Repos: `src/lib/repo/*` (Supabase CRUD). Cache: `src/lib/cache.ts` (stale-while-revalidate, offline-safe). Resources: `src/lib/resources.ts`.
+- Assumptions: code seeds use stable `text` ids so upserts are idempotent; public read tables allow anon SELECT (app is login-gated anyway, and offline cache still works).
+
+<!-- PHASE1:END -->
+
 <!-- AGENT-SKILLS:BEGIN -->
+
 ## Skills to use going forward
 
 These skills are installed in this codebase (`.claude/skills/`) and enabled as
@@ -54,4 +70,5 @@ project-scoped plugins in `~/.claude/plugins/installed_plugins.json`. Use them:
   about session cost, context size, token usage, long documents, handoffs to a
   new chat, prompt sharpening, or reusable project context. Prefer digesting
   long inputs instead of pasting them whole into context.
+
 <!-- AGENT-SKILLS:END -->

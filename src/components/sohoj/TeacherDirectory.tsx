@@ -8,34 +8,38 @@ import {
   phoneHref,
   searchTeachers,
   allTeachers,
-  defaultTeacherStore,
-  parseTeacherStore,
-  TEACHERS_STORE_KEY,
   TEACHER_SOURCE,
   teacherId,
   type Teacher,
   type TeacherStore,
 } from "@/lib/teachers";
+import { teachersResource } from "@/lib/resources";
 
 interface Props {
   instituteName: string;
 }
 
 export function TeacherDirectory({ instituteName }: Props) {
-  const [store, setStore] = useState<TeacherStore>(defaultTeacherStore);
+  const [store, setStore] = useState<TeacherStore>(() =>
+    teachersResource.get().reduce<TeacherStore>((acc, t) => {
+      const id = t.instituteId ?? "rpi";
+      (acc[id] ??= []).push(t);
+      return acc;
+    }, {}),
+  );
   const [query, setQuery] = useState("");
   const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () =>
-      setStore(parseTeacherStore(window.localStorage.getItem(TEACHERS_STORE_KEY)));
-    refresh();
-    window.addEventListener("storage", refresh);
-    window.addEventListener("sohoj:teachers-changed", refresh);
-    return () => {
-      window.removeEventListener("storage", refresh);
-      window.removeEventListener("sohoj:teachers-changed", refresh);
-    };
+      setStore(
+        teachersResource.get().reduce<TeacherStore>((acc, t) => {
+          const id = t.instituteId ?? "rpi";
+          (acc[id] ??= []).push(t);
+          return acc;
+        }, {}),
+      );
+    return teachersResource.subscribe(refresh);
   }, []);
 
   const teachers = useMemo(() => allTeachers(store), [store]);

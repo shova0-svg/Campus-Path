@@ -45,26 +45,29 @@ const AdminPanel = lazy(() =>
 );
 import {
   addInstituteAdmin,
-  adminProfile,
-  ADMINS_STORE_KEY,
-  BUILDINGS_STORE_KEY,
-  defaultStore,
   deleteBuilding,
   deleteLocation,
-  isAdmin as isAdminUser,
-  isAdminEmail,
-  LEGACY_CUSTOM_KEY,
-  loadAdmins,
-  parseBuildingStore,
-  parseStore,
   removeInstituteAdmin,
-  STORE_KEY,
   upsertBuilding,
   upsertLocation,
   type AdminAccount,
   type BuildingStore,
   type LocationStore,
 } from "@/lib/admin";
+import { useAdminRole } from "@/hooks/use-admin-role";
+import {
+  adminsResource,
+  buildingsResource,
+  roomsResource,
+  routinesResource,
+  startSync,
+  teachersResource,
+} from "@/lib/resources";
+import { removeBuildingRow, upsertBuildingRow } from "@/lib/repo/buildings";
+import { removeRoomRow, upsertRoomRow } from "@/lib/repo/rooms";
+import { removeRoutineRow, upsertRoutineRow } from "@/lib/repo/routines";
+import { removeTeacherRow, upsertTeacherRow } from "@/lib/repo/teachers";
+import { addAdminByEmail, removeAdminRow } from "@/lib/repo/admins";
 import type { Building } from "@/lib/campus-data";
 import { NavigationView } from "@/components/sohoj/NavigationView";
 const CampusMap = lazy(() =>
@@ -83,8 +86,6 @@ import {
   currentClassesInRoom,
   deleteRoutine,
   mergeRoutineRooms,
-  parseRoutineStore,
-  ROUTINE_STORE_KEY,
   roomsFromRoutine,
   sortRooms,
   upsertRoutine,
@@ -108,14 +109,7 @@ import {
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
 import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
-import {
-  deleteTeacher,
-  parseTeacherStore,
-  TEACHERS_STORE_KEY,
-  upsertTeacher,
-  type Teacher,
-  type TeacherStore,
-} from "@/lib/teachers";
+import { deleteTeacher, upsertTeacher, type Teacher, type TeacherStore } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -149,9 +143,18 @@ const FILTERS: { id: CategoryFilter; label: string }[] = [
 
 const INSTITUTE_GROUPS = groupInstitutes(INSTITUTES);
 
+function groupByInstitute<T extends { instituteId?: string }>(list: T[]): Record<string, T[]> {
+  return list.reduce<Record<string, T[]>>((acc, item) => {
+    const id = item.instituteId ?? "rpi";
+    (acc[id] ??= []).push(item);
+    return acc;
+  }, {});
+}
+
 function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
-  const [store, setStore] = useState<LocationStore>(() => defaultStore());
+  const [allRooms, setAllRooms] = useState(() => roomsResource.get());
+  const [lastSynced, setLastSynced] = useState(() => new Date());
   const navigate = useNavigate();
   const { user, displayName, signOut, loading: authLoading } = useAuth();
   // Admin mode follows the real signed-in account's email.
@@ -168,10 +171,30 @@ function Index() {
   const [formOpen, setFormOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [view, setView] = useState<"list" | "routine" | "map">("list");
-  const [admins, setAdmins] = useState<AdminAccount[]>(() => loadAdmins(null));
-  const [buildingStore, setBuildingStore] = useState<BuildingStore>(() => parseBuildingStore(null));
-  const [teacherStore, setTeacherStore] = useState<TeacherStore>(() => parseTeacherStore(null));
-  const [routines, setRoutines] = useState<ClassRoutine[]>(() => parseRoutineStore(null));
+  const [allBuildings, setAllBuildings] = useState(() => buildingsResource.get());
+  const [allTeachers, setAllTeachers] = useState(() => teachersResource.get());
+  const [routines, setRoutines] = useState<ClassRoutine[]>(() => routinesResource.get());
+  const [admins, setAdmins] = useState<AdminAccount[]>(() => adminsResource.get());
+  const adminRole = useAdminRole();
+
+  useEffect(() => roomsResource.subscribe(setAllRooms), []);
+  useEffect(() => buildingsResource.subscribe(setAllBuildings), []);
+  useEffect(() => teachersResource.subscribe(setAllTeachers), []);
+  useEffect(() => routinesResource.subscribe(setRoutines), []);
+  useEffect(() => adminsResource.subscribe(setAdmins), []);
+
+  useEffect(() => {
+    const updated = () => setLastSynced(new Date());
+    const events = [
+      "sohoj:rooms-changed",
+      "sohoj:buildings-changed",
+      "sohoj:routines-changed",
+      "sohoj:teachers-changed",
+      "sohoj:admins-changed",
+    ];
+    events.forEach((e) => window.addEventListener(e, updated));
+    return () => events.forEach((e) => window.removeEventListener(e, updated));
+  }, []);
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
@@ -193,26 +216,8 @@ function Index() {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    try {
-      const savedStore = parseStore(
-        window.localStorage.getItem(STORE_KEY),
-        window.localStorage.getItem(LEGACY_CUSTOM_KEY),
-      );
-      const savedRoutines = parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY));
-      // Room numbers from the routine cells (e.g. 1305) become rooms automatically.
-      const withRoutineRooms = mergeRoutineRooms(savedStore, savedRoutines);
-      setStore(withRoutineRooms);
-      window.localStorage.setItem(STORE_KEY, JSON.stringify(withRoutineRooms));
-      const savedAdmins = loadAdmins(window.localStorage.getItem(ADMINS_STORE_KEY));
-      setAdmins(savedAdmins);
-      const mergedBuildings = parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY));
-      setBuildingStore(mergedBuildings);
-      window.localStorage.setItem(BUILDINGS_STORE_KEY, JSON.stringify(mergedBuildings));
-      setTeacherStore(parseTeacherStore(window.localStorage.getItem(TEACHERS_STORE_KEY)));
-      setRoutines(savedRoutines);
-    } catch {
-      /* ignore broken storage */
-    }
+    // Background revalidation from Supabase; offline serves the local cache.
+    startSync();
     // Shared QR links: /?qr=SOHOJ1|rpi|academic|building
     try {
       const target = decodeQr(new URLSearchParams(window.location.search).get("qr"));
@@ -228,18 +233,25 @@ function Index() {
     if (viewParam === "routine" || viewParam === "map") setView(viewParam);
   }, []);
 
+  const buildingStore = useMemo<BuildingStore>(
+    () => groupByInstitute(allBuildings),
+    [allBuildings],
+  );
+  const store = useMemo<LocationStore>(
+    () => mergeRoutineRooms(groupByInstitute(allRooms), routines),
+    [allRooms, routines],
+  );
+  const teacherStore = useMemo<TeacherStore>(() => groupByInstitute(allTeachers), [allTeachers]);
+
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
   const buildings = buildingStore[institute.id] ?? institute.buildings;
   const locations = useMemo(() => store[institute.id] ?? institute.locations, [store, institute]);
-  const profile = adminProfile(adminEmail, admins);
-  const isAdmin = isAdminUser(adminEmail, admins);
-  const isSuper = isAdminEmail(adminEmail);
-  const allowedInstituteIds =
-    profile?.instituteId === "all"
-      ? INSTITUTES.map((i) => i.id)
-      : profile
-        ? [profile.instituteId]
-        : [];
+  const isAdmin = adminRole.isAdmin;
+  const isSuper = adminRole.isSuper;
+  const allowedInstituteIds = adminRole.allowedInstituteIds;
+  const profile = adminRole.isAdmin
+    ? { instituteId: adminRole.isSuper ? "all" : (allowedInstituteIds[0] ?? "") }
+    : null;
   const visibleInstitutes =
     isSuper || !profile ? INSTITUTES : INSTITUTES.filter((i) => allowedInstituteIds.includes(i.id));
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
@@ -302,18 +314,18 @@ function Index() {
   }
 
   function commit(next: LocationStore) {
-    setStore(next);
-    try {
-      window.localStorage.setItem(STORE_KEY, JSON.stringify(next));
-    } catch {
-      /* storage full or blocked */
-    }
+    roomsResource.set(
+      Object.values(next)
+        .flat()
+        .map((r) => ({ ...r, instituteId: institute.id })),
+    );
   }
 
   function saveLocation(targetInstituteId: string, loc: CampusLocation) {
     if (!isAdmin) return;
     const isEdit = editing !== null;
     commit(upsertLocation(store, targetInstituteId, loc));
+    void upsertRoomRow({ ...loc, instituteId: targetInstituteId }).catch(() => {});
     toast.success(isEdit ? `${loc.name} updated` : `${loc.name} added to the map`, {
       description: "এখন সার্চে দেখা যাবে",
     });
@@ -323,21 +335,16 @@ function Index() {
   function removeLocation(targetInstituteId: string, loc: CampusLocation) {
     if (!isAdmin) return;
     commit(deleteLocation(store, targetInstituteId, loc.id));
+    void removeRoomRow(loc.id).catch(() => {});
     if (selectedId === loc.id) setSelectedId(null);
     toast.success(`${loc.name} deleted`);
   }
 
   function saveRoutine(routine: ClassRoutine) {
     if (!isAdmin) return;
-    setRoutines((prev) => {
-      const next = upsertRoutine(prev, routine);
-      try {
-        window.localStorage.setItem(ROUTINE_STORE_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    const next = upsertRoutine(routines, routine);
+    routinesResource.set(next);
+    void upsertRoutineRow(routine).catch(() => {});
     const autoRooms = roomsFromRoutine(routine, routine.instituteId);
     let nextStore = store;
     for (const room of autoRooms) {
@@ -352,15 +359,8 @@ function Index() {
   }
 
   function removeRoutine(id: string) {
-    setRoutines((prev) => {
-      const next = deleteRoutine(prev, id);
-      try {
-        window.localStorage.setItem(ROUTINE_STORE_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+    routinesResource.set(deleteRoutine(routines, id));
+    void removeRoutineRow(id).catch(() => {});
     toast.success("Routine deleted");
   }
 
@@ -371,39 +371,35 @@ function Index() {
       toast.error(result.error);
       return;
     }
-    setAdmins(result.accounts);
-    try {
-      window.localStorage.setItem(ADMINS_STORE_KEY, JSON.stringify(result.accounts));
-    } catch {
-      /* ignore */
-    }
+    adminsResource.set(result.accounts);
+    void addAdminByEmail(email, instituteId).catch(() => {});
     toast.success(`${email} added`, { description: "Ekhon ei institute access pabe" });
   }
 
   function removeAdmin(email: string) {
     if (!isSuper) return;
     const next = removeInstituteAdmin(admins, email);
-    setAdmins(next);
-    try {
-      window.localStorage.setItem(ADMINS_STORE_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+    adminsResource.set(next);
+    const target = admins.find((a) => a.email.toLowerCase() === email.trim().toLowerCase());
+    if (target?.addedBy && target.addedBy !== "system")
+      void removeAdminRow(target.addedBy).catch(() => {});
     toast.success(`${email} removed`);
   }
 
   function commitBuildings(next: BuildingStore) {
-    setBuildingStore(next);
-    try {
-      window.localStorage.setItem(BUILDINGS_STORE_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
+    buildingsResource.set(
+      Object.values(next)
+        .flat()
+        .map((b) => ({ ...b, instituteId: institute.id, isCustom: true })),
+    );
   }
 
   function saveBuilding(building: Building) {
     if (!isAdmin) return;
     commitBuildings(upsertBuilding(buildingStore, institute.id, building));
+    void upsertBuildingRow({ ...building, instituteId: institute.id, isCustom: true }).catch(
+      () => {},
+    );
     toast.success(`${building.name} saved`, {
       description: "এই ভবনের নিচে এখন রুম যোগ করা যাবে",
     });
@@ -412,27 +408,28 @@ function Index() {
   function removeBuilding(buildingId: string) {
     const name = buildings.find((b) => b.id === buildingId)?.name ?? "Building";
     commitBuildings(deleteBuilding(buildingStore, institute.id, buildingId));
+    void removeBuildingRow(`${institute.id}-${buildingId}`).catch(() => {});
     toast.success(`${name} removed`);
   }
 
   function commitTeachers(next: TeacherStore) {
-    setTeacherStore(next);
-    try {
-      window.localStorage.setItem(TEACHERS_STORE_KEY, JSON.stringify(next));
-      window.dispatchEvent(new Event("sohoj:teachers-changed"));
-    } catch {
-      /* ignore */
-    }
+    teachersResource.set(
+      Object.values(next)
+        .flat()
+        .map((t) => ({ ...t, instituteId: institute.id })),
+    );
   }
 
   function saveTeacher(teacher: Teacher) {
     if (!isAdmin) return;
     commitTeachers(upsertTeacher(teacherStore, institute.id, teacher));
+    void upsertTeacherRow({ ...teacher, instituteId: institute.id }).catch(() => {});
     toast.success(`${teacher.name} saved`, { description: "Teachers page-e dekha jay" });
   }
 
   function removeTeacher(id: string) {
     commitTeachers(deleteTeacher(teacherStore, institute.id, id));
+    void removeTeacherRow(id).catch(() => {});
     toast.success("Teacher removed");
   }
 
@@ -636,7 +633,10 @@ function Index() {
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald/20 px-2.5 py-1 font-medium text-emerald">
-                    <CheckCircle2 className="size-3.5" /> Offline ready
+                    <CheckCircle2 className="size-3.5" />
+                    {typeof navigator !== "undefined" && !navigator.onLine
+                      ? "Offline · last cache"
+                      : `Synced ${lastSynced.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
                   </span>
                 )}
               </div>

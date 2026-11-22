@@ -91,7 +91,7 @@ function AuthPage() {
   }
 
   async function signInWithGoogle() {
-    const { signInWithGoogle: google } = await import("@/lib/firebase");
+    const { signInWithGoogle: google } = await import("@/lib/supabase-auth");
     await google();
   }
 

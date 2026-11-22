@@ -4,8 +4,8 @@ import { ArrowLeft, Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JourneyCard } from "@/components/sohoj/JourneyCard";
 import { StudentSetup } from "@/components/sohoj/StudentSetup";
-import { BUILDINGS_STORE_KEY, parseBuildingStore } from "@/lib/admin";
-import { parseRoutineStore, ROUTINE_STORE_KEY } from "@/lib/routine";
+import { buildingsResource, routinesResource } from "@/lib/resources";
+import { loadStudentProfile, saveStudentProfile } from "@/lib/repo/student";
 import { nextClassJourney, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import { enableNotifications, notificationsEnabled, scheduleJourneyReminders } from "@/lib/notify";
 import { toast } from "sonner";
@@ -25,18 +25,37 @@ function StudentPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [routines, setRoutines] = useState(() => parseRoutineStore(null));
-  const [buildings, setBuildings] = useState(() => parseBuildingStore(null));
+  const [routines, setRoutines] = useState(() => routinesResource.get());
+  const [allBuildings, setAllBuildings] = useState(() => buildingsResource.get());
 
   useEffect(() => {
     if (!authLoading && !user) {
       void navigate({ to: "/auth", replace: true });
       return;
     }
-    setProfile(parseStudent(window.localStorage.getItem(STUDENT_KEY)));
-    setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
-    setBuildings(parseBuildingStore(window.localStorage.getItem(BUILDINGS_STORE_KEY)));
+    const cached = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    setProfile(cached);
+    if (user?.id && !cached) {
+      void loadStudentProfile(user.id).then((remote) => {
+        if (remote) {
+          const merged = { ...remote, email: user.email ?? remote.email };
+          setProfile(merged);
+          window.localStorage.setItem(STUDENT_KEY, JSON.stringify(merged));
+        }
+      });
+    }
+    routinesResource.refresh();
+    buildingsResource.refresh();
   }, []);
+
+  useEffect(() => routinesResource.subscribe(setRoutines), []);
+  useEffect(() => buildingsResource.subscribe(setAllBuildings), []);
+
+  const buildings = useMemo(() => {
+    const grouped: Record<string, (typeof allBuildings)[number][]> = {};
+    for (const b of allBuildings) (grouped[b.instituteId] ??= []).push(b);
+    return grouped;
+  }, [allBuildings]);
 
   const journey = useMemo(
     () =>
@@ -62,6 +81,7 @@ function StudentPage() {
   function login(next: StudentProfile) {
     setProfile(next);
     window.localStorage.setItem(STUDENT_KEY, JSON.stringify(next));
+    if (user?.id) void saveStudentProfile(user.id, next, notificationsEnabled()).catch(() => {});
   }
 
   function logout() {
