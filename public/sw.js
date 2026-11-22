@@ -1,5 +1,5 @@
 /* Sohoj Rasta service worker — app shell + runtime cache for offline use. */
-const CACHE = "sohoj-rasta-v1";
+const CACHE = "sohoj-rasta-v2";
 const CORE = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -28,6 +28,8 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Sign-in redirects must always reach the network.
+  if (url.pathname.startsWith("/~oauth")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(

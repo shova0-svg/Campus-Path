@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/use-auth";
 import {
   BookOpen,
   Building2,
@@ -34,12 +35,10 @@ import {
 import { BrandLogo } from "@/components/sohoj/BrandLogo";
 import { QrScannerDialog } from "@/components/sohoj/QrScannerDialog";
 import { LocationFormDialog, type EditTarget } from "@/components/sohoj/LocationFormDialog";
-import { AdminLoginDialog } from "@/components/sohoj/AdminLoginDialog";
 import { AdminPanel } from "@/components/sohoj/AdminPanel";
 import {
   addInstituteAdmin,
   adminProfile,
-  ADMIN_SESSION_KEY,
   ADMINS_STORE_KEY,
   BUILDINGS_STORE_KEY,
   defaultStore,
@@ -139,8 +138,10 @@ const INSTITUTE_GROUPS = groupInstitutes(INSTITUTES);
 function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
   const [store, setStore] = useState<LocationStore>(() => defaultStore());
-  const [adminEmail, setAdminEmail] = useState<string | null>(null);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user, displayName, signOut } = useAuth();
+  // Admin mode follows the real signed-in account's email.
+  const adminEmail = user?.email ?? null;
   const [panelOpen, setPanelOpen] = useState(false);
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [formInstituteId, setFormInstituteId] = useState<string>(INSTITUTES[0].id);
@@ -179,15 +180,6 @@ function Index() {
       window.localStorage.setItem(BUILDINGS_STORE_KEY, JSON.stringify(mergedBuildings));
       setTeacherStore(parseTeacherStore(window.localStorage.getItem(TEACHERS_STORE_KEY)));
       setRoutines(savedRoutines);
-      const session = window.localStorage.getItem(ADMIN_SESSION_KEY);
-      if (isAdminUser(session, savedAdmins)) {
-        setAdminEmail(session);
-        const profile = adminProfile(session, savedAdmins);
-        if (profile && profile.instituteId !== "all") {
-          setInstituteId(profile.instituteId);
-          setFormInstituteId(profile.instituteId);
-        }
-      }
     } catch {
       /* ignore broken storage */
     }
@@ -414,41 +406,31 @@ function Index() {
     toast.success("Teacher removed");
   }
 
-  function openAdmin() {
-    if (isAdmin) setPanelOpen(true);
-    else setLoginOpen(true);
-  }
+  // Admin users land on their own institute.
+  useEffect(() => {
+    if (profile && profile.instituteId !== "all") {
+      setInstituteId(profile.instituteId);
+      setFormInstituteId(profile.instituteId);
+    }
+  }, [profile?.instituteId]);
 
-  function handleLogin(email: string) {
-    if (!isAdminUser(email, admins)) {
-      toast.error("Not an admin", { description: "Super admin ei email ke admin banate hobe." });
+  function openAdmin() {
+    if (!user) {
+      toast("Sign in first", { description: "Admin account diye sign in korun." });
+      navigate({ to: "/auth" });
       return;
     }
-    const logged = adminProfile(email, admins);
-    setAdminEmail(email);
-    if (logged && logged.instituteId !== "all") {
-      setInstituteId(logged.instituteId);
-      setFormInstituteId(logged.instituteId);
-      setView("list");
-    }
-    try {
-      window.localStorage.setItem(ADMIN_SESSION_KEY, email);
-    } catch {
-      /* ignore */
-    }
-    toast.success("Admin Mode unlocked", { description: email });
-    setPanelOpen(true);
+    if (isAdmin) setPanelOpen(true);
+    else
+      toast.error("Access Denied: Unauthorized Email", {
+        description: `${user.email ?? ""} is not allowed to manage Sohoj Rasta.`,
+      });
   }
 
-  function handleLogout() {
-    setAdminEmail(null);
+  async function handleLogout() {
     setPanelOpen(false);
-    try {
-      window.localStorage.removeItem(ADMIN_SESSION_KEY);
-    } catch {
-      /* ignore */
-    }
-    toast("Logged out of Admin Mode");
+    await signOut();
+    toast("Signed out");
   }
 
   function openAddForm(targetInstituteId: string) {
@@ -547,14 +529,38 @@ function Index() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="glass"
-              size="sm"
-              onClick={openAdmin}
-              aria-label={isAdmin ? "Open admin panel" : "Admin login"}
-            >
-              <ShieldCheck className={isAdmin ? "text-emerald" : undefined} /> Admin
-            </Button>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              {user ? (
+                <Button
+                  variant="glass"
+                  size="sm"
+                  onClick={() =>
+                    toast(`Signed in as ${displayName ?? user.email ?? ""}`, {
+                      description: user.email ?? undefined,
+                      action: { label: "Sign out", onClick: () => void handleLogout() },
+                    })
+                  }
+                  aria-label="Account"
+                  className="max-w-[9rem]"
+                >
+                  <UserRound /> <span className="truncate">{displayName ?? "Account"}</span>
+                </Button>
+              ) : (
+                <Button variant="glass" size="sm" asChild>
+                  <Link to="/auth">
+                    <UserRound /> Sign in
+                  </Link>
+                </Button>
+              )}
+              <Button
+                variant="glass"
+                size="sm"
+                onClick={openAdmin}
+                aria-label={isAdmin ? "Open admin panel" : "Admin login"}
+              >
+                <ShieldCheck className={isAdmin ? "text-emerald" : undefined} /> Admin
+              </Button>
+            </div>
           </div>
 
           <div className="mt-5">
@@ -1010,7 +1016,6 @@ function Index() {
       </main>
 
       <QrScannerDialog open={qrOpen} onOpenChange={setQrOpen} onDetected={handleQrDetected} />
-      <AdminLoginDialog open={loginOpen} onOpenChange={setLoginOpen} onSuccess={handleLogin} />
       {isAdmin && adminEmail && (
         <>
           <AdminPanel
