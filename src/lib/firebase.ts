@@ -1,29 +1,10 @@
-import { initializeApp, type FirebaseOptions } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  type User,
-} from "firebase/auth";
-import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
+import { supabase } from "@/integrations/supabase/client";
 
-const config: FirebaseOptions = {
-  apiKey: import.meta.env["VITE_FIREBASE_API_KEY"] ?? "",
-  authDomain: import.meta.env["VITE_FIREBASE_AUTH_DOMAIN"] ?? "",
-  projectId: import.meta.env["VITE_FIREBASE_PROJECT_ID"] ?? "",
-  messagingSenderId: import.meta.env["VITE_FIREBASE_MESSAGING_SENDER_ID"] ?? "",
-  appId: import.meta.env["VITE_FIREBASE_APP_ID"] ?? "",
-};
-
-const VAPID_KEY = import.meta.env["VITE_FIREBASE_VAPID_KEY"] ?? "";
-
-export const firebaseConfigured = Boolean(config.apiKey && config.authDomain && config.projectId);
-
-const app = firebaseConfigured ? initializeApp(config) : null;
-const auth = app ? getAuth(app) : null;
-const provider = new GoogleAuthProvider();
+/**
+ * Google sign-in is handled by Lovable Cloud (Supabase Auth). The old Firebase
+ * module name is kept so the student UI does not need a rename.
+ */
+export const firebaseConfigured = true;
 
 export interface GoogleAccount {
   uid: string;
@@ -32,55 +13,55 @@ export interface GoogleAccount {
   photo: string;
 }
 
+function toAccount(user: {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): GoogleAccount {
+  const meta = user.user_metadata ?? {};
+  const name =
+    typeof meta["full_name"] === "string"
+      ? meta["full_name"]
+      : typeof meta["name"] === "string"
+        ? meta["name"]
+        : "";
+  const photo = typeof meta["avatar_url"] === "string" ? meta["avatar_url"] : "";
+  return { uid: user.id, email: user.email ?? "", name, photo };
+}
+
 export function watchGoogleAuth(callback: (user: GoogleAccount | null) => void): () => void {
-  if (!auth) return () => {};
-  return onAuthStateChanged(auth, (user: User | null) => {
-    callback(
-      user
-        ? {
-            uid: user.uid,
-            email: user.email ?? "",
-            name: user.displayName ?? "",
-            photo: user.photoURL ?? "",
-          }
-        : null,
-    );
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    callback(session?.user ? toAccount(session.user) : null);
   });
+  void supabase.auth.getUser().then(({ data: { user } }) => {
+    callback(user ? toAccount(user) : null);
+  });
+  return () => data.subscription.unsubscribe();
 }
 
 export async function signInWithGoogle(): Promise<GoogleAccount> {
-  if (!auth) throw new Error("Firebase config missing — add VITE_FIREBASE_* values first");
-  const result = await signInWithPopup(auth, provider);
-  return {
-    uid: result.user.uid,
-    email: result.user.email ?? "",
-    name: result.user.displayName ?? "",
-    photo: result.user.photoURL ?? "",
-  };
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}/student` },
+  });
+  if (error) throw error;
+  if (!data.url) throw new Error("Google redirect URL pawa jay ni");
+  window.location.assign(data.url);
+  return { uid: "", email: "", name: "", photo: "" };
 }
 
 export async function signOutGoogle(): Promise<void> {
-  if (auth) await firebaseSignOut(auth);
+  await supabase.auth.signOut();
 }
 
+/** Push notifications need Firebase Cloud Messaging credentials. Not configured yet. */
 export async function enablePush(): Promise<string | null> {
-  if (!app || !VAPID_KEY || !(await isSupported())) return null;
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return null;
-  const registration = await navigator.serviceWorker.ready;
-  const messaging = getMessaging(app);
-  return getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration });
+  const token = window.localStorage.getItem("sohoj-rasta-fcm-token");
+  return token ?? null;
 }
 
 export function onForegroundMessage(
-  callback: (payload: { title?: string; body?: string }) => void,
+  _callback: (payload: { title?: string; body?: string }) => void,
 ): () => void {
-  if (!app) return () => {};
-  const messaging = getMessaging(app);
-  return onMessage(messaging, (payload) => {
-    callback({
-      ...(payload.notification?.title ? { title: payload.notification.title } : {}),
-      ...(payload.notification?.body ? { body: payload.notification.body } : {}),
-    });
-  });
+  return () => {};
 }
