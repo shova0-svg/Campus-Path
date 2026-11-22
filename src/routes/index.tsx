@@ -155,7 +155,8 @@ function groupByInstitute<T extends { instituteId?: string }>(list: T[]): Record
 function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
   const [allRooms, setAllRooms] = useState(() => roomsResource.get());
-  const [lastSynced, setLastSynced] = useState(() => new Date());
+  const [lastSynced, setLastSynced] = useState(() => new Date(0));
+  const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
   const { user, displayName, signOut, loading: authLoading } = useAuth();
   // Admin mode follows the real signed-in account's email.
@@ -185,6 +186,8 @@ function Index() {
   useEffect(() => adminsResource.subscribe(setAdmins), []);
 
   useEffect(() => {
+    setMounted(true);
+    setLastSynced(new Date());
     const updated = () => setLastSynced(new Date());
     const events = [
       "sohoj:rooms-changed",
@@ -261,7 +264,15 @@ function Index() {
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
   const activeRoutine = studentProfile ? matchRoutine(studentProfile) : null;
   const now = new Date();
-  const hour = now.getHours();
+  // Dhaka time keeps server and client render identical regardless of host timezone.
+  const hour =
+    Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Dhaka",
+        hour: "2-digit",
+        hour12: false,
+      }).format(now),
+    ) % 24;
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const liveNow = currentClasses(instituteRoutines, now);
   const results = useMemo(
@@ -628,9 +639,11 @@ function Index() {
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald/20 px-2.5 py-1 font-medium text-emerald">
                     <CheckCircle2 className="size-3.5" />
-                    {typeof navigator !== "undefined" && !navigator.onLine
-                      ? "Offline · last cache"
-                      : `Synced ${lastSynced.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                    {!mounted
+                      ? "Synced —"
+                      : typeof navigator !== "undefined" && !navigator.onLine
+                        ? "Offline · last cache"
+                        : `Synced ${lastSynced.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
                   </span>
                 )}
               </div>
