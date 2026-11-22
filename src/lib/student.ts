@@ -1,10 +1,13 @@
 import type { Building } from "@/lib/campus-data";
 import {
+  blocksForDay,
   buildingIdForRoom,
-  DAY_ORDER,
-  periodRange,
-  type ClassRoutine,
-  type RoutineEntry,
+  dhakaNow,
+  ROUTINES,
+  resolveBlock,
+  type Day,
+  type ResolvedBlock,
+  type Routine,
 } from "@/lib/routine";
 
 export interface StudentProfile {
@@ -13,7 +16,8 @@ export interface StudentProfile {
   instituteId: string;
   department: string;
   semester: number;
-  group: string;
+  /** Kept optional for existing saved profiles / DB rows; not used by the two CST routines. */
+  group?: string;
   shift: string;
 }
 
@@ -32,7 +36,7 @@ export function parseStudent(raw: string | null): StudentProfile | null {
       instituteId: p.instituteId,
       department: p.department ?? "",
       semester: Number(p.semester) || 1,
-      group: p.group ?? "A",
+      ...(p.group ? { group: p.group } : {}),
       shift: p.shift ?? "Morning",
     };
   } catch {
@@ -40,96 +44,94 @@ export function parseStudent(raw: string | null): StudentProfile | null {
   }
 }
 
+function isCst(department: string): boolean {
+  const d = department.toLowerCase().trim();
+  return (
+    d === "cst" || d === "computer" || d.includes("computer science") || d.includes("কম্পিউটার")
+  );
+}
+
+function isFirstShift(shift: string): boolean {
+  const s = shift.trim().toLowerCase();
+  return s === "" || s === "1" || s === "1st" || s === "morning" || s === "first";
+}
+
+/** RPI + CST + semester 1 or 3 + 1st shift → the matching routine; otherwise null. */
 export function matchRoutine(
   profile: StudentProfile,
-  routines: ClassRoutine[],
-): ClassRoutine | null {
-  const candidates = routines.filter(
-    (r) =>
-      r.instituteId === profile.instituteId &&
-      r.semester === profile.semester &&
-      r.shift.toLowerCase() === profile.shift.toLowerCase() &&
-      (!profile.department ||
-        r.department.toLowerCase().includes(profile.department.toLowerCase()) ||
-        profile.department.toLowerCase().includes(r.department.toLowerCase())),
-  );
-  const grouped = candidates.filter((r) =>
-    r.title.toLowerCase().includes(`group ${profile.group.toLowerCase()}`),
-  );
-  const plain = candidates.filter((r) => !r.title.toLowerCase().includes("group "));
-  return grouped[0] ?? plain[0] ?? candidates[0] ?? null;
+  routines: Routine[] = ROUTINES,
+): Routine | null {
+  if (profile.instituteId !== "rpi" || !isCst(profile.department) || !isFirstShift(profile.shift))
+    return null;
+  return routines.find((r) => r.semester === profile.semester) ?? null;
 }
 
 export interface Journey {
-  routine: ClassRoutine;
-  current: RoutineEntry | null;
-  next: RoutineEntry | null;
+  routine: Routine;
+  current: ResolvedBlock | null;
+  next: ResolvedBlock | null;
   currentEndsAt: string | null;
   nextStartsAt: string | null;
   walkingMinutes: number;
   leaveAt: string | null;
-  day: string;
+  sameRoom: boolean;
+  day: Day | null;
 }
 
-function minutesToLabel(minutes: number): string {
-  const h = Math.floor(minutes / 60) % 24;
-  const m = minutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-
-function timeLabel(routine: ClassRoutine, period: number, end = false): string | null {
-  const time = routine.periods.find((p) => p.id === period)?.time;
-  const range = time ? periodRange(time) : null;
-  return range ? minutesToLabel(end ? range[1] : range[0]) : null;
+function clock(minute: number): string {
+  const h = Math.floor(minute / 60) % 24;
+  return `${String(h).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 }
 
 function walkingTime(room: string, buildings: Building[]): number {
-  const id = buildingIdForRoom(room);
-  const building = buildings.find((b) => b.id === id);
+  const building = buildings.find((b) => b.id === buildingIdForRoom(room));
   const meters = building?.distance["main-gate"] ?? 80;
   return Math.max(2, Math.round(meters / 12));
 }
 
+/** Next class day after `day`, skipping the Fri/Sat weekend. */
+function nextClassDay(day: Day | null): Day {
+  const order: Day[] = ["Sun", "Mon", "Tue", "Wed", "Thu"];
+  if (day === null) return "Sun";
+  const i = order.indexOf(day);
+  return order[(i + 1) % order.length] ?? "Sun";
+}
+
 export function nextClassJourney(
   profile: StudentProfile,
-  routines: ClassRoutine[],
-  buildings: Building[],
   now: Date = new Date(),
+  buildings: Building[] = [],
 ): Journey | null {
-  const routine = matchRoutine(profile, routines);
+  const routine = matchRoutine(profile);
   if (!routine) return null;
 
-  const day = DAY_ORDER[now.getDay()];
-  const minute = now.getHours() * 60 + now.getMinutes();
-  const onDay = routine.entries.filter((e) => e.day === day).sort((a, b) => a.period - b.period);
+  const { day, minute } = dhakaNow(now);
+  const today = day ? blocksForDay(routine, day) : [];
+  const current = today.find((b) => minute >= b.startMinute && minute <= b.endMinute) ?? null;
+  const nextToday = today.find((b) => b.startMinute >= (current?.endMinute ?? minute)) ?? null;
 
-  const current =
-    onDay.find((e) => {
-      const range = periodRange(routine.periods.find((p) => p.id === e.endPeriod)?.time ?? "");
-      const start = periodRange(routine.periods.find((p) => p.id === e.period)?.time ?? "");
-      return start && range && minute >= start[0] && minute <= range[1];
-    }) ?? null;
+  let next = nextToday;
+  if (!next) {
+    const following = nextClassDay(day);
+    next = blocksForDay(routine, following)[0] ?? null;
+  }
 
-  const next = onDay.find((e) => e.period > (current?.endPeriod ?? 0)) ?? null;
-
-  const currentEndsAt = current ? timeLabel(routine, current.endPeriod, true) : null;
-  const nextStartsAt = next ? timeLabel(routine, next.period) : null;
-  const walk = next ? walkingTime(next.room, buildings) : 0;
-  const leaveAt =
-    next && nextStartsAt
-      ? minutesToLabel(
-          Number(nextStartsAt.split(":")[0]) * 60 + Number(nextStartsAt.split(":")[1]) - walk,
-        )
-      : null;
+  const sameRoom = Boolean(current && next && current.block.room === next.block.room);
+  const walk = next && !sameRoom ? walkingTime(next.block.room, buildings) : 0;
+  const nextStartsAt = next ? next.startTime : null;
 
   return {
     routine,
     current,
     next,
-    currentEndsAt,
+    currentEndsAt: current ? current.endTime : null,
     nextStartsAt,
     walkingMinutes: walk,
-    leaveAt,
-    day: day ?? "Sunday",
+    leaveAt: next && nextStartsAt ? clock(next.startMinute - walk) : null,
+    sameRoom,
+    day,
   };
 }
+
+/** Re-exported so the journey card and notify can render a resolved block uniformly. */
+export { resolveBlock };

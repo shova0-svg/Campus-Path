@@ -1,5 +1,5 @@
-/* Sohoj Rasta service worker — offline-first app shell + data cache. */
-const CACHE = "sohoj-rasta-v3";
+/* Campus Path service worker — offline-first app shell + data cache. */
+const CACHE = "campus-path-v1";
 const CORE = [
   "/",
   "/auth",
@@ -7,17 +7,19 @@ const CORE = [
   "/teachers",
   "/right-now",
   "/manifest.webmanifest",
-  "/icon-192.png",
-  "/icon-512.png",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/icon-maskable-192.png",
+  "/brand/campus-path-icon.svg",
   "/rpi-campus-3d.jpg",
 ];
 
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SHOW_NOTIFICATION") {
-    self.registration.showNotification(event.data.title || "Sohoj Rasta", {
+    self.registration.showNotification(event.data.title || "Campus Path", {
       body: event.data.body || "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
       data: { url: "/student" },
     });
   }
@@ -30,12 +32,12 @@ self.addEventListener("push", (event) => {
   } catch (_) {
     payload = { body: event.data?.text() || "" };
   }
-  const title = payload.title || "Sohoj Rasta";
+  const title = payload.title || "Campus Path";
   const options = {
     body: payload.body || "",
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
-    tag: payload.tag || "sohoj-class",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: payload.tag || "campus-path-class",
     data: { url: payload.url || "/student" },
   };
   event.waitUntil(self.registration.showNotification(title, options));

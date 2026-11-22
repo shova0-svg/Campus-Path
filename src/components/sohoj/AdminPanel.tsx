@@ -2,9 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   BarChart3,
-  CalendarDays,
-  FileUp,
-  Flag,
   LogOut,
   MessageSquare,
   Pencil,
@@ -13,7 +10,6 @@ import {
   Search,
   ShieldCheck,
   Trash2,
-  Undo2,
   UserRound,
   Users,
 } from "lucide-react";
@@ -46,9 +42,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CATEGORY_ICON, CATEGORY_TONE } from "./category-icon";
-import { RoutineEditor } from "./RoutineEditor";
-import { lazy, Suspense } from "react";
-const RoutineImportDialog = lazy(() => import("./RoutineImportDialog"));
 import { QrMaker } from "./QrMaker";
 import {
   floorLabel,
@@ -60,7 +53,7 @@ import {
   type StartPointId,
 } from "@/lib/campus-data";
 import { MAX_ADMINS_PER_INSTITUTE, type AdminAccount, type LocationStore } from "@/lib/admin";
-import { sortRooms, type ClassRoutine } from "@/lib/routine";
+import { DEFAULT_ROUTINES, sortRooms } from "@/lib/routine";
 import {
   DEPARTMENT_OPTIONS,
   departmentKey,
@@ -79,7 +72,7 @@ import {
   type FeedbackCategory,
 } from "@/lib/feedback";
 
-type Tab = "rooms" | "buildings" | "routines" | "teachers" | "qr" | "feedback" | "stats" | "admins";
+type Tab = "rooms" | "buildings" | "teachers" | "qr" | "feedback" | "stats" | "admins";
 
 interface Props {
   open: boolean;
@@ -90,17 +83,12 @@ interface Props {
   isSuper: boolean;
   allowedInstituteIds: string[];
   admins: AdminAccount[];
-  routines: ClassRoutine[];
   buildings: Building[];
   teacherStore: TeacherStore;
   onLogout: () => void;
   onAdd: (instituteId: string) => void;
   onEdit: (instituteId: string, loc: CampusLocation) => void;
   onDelete: (instituteId: string, loc: CampusLocation) => void;
-  onSaveRoutine: (routine: ClassRoutine) => void;
-  onDeleteRoutine: (id: string) => void;
-  onPublishRoutine: (routine: ClassRoutine, newRooms: string[]) => void;
-  onRestoreRoutine: (id: string) => void;
   onAddAdmin: (email: string, instituteId: string) => void;
   onRemoveAdmin: (email: string) => void;
   onSaveBuilding: (building: Building) => void;
@@ -118,17 +106,12 @@ export function AdminPanel({
   isSuper,
   allowedInstituteIds,
   admins,
-  routines,
   buildings,
   teacherStore,
   onLogout,
   onAdd,
   onEdit,
   onDelete,
-  onSaveRoutine,
-  onDeleteRoutine,
-  onPublishRoutine,
-  onRestoreRoutine,
   onAddAdmin,
   onRemoveAdmin,
   onSaveBuilding,
@@ -140,8 +123,6 @@ export function AdminPanel({
   const [instituteId, setInstituteId] = useState(currentInstituteId);
   const [query, setQuery] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CampusLocation | null>(null);
-  const [editingRoutine, setEditingRoutine] = useState<ClassRoutine | "new" | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | "new" | null>(null);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | "new" | null>(null);
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -156,10 +137,8 @@ export function AdminPanel({
     if (open) {
       setInstituteId(currentInstituteId);
       setTab("rooms");
-      setEditingRoutine(null);
       setEditingBuilding(null);
       setEditingTeacher(null);
-      setImportOpen(false);
     }
   }, [open, currentInstituteId]);
 
@@ -198,13 +177,11 @@ export function AdminPanel({
     () => sortRooms(searchLocations(rooms, institute.buildings, query, "all")),
     [rooms, institute.buildings, query],
   );
-  const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
   const instituteTeachers = teacherStore[institute.id] ?? [];
 
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
     { id: "rooms", label: "Rooms", icon: Pencil },
     { id: "buildings", label: "Buildings", icon: Building2 },
-    { id: "routines", label: "Routines", icon: CalendarDays },
     { id: "teachers", label: "Teachers", icon: UserRound },
     { id: "qr", label: "QR", icon: QrCode },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
@@ -243,7 +220,6 @@ export function AdminPanel({
                     type="button"
                     onClick={() => {
                       setTab(t.id);
-                      setEditingRoutine(null);
                       setEditingBuilding(null);
                       setEditingTeacher(null);
                     }}
@@ -446,109 +422,6 @@ export function AdminPanel({
             </div>
           )}
 
-          {tab === "routines" && (
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              {editingRoutine ? (
-                <RoutineEditor
-                  instituteId={institute.id}
-                  initial={editingRoutine === "new" ? null : editingRoutine}
-                  onSave={(r) => {
-                    onSaveRoutine(r);
-                    setEditingRoutine(null);
-                  }}
-                  onDelete={(id) => {
-                    onDeleteRoutine(id);
-                    setEditingRoutine(null);
-                  }}
-                  onCancel={() => setEditingRoutine(null)}
-                />
-              ) : (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="emerald"
-                      size="xl"
-                      className="w-full"
-                      onClick={() => setImportOpen(true)}
-                    >
-                      <FileUp /> Import routine
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="xl"
-                      className="w-full"
-                      onClick={() => setEditingRoutine("new")}
-                    >
-                      <Plus /> Manual
-                    </Button>
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    Image/PDF upload ba text paste — software auto routine banabe ar room-gulo auto
-                    create hobey.
-                  </p>
-                  <ul className="mt-3 space-y-2">
-                    {instituteRoutines.map((r) => (
-                      <li
-                        key={r.id}
-                        className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"
-                      >
-                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
-                          <CalendarDays className="size-5" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold">{r.title}</span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            Semester {r.semester} · {r.shift} · {r.entries.length} classes · v
-                            {r.version ?? 1}
-                            {r._previous ? " · undo available" : ""}
-                          </span>
-                        </span>
-                        {r._previous && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Undo ${r.title}`}
-                            onClick={() => onRestoreRoutine(r.id)}
-                          >
-                            <Undo2 />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Report ${r.title}`}
-                          onClick={() =>
-                            openFeedback({
-                              category: "wrong_routine",
-                              message: `Routine ${r.title} — `,
-                              page: "admin-routines",
-                              instituteId: institute.id,
-                            })
-                          }
-                        >
-                          <Flag className="text-muted-foreground" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Edit ${r.title}`}
-                          onClick={() => setEditingRoutine(r)}
-                        >
-                          <Pencil />
-                        </Button>
-                      </li>
-                    ))}
-                    {instituteRoutines.length === 0 && (
-                      <li className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                        Ekhono kono routine nei.
-                      </li>
-                    )}
-                  </ul>
-                </>
-              )}
-            </div>
-          )}
-
           {tab === "teachers" && (
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {editingTeacher ? (
@@ -629,7 +502,7 @@ export function AdminPanel({
               institute={institute}
               buildings={buildings}
               rooms={rooms}
-              routines={routines}
+              routines={DEFAULT_ROUTINES}
             />
           )}
 
@@ -831,19 +704,6 @@ export function AdminPanel({
           )}
         </DialogContent>
       </Dialog>
-
-      <Suspense fallback={null}>
-        <RoutineImportDialog
-          open={importOpen}
-          onOpenChange={setImportOpen}
-          instituteId={institute.id}
-          teachers={Object.values(teacherStore).flat()}
-          knownRooms={Object.values(store)
-            .flat()
-            .map((r) => r.name)}
-          onPublish={onPublishRoutine}
-        />
-      </Suspense>
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent className="max-w-sm rounded-3xl">

@@ -25,7 +25,6 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0]?.id ?? "rpi");
   const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[1]?.english ?? "");
   const [semester, setSemester] = useState("1");
-  const [group, setGroup] = useState("A");
   const [shift, setShift] = useState("Morning");
   const [saved, setSaved] = useState(false);
 
@@ -36,7 +35,6 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
       setInstituteId(existing.instituteId);
       setDepartment(departmentEnglish(existing.department));
       setSemester(String(existing.semester));
-      setGroup(existing.group);
       setShift(existing.shift);
       setSaved(true);
     }
@@ -49,7 +47,6 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
       instituteId,
       department,
       semester: Number(semester) || 1,
-      group,
       shift,
     });
     setSaved(true);
@@ -112,7 +109,7 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
           </SelectContent>
         </Select>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-[11px] font-semibold text-muted-foreground">Semester</label>
           <Select value={semester} onValueChange={setSemester}>
@@ -129,30 +126,15 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
           </Select>
         </div>
         <div>
-          <label className="text-[11px] font-semibold text-muted-foreground">Group</label>
-          <Select value={group} onValueChange={setGroup}>
-            <SelectTrigger className="mt-1 h-10 rounded-xl" aria-label="Student group">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["A", "B", "C", "None"].map((g) => (
-                <SelectItem key={g} value={g}>
-                  {g}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
           <label className="text-[11px] font-semibold text-muted-foreground">Shift</label>
           <Select value={shift} onValueChange={setShift}>
             <SelectTrigger className="mt-1 h-10 rounded-xl" aria-label="Student shift">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["Morning", "Evening"].map((s) => (
+              {["Morning"].map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s}
+                  1st Shift
                 </SelectItem>
               ))}
             </SelectContent>

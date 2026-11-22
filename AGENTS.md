@@ -76,6 +76,13 @@ use the editor.
 
 <!-- PHASE4:END -->
 
+## Branding (Campus Path)
+
+- App name: **Campus Path** / **ক্যাম্পাস পাথ**; tagline "Find your way on campus" / "ক্যাম্পাসে নিজের পথ খুঁজে নিন". Colors: navy `#0B1F3A`, `#14365F`, `#081628`, gold `#C9962F` (light `#F6D98A`), ice blue `#9FD8E6`, white.
+- Logos: `public/brand/campus-path-icon.svg` + `public/brand/campus-path-logo-light.svg` are user-supplied — never redraw or edit. In-app wordmark is live text in `src/components/brand/Logo.tsx`; the light horizontal SVG is only for README / og:image / print.
+- Regenerate icons with `npm run icons` (`scripts/generate-icons.mjs`, `sharp` devDependency) → `public/icons/*`, `public/og-image.png`, `public/favicon.svg`.
+- IMPORTANT: do not rename `sohoj-*` localStorage keys, `SOHOJ1|` QR prefix, `sohoj:*` events, Supabase identifiers or `src/components/sohoj/*` paths — those are data/QR compat identifiers, not brand text.
+
 <!-- AGENT-SKILLS:BEGIN -->
 
 ## Skills to use going forward

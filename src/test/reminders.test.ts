@@ -77,31 +77,9 @@ describe("class reminder computation", () => {
     expect(dueReminders(profile, null, at(10, 57))).toHaveLength(0);
   });
 
-  it("handles 2nd shift period times", () => {
-    const evening: ReminderRoutine = {
-      ...routine,
-      shift: "Evening",
-      periods: [
-        { id: 1, time: "13:30-14:15" },
-        { id: 2, time: "14:15-15:00" },
-      ],
-      entries: [
-        {
-          day: "Sunday",
-          period: 1,
-          endPeriod: 1,
-          code: "28511",
-          subject: "Java",
-          teacher: "SI",
-          room: "1302",
-        },
-      ],
-    };
-    const eveProfile = { ...profile, shift: "Evening" };
-    expect(
-      dueReminders(eveProfile, evening, at(14, 12)).some((r) => r.kind === "class_ends_soon"),
-    ).toBe(true);
-    expect(dueReminders(profile, evening, at(14, 12))).toHaveLength(0); // shift mismatch
+  it("returns nothing when the routine does not match the student", () => {
+    const other: ReminderRoutine = { ...routine, department: "Mechanical Technology" };
+    expect(dueReminders(profile, other, at(10, 57))).toHaveLength(0);
   });
 
   it("picks the group-specific routine", () => {

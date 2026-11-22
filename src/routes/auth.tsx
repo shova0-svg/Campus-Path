@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BrandLogo } from "@/components/sohoj/BrandLogo";
+import { Logo } from "@/components/brand/Logo";
 import { GoogleLogo } from "@/components/sohoj/GoogleLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Sohoj Rasta (সহজ রাস্তা)" },
-      { name: "description", content: "Sign in or create your Sohoj Rasta account." },
-      { property: "og:title", content: "Sign in — Sohoj Rasta" },
-      { property: "og:description", content: "Sign in or create your Sohoj Rasta account." },
+      { title: "Sign in — Campus Path" },
+      { name: "description", content: "Sign in or create your Campus Path account." },
+      { property: "og:title", content: "Sign in — Campus Path" },
+      { property: "og:description", content: "Sign in or create your Campus Path account." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -105,8 +105,8 @@ function AuthPage() {
           >
             <ArrowLeft className="size-4" /> Back to app
           </Link>
-          <div className="flex items-center gap-3">
-            <BrandLogo />
+          <div className="flex flex-col items-center gap-3 text-center">
+            <Logo size={72} showTagline />
             <div>
               <h1 className="text-lg font-bold leading-tight">
                 {mode === "signup"

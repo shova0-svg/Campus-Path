@@ -22,7 +22,6 @@ export async function listRoutines(): Promise<ClassRoutine[]> {
       instituteId: row.institute_id,
       department: row.department,
       semester: row.semester,
-      group: row.group,
       shift: row.shift,
     } as ClassRoutine;
   });
@@ -37,7 +36,7 @@ export async function upsertRoutineRow(routine: ClassRoutine): Promise<ClassRout
       institute_id: instituteId,
       department: routine.department,
       semester: routine.semester,
-      group: routine.group ?? "",
+      group: "",
       shift: routine.shift,
       data,
     })

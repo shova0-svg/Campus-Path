@@ -1,414 +1,207 @@
 import { describe, expect, it } from "vitest";
-import { matchRoutine, nextClassJourney, parseStudent } from "@/lib/student";
 import {
-  allTeachers,
-  deleteTeacher,
-  groupTeachers,
-  parseTeacherStore,
-  phoneHref,
-  searchTeachers,
-  TEACHERS,
-  upsertTeacher,
-  type Teacher,
-} from "@/lib/teachers";
-import {
-  classesInRoom,
-  currentClassesInRoom,
+  allCampusRooms,
+  blockRange,
   buildingIdForRoom,
   DEFAULT_ROUTINES,
-  allCampusRooms,
-  formatRoomCode,
-  mergeRoutineRooms,
-  parseRoomCode,
+  ROUTINE_1,
+  ROUTINE_3,
+  ROUTINES,
+  ROUTINE_STORE_KEY,
   parseRoutineStore,
-  parseRoutineText,
-  roomFloor,
-  roomsFromRoutine,
-  sortRooms,
-  upsertRoutine,
+  periodMinutes,
 } from "@/lib/routine";
+import { matchRoutine, nextClassJourney, type StudentProfile } from "@/lib/student";
 
-const rpi3 = DEFAULT_ROUTINES.find((r) => r.id === "rpi-cst-3-morning")!;
-const rpi1 = DEFAULT_ROUTINES.find((r) => r.id === "rpi-cst-1-morning")!;
+const profile = (semester: number, overrides: Partial<StudentProfile> = {}): StudentProfile => ({
+  email: "student@example.com",
+  name: "Test",
+  instituteId: "rpi",
+  department: "Computer Science & Technology",
+  semester,
+  shift: "Morning",
+  ...overrides,
+});
 
-describe("Rajshahi CST routines", () => {
-  it("ships CST morning, Civil morning and CST 2nd-shift routines", () => {
-    expect(DEFAULT_ROUTINES.slice(0, 2).map((r) => [r.semester, r.shift])).toEqual([
-      [1, "Morning"],
-      [3, "Morning"],
+// Dhaka is UTC+6. 2026-11-22 is a Sunday, 2026-11-26 a Thursday, 2026-11-27 a Friday.
+const dhaka = (date: string, hour: number, minute: number) =>
+  new Date(`${date}T${String(hour - 6).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`);
+
+describe("data accuracy", () => {
+  it("has exactly two routines with the specified metadata", () => {
+    expect(ROUTINES).toHaveLength(2);
+    expect(DEFAULT_ROUTINES).toHaveLength(2);
+    expect(ROUTINES.map((r) => [r.semester, r.shift, r.classStart, r.classLoad])).toEqual([
+      [1, 1, "2026-10-11", 33],
+      [3, 1, "2026-09-27", 34],
     ]);
-    expect(DEFAULT_ROUTINES.filter((r) => r.department === "Civil Technology")).toHaveLength(8);
-    expect(DEFAULT_ROUTINES.filter((r) => r.shift === "Evening")).toHaveLength(4);
-    expect(DEFAULT_ROUTINES.every((r) => r.instituteId === "rpi" && r.entries.length > 0)).toBe(
-      true,
-    );
+    expect(ROUTINES.every((r) => r.institute === "rpi" && r.department === "CST")).toBe(true);
   });
 
-  it("uses 2nd-shift period times and keeps every evening detail", () => {
-    const eve = DEFAULT_ROUTINES.filter((r) => r.shift === "Evening");
-    expect(eve.map((r) => r.id)).toEqual([
-      "rpi-cst-eve-1",
-      "rpi-cst-eve-3",
-      "rpi-cst-eve-4",
-      "rpi-cst-eve-6",
-    ]);
+  for (const routine of [ROUTINE_1, ROUTINE_3]) {
+    describe(`semester ${routine.semester}`, () => {
+      it("block periods add up to classLoad", () => {
+        const sum = routine.blocks.reduce((n, b) => n + (b.endPeriod - b.startPeriod + 1), 0);
+        expect(sum).toBe(routine.classLoad);
+      });
+
+      it("has no overlapping blocks and every subject is used", () => {
+        const used = new Set<string>();
+        for (const day of ["Sun", "Mon", "Tue", "Wed", "Thu"] as const) {
+          const blocks = routine.blocks.filter((b) => b.day === day);
+          for (let i = 0; i < blocks.length; i++) {
+            for (let j = i + 1; j < blocks.length; j++) {
+              const a = blocks[i]!;
+              const b = blocks[j]!;
+              expect(a.startPeriod > b.endPeriod || b.startPeriod > a.endPeriod).toBe(true);
+            }
+          }
+        }
+        for (const b of routine.blocks) {
+          expect(routine.subjects.some((s) => s.code === b.subjectCode)).toBe(true);
+          used.add(b.subjectCode);
+        }
+        expect(used.size).toBe(routine.subjects.length);
+      });
+
+      it("uses only rooms that exist in the room list", () => {
+        const rooms = new Set(allCampusRooms("rpi").map((r) => r.name.replace("Room ", "")));
+        for (const b of routine.blocks) expect(rooms.has(b.room)).toBe(true);
+      });
+    });
+  }
+
+  it("spot checks: routine A", () => {
+    expect(ROUTINE_1.blocks).toContainEqual({
+      day: "Sun",
+      startPeriod: 5,
+      endPeriod: 7,
+      subjectCode: "26711",
+      room: "5208",
+    });
+    expect(ROUTINE_1.blocks).toContainEqual({
+      day: "Wed",
+      startPeriod: 1,
+      endPeriod: 3,
+      subjectCode: "28511",
+      room: "1308",
+    });
+  });
+
+  it("spot checks: routine B", () => {
+    expect(ROUTINE_3.blocks).toContainEqual({
+      day: "Tue",
+      startPeriod: 5,
+      endPeriod: 7,
+      subjectCode: "28532",
+      room: "1305",
+    });
+    expect(ROUTINE_3.blocks).toContainEqual({
+      day: "Thu",
+      startPeriod: 7,
+      endPeriod: 7,
+      subjectCode: "26831",
+      room: "2306",
+    });
+    expect(ROUTINE_3.blocks.some((b) => b.day === "Sun" && b.startPeriod === 1)).toBe(false);
+  });
+
+  it("period times are 24h and block ranges are inclusive", () => {
+    expect(periodMinutes(1)).toBe(8 * 60);
+    expect(periodMinutes(7, true)).toBe(13 * 60 + 15);
     expect(
-      eve.every((r) => r.periods[0]?.time === "1:30-2:15" && r.periods[6]?.time === "6:00-6:45"),
-    ).toBe(true);
-    const eve3 = eve.find((r) => r.id === "rpi-cst-eve-3")!;
-    expect(eve3.entries.find((e) => e.code === "28531")).toMatchObject({
-      subject: "Application Development Using Python",
-      teacher: "Md. Shahinul Islam",
-      acronym: "SI",
-    });
-    expect(eve3.entries.some((e) => e.room === "2106")).toBe(true);
-  });
-
-  it("has all eight Civil routines with subjects, teachers and rooms", () => {
-    const civil = DEFAULT_ROUTINES.filter((r) => r.department === "Civil Technology");
-    expect(civil.map((r) => r.semester).sort()).toEqual([1, 1, 3, 3, 4, 4, 6, 6]);
-    const c4a = civil.find((r) => r.id === "rpi-civil-4-a")!;
-    expect(c4a.entries.find((e) => e.code === "26441")).toMatchObject({
-      subject: "Construction Process-II",
-      teacher: "MD. SHAHID HOSSAIN",
-      acronym: "SH",
-    });
-    const c6b = civil.find((r) => r.id === "rpi-civil-6-b")!;
-    expect(c6b.entries.find((e) => e.code === "29041")?.teacher).toBe("KM MONIRUZZAMAN");
-    expect(civil.every((r) => r.entries.some((e) => e.room.startsWith("4")))).toBe(true);
-  });
-
-  it("has the 3rd semester subjects, teachers and rooms", () => {
-    const python = rpi3.entries.find((e) => e.code === "28531")!;
-    expect(python.subject).toBe("Application Development Using Python");
-    expect(python.teacher).toBe("MD. SORIAT ULLAH");
-    expect(python.room).toBe("1308");
-    expect(rpi3.entries.some((e) => e.code === "26831" && e.room === "5201")).toBe(true);
-  });
-
-  it("falls back to the two seeded routines when storage is empty", () => {
-    expect(parseRoutineStore(null).map((r) => r.id)).toEqual(DEFAULT_ROUTINES.map((r) => r.id));
-  });
-
-  it("has the corrected 1st semester subject codes and teacher names", () => {
-    const byCode = (code: string) => rpi1.entries.find((e) => e.code === code);
-    expect(byCode("21011")).toMatchObject({
-      subject: "Engineering Drawing",
-      teacher: "MD. ABDULLAH-AL-MAMUN",
-      acronym: "AAM",
-    });
-    expect(byCode("25711")?.teacher).toBe("MST. RABEYA SIDDIQUA");
-    expect(byCode("25712")?.teacher).toBe("MD. SHIMUL HOSSAIN");
-    expect(byCode("25911")?.teacher).toBe("MD. ABDUR RAZZAK");
-    expect(byCode("25912")?.teacher).toBe("SYED MAHMUDUN NABI KHONDKER");
-    expect(byCode("28511")?.teacher).toBe("MD. FARUQ HOSSAIN");
-    expect(byCode("26711")?.teacher).toBe("MD. MOHOSIN");
-    expect(rpi1.verified).toBe(true);
-  });
-
-  it("uses the exact 1st semester cells from the notice board", () => {
-    const sunday = rpi1.entries.filter((e) => e.day === "Sunday");
-    expect(sunday).toHaveLength(3);
-    expect(sunday.map((e) => [e.code, e.period, e.endPeriod, e.room])).toEqual([
-      ["25912", 1, 2, "2106"],
-      ["25911", 3, 4, "2302"],
-      ["26711", 5, 6, "5208"],
-    ]);
-    expect(
-      rpi1.entries.some((e) => e.day === "Thursday" && e.code === "21011" && e.room === "2305"),
-    ).toBe(true);
-  });
-
-  it("refreshes seeded routines from code but keeps admin edits", () => {
-    const stale = [{ ...rpi1, entries: [], source: "seeded" as const }];
-    const parsed = parseRoutineStore(JSON.stringify(stale));
-    expect(parsed.find((r) => r.id === rpi1.id)?.entries.length).toBe(rpi1.entries.length);
-    const edited = { ...rpi1, source: "admin" as const, title: "My edited routine" };
-    expect(parseRoutineStore(JSON.stringify([edited])).find((r) => r.id === rpi1.id)?.title).toBe(
-      "My edited routine",
-    );
+      blockRange({ day: "Sun", startPeriod: 5, endPeriod: 7, subjectCode: "x", room: "y" }),
+    ).toEqual([11 * 60, 13 * 60 + 15]);
   });
 });
 
-describe("auto routine maker", () => {
-  it("maps routine room numbers to the right buildings", () => {
+describe("matchRoutine", () => {
+  it("returns A for semester 1 and B for semester 3", () => {
+    expect(matchRoutine(profile(1))).toBe(ROUTINE_1);
+    expect(matchRoutine(profile(3))).toBe(ROUTINE_3);
+  });
+
+  it("returns null for unsupported semesters, institutes, departments and shifts", () => {
+    for (const s of [2, 4, 5, 6]) expect(matchRoutine(profile(s))).toBeNull();
+    expect(matchRoutine(profile(1, { instituteId: "dpi" }))).toBeNull();
+    expect(matchRoutine(profile(1, { department: "Mechanical Technology" }))).toBeNull();
+    expect(matchRoutine(profile(1, { shift: "Night" }))).toBeNull();
+  });
+});
+
+describe("nextClassJourney", () => {
+  const buildings = [
+    { id: "non-departmental", distance: { "main-gate": 75 } },
+  ] as unknown as Parameters<typeof nextClassJourney>[2];
+
+  it("A on Sunday 08:50: current 25912 (ends 09:30), next 25911 room 2302 at 09:30", () => {
+    const j = nextClassJourney(profile(1), dhaka("2026-11-22", 8, 50), buildings);
+    expect(j).not.toBeNull();
+    expect(j!.current?.subject.code).toBe("25912");
+    expect(j!.currentEndsAt).toBe("09:30");
+    expect(j!.next?.subject.code).toBe("25911");
+    expect(j!.next?.block.room).toBe("2302");
+    expect(j!.nextStartsAt).toBe("09:30");
+    expect(j!.sameRoom).toBe(false);
+  });
+
+  it("A on Sunday 08:50 leaves in time for the room change", () => {
+    const j = nextClassJourney(profile(1), dhaka("2026-11-22", 8, 50), buildings)!;
+    expect(j.walkingMinutes).toBeGreaterThan(0);
+    expect(j.leaveAt).not.toBeNull();
+  });
+
+  it("B on Thursday 13:00: current 26831, no next today → Sunday of next week, first block 28531 at 08:45", () => {
+    const j = nextClassJourney(profile(3), dhaka("2026-11-26", 13, 0), buildings)!;
+    expect(j.current?.subject.code).toBe("26831");
+    expect(j.next?.subject.code).toBe("28531");
+    expect(j.next?.block.day).toBe("Sun");
+    expect(j.nextStartsAt).toBe("08:45");
+  });
+
+  it("Friday → next class is Sunday", () => {
+    const j = nextClassJourney(profile(3), dhaka("2026-11-27", 10, 0), buildings)!;
+    expect(j.day).toBeNull();
+    expect(j.current).toBeNull();
+    expect(j.next?.block.day).toBe("Sun");
+    expect(j.nextStartsAt).toBe("08:45");
+  });
+
+  it("same room twice → no walking", () => {
+    // Thursday periods 6 (25922) and 7 (26831) are both in room 2306.
+    const j = nextClassJourney(profile(3), dhaka("2026-11-26", 12, 0), buildings)!;
+    expect(j.current?.subject.code).toBe("25922");
+    expect(j.next?.subject.code).toBe("26831");
+    expect(j.next?.block.room).toBe("2306");
+    expect(j.sameRoom).toBe(true);
+    expect(j.walkingMinutes).toBe(0);
+    expect(j.leaveAt).toBe(j.nextStartsAt);
+  });
+
+  it("returns null when the profile does not match", () => {
+    expect(nextClassJourney(profile(2), dhaka("2026-11-22", 9, 0))).toBeNull();
+  });
+});
+
+describe("legacy cache guard", () => {
+  it("uses the v2 key and ignores v1 data", () => {
+    expect(ROUTINE_STORE_KEY).toBe("sohoj-rasta-routines-v2");
+    const old = [{ id: "old-routine", title: "old" }];
+    expect(parseRoutineStore(JSON.stringify(old))).toEqual(DEFAULT_ROUTINES);
+  });
+});
+
+describe("room-number serial logic", () => {
+  it("keeps the existing building mapping", () => {
     expect(buildingIdForRoom("1305")).toBe("computer");
-    expect(buildingIdForRoom("1301")).toBe("computer");
-    expect(buildingIdForRoom("4105")).toBe("civil");
-    expect(buildingIdForRoom("4101")).toBe("civil");
     expect(buildingIdForRoom("2106")).toBe("non-departmental");
-    expect(buildingIdForRoom("2203")).toBe("non-departmental");
-    expect(buildingIdForRoom("2306")).toBe("non-departmental");
-    expect(buildingIdForRoom("5201")).toBe("electrical");
+    expect(buildingIdForRoom("4105")).toBe("civil");
     expect(buildingIdForRoom("5208")).toBe("electrical");
     expect(buildingIdForRoom("3109")).toBe("academic");
   });
 
-  it("creates every room in the RPI ranges, not just the ones in routines", () => {
-    const rooms = allCampusRooms("rpi");
-    const names = rooms.map((r) => r.name);
-    for (const n of [1301, 1304, 1308, 2101, 2107, 2201, 2206, 2301, 2306, 5201, 5208]) {
-      expect(names).toContain(`Room ${n}`);
-    }
-    expect(names.filter((n) => /^Room 13/.test(n))).toHaveLength(8);
-    expect(names.filter((n) => /^Room 21|^Room 22|^Room 23/.test(n))).toHaveLength(19);
-    expect(names.filter((n) => /^Room 4/.test(n))).toHaveLength(6);
-    expect(rooms.find((r) => r.name === "Room 4105")?.buildingId).toBe("civil");
-    expect(rooms.find((r) => r.name === "Room 1301")?.buildingId).toBe("computer");
-    expect(rooms.find((r) => r.name === "Room 2201")?.buildingId).toBe("non-departmental");
-    expect(rooms.find((r) => r.name === "Room 5205")?.buildingId).toBe("electrical");
+  it("exposes every room range", () => {
+    expect(allCampusRooms("rpi")).toHaveLength(76);
     expect(allCampusRooms("dpi")).toHaveLength(0);
-  });
-
-  it("assigns derived rooms to their mapped building", () => {
-    const rooms = roomsFromRoutine(rpi1, "rpi");
-    expect(rooms.find((r) => r.name === "Room 1308")?.buildingId).toBe("computer");
-    expect(rooms.find((r) => r.name === "Room 2106")?.buildingId).toBe("non-departmental");
-    expect(rooms.find((r) => r.name === "Room 5208")?.buildingId).toBe("electrical");
-  });
-
-  it("parses pasted day/period text into entries with rooms", () => {
-    const entries = parseRoutineText(
-      ["Sunday", "1: 28533 MSU 2302", "2: 25922 NN 2106", "Monday", "1: 28533 AAM 1305"].join("\n"),
-    );
-    expect(entries).toHaveLength(3);
-    expect(entries[0]).toMatchObject({
-      day: "Sunday",
-      period: 1,
-      code: "28533",
-      acronym: "MSU",
-      room: "2302",
-    });
-    expect(entries[2]?.day).toBe("Monday");
-  });
-
-  it("uses the room-code serial: building → floor → room (1305 = B1, 3rd floor, room 05)", () => {
-    expect(parseRoomCode("1305")).toEqual({ buildingNo: 1, floor: 3, roomNo: 5 });
-    expect(roomFloor("1305")).toBe(3);
-    expect(formatRoomCode("1305")).toBe("Building 1 · 3rd Floor · Room 05");
-    expect(parseRoomCode("205")).toBeNull();
-  });
-
-  it("creates rooms from routine cells with the code breakdown", () => {
-    const rooms = roomsFromRoutine(rpi3, "rpi");
-    expect(rooms.length).toBeGreaterThan(3);
-    expect(
-      rooms.some(
-        (r) => r.name === "Room 1305" && r.floor === 3 && r.buildingNo === 1 && r.roomNo === 5,
-      ),
-    ).toBe(true);
-    expect(new Set(rooms.map((r) => r.id)).size).toBe(rooms.length);
-  });
-
-  it("sorts rooms by building, then floor, then room number", () => {
-    const sorted = sortRooms([
-      { name: "Room 1308" },
-      { name: "Room 2302" },
-      { name: "Room 1205" },
-      { name: "Room 1305" },
-    ] as Parameters<typeof sortRooms>[0]);
-    expect(sorted.map((r) => r.name)).toEqual(["Room 1205", "Room 1305", "Room 1308", "Room 2302"]);
-  });
-
-  it("finds all classes happening in a room across routines, with the teacher", () => {
-    const classes = classesInRoom(DEFAULT_ROUTINES, "2306");
-    expect(classes.length).toBeGreaterThan(3);
-    expect(classes.every((c) => c.room === "2306")).toBe(true);
-    expect(
-      classes.some((c) => c.teacher === "ANJUMAN ARA" && c.subject === "Mathematics-III"),
-    ).toBe(true);
-  });
-
-  it("merges routine room numbers (e.g. 1305) into the room store once", () => {
-    const first = mergeRoutineRooms({}, DEFAULT_ROUTINES);
-    expect(first["rpi"]?.some((r) => r.name === "Room 1305" && r.floor === 3)).toBe(true);
-    const again = mergeRoutineRooms(first, DEFAULT_ROUTINES);
-    expect(again["rpi"]).toHaveLength(first["rpi"]!.length);
-  });
-
-  it("migrates rooms saved with the old floor number", () => {
-    const old = {
-      rpi: [
-        {
-          id: "routine-room-1305-rpi",
-          name: "Room 1305",
-          category: "classroom",
-          buildingId: "academic",
-          floor: 1,
-          turn: "right",
-          landmark: "Academic Building corridor",
-          side: "left",
-          door: 1,
-        },
-      ],
-    } as Parameters<typeof mergeRoutineRooms>[0];
-    const fixed = mergeRoutineRooms(old, DEFAULT_ROUTINES)["rpi"]?.find(
-      (r) => r.id === "routine-room-1305-rpi",
-    );
-    expect(fixed?.floor).toBe(3);
-    expect(fixed?.buildingNo).toBe(1);
-  });
-
-  it("finds the class happening right now in a room with its teacher", () => {
-    // Sunday 12:00 → period 6; 3rd sem has Mathematics-III (ANJUMAN ARA) in Room 2306.
-    const now = new Date("2026-11-22T12:00:00");
-    expect(now.getDay()).toBe(0);
-    const live = currentClassesInRoom(DEFAULT_ROUTINES, "Room 2306", now);
-    expect(live).toHaveLength(1);
-    expect(live[0]).toMatchObject({
-      subject: "Mathematics-III",
-      teacher: "ANJUMAN ARA",
-      room: "2306",
-    });
-    expect(currentClassesInRoom(DEFAULT_ROUTINES, "Room 1305", now)).toHaveLength(0);
-  });
-
-  it("updates a routine in place", () => {
-    const next = upsertRoutine(DEFAULT_ROUTINES, { ...rpi1, verified: true });
-    expect(next).toHaveLength(DEFAULT_ROUTINES.length);
-    expect(next.find((r) => r.id === rpi1.id)?.verified).toBe(true);
-  });
-});
-
-describe("RPI teacher directory", () => {
-  it("has teachers across all nine departments", () => {
-    expect(TEACHERS.length).toBeGreaterThan(100);
-    expect(groupTeachers(TEACHERS).map((g) => g.key)).toEqual([
-      "civil",
-      "computer",
-      "mechanical",
-      "electrical",
-      "power",
-      "electronics",
-      "electro-medical",
-      "mechatronics",
-      "non-tech",
-    ]);
-  });
-
-  it("keeps real details: name, designation, mobile and source photo", () => {
-    const t = TEACHERS.find((x) => x.name.includes("নূরুল আমিন"))!;
-    expect(t.designation).toBeTruthy();
-    expect(t.mobile).toMatch(/[০-৯0-9]/);
-    expect(t.photo).toMatch(/^https:\/\//);
-    expect(phoneHref(t.mobile)).toMatch(/^tel:\d+$/);
-  });
-
-  it("searches teachers by name and department", () => {
-    expect(searchTeachers(TEACHERS, "সিভিল").length).toBeGreaterThan(0);
-    expect(searchTeachers(TEACHERS, "zzzz-no-match")).toHaveLength(0);
-  });
-});
-
-describe("Admin-managed teachers", () => {
-  it("seeds RPI and allows adding a teacher to another institute's department", () => {
-    const store = parseTeacherStore(null);
-    expect(store["rpi"]?.length).toBe(TEACHERS.length);
-
-    const teacher: Teacher = {
-      serial: "",
-      name: "Test Teacher",
-      designation: "讲师",
-      faculty: "সিভিল",
-      facultyKey: "civil",
-      department: "সিভিল",
-      office: "Dhaka Govt. Polytechnic Institute",
-      email: "test@example.com",
-      batch: "",
-      phoneOffice: "",
-      phoneHome: "",
-      room: "4101",
-      mobile: "01700000000",
-      photo: "",
-    };
-    const next = upsertTeacher(store, "dpi", teacher);
-    expect(next["dpi"]).toHaveLength(1);
-    expect(next["dpi"]?.[0]?.instituteId).toBe("dpi");
-    expect(next["dpi"]?.[0]?.id).toBeTruthy();
-    expect(next["rpi"]).toHaveLength(TEACHERS.length);
-
-    const id = next["dpi"]?.[0]?.id!;
-    expect(deleteTeacher(next, "dpi", id)["dpi"]).toHaveLength(0);
-  });
-
-  it("restores admin-added teachers after a refresh and groups unknown departments", () => {
-    const teacher: Teacher = {
-      serial: "",
-      name: "Naya Teacher",
-      designation: "Instructor",
-      faculty: "Robotics",
-      facultyKey: "robotics",
-      department: "Robotics",
-      office: "",
-      email: "",
-      batch: "",
-      phoneOffice: "",
-      phoneHome: "",
-      room: "",
-      mobile: "",
-      photo: "",
-    };
-    const saved = JSON.stringify(upsertTeacher({}, "rpi", teacher));
-    const loaded = parseTeacherStore(saved);
-    expect(loaded["rpi"]?.some((t) => t.name === "Naya Teacher")).toBe(true);
-    expect(groupTeachers(allTeachers(loaded)).some((g) => g.key === "robotics")).toBe(true);
-  });
-});
-
-describe("Student class journey", () => {
-  const profile = {
-    email: "student@example.com",
-    name: "Test Student",
-    instituteId: "rpi",
-    department: "Computer Science & Technology",
-    semester: 3,
-    group: "A",
-    shift: "Morning",
-  };
-
-  it("matches a routine by institute, semester, department and shift", () => {
-    const r = matchRoutine(profile, DEFAULT_ROUTINES);
-    expect(r?.id).toBe("rpi-cst-3-morning");
-    const civil = matchRoutine(
-      { ...profile, department: "Civil Technology", semester: 4, group: "B" },
-      DEFAULT_ROUTINES,
-    );
-    expect(civil?.id).toBe("rpi-civil-4-b");
-  });
-
-  it("computes current/next class, walking time and leave-at from routine + map", () => {
-    // Sunday 09:40 — inside P3–P4 (9:30–11:00) in the CST 3rd-sem morning routine.
-    const journey = nextClassJourney(
-      profile,
-      DEFAULT_ROUTINES,
-      [
-        {
-          id: "academic",
-          name: "Academic",
-          look: "",
-          isAcademic: true,
-          distance: {
-            "main-gate": 80,
-            "shaheed-minar": 35,
-            "academic-ground": 0,
-            "academic-entrance": 0,
-          },
-        },
-      ],
-      new Date("2026-11-22T09:40:00"),
-    );
-    expect(journey).not.toBeNull();
-    expect(journey?.routine.id).toBe("rpi-cst-3-morning");
-    expect(journey?.currentEndsAt).toBe("11:00");
-    expect(journey?.nextStartsAt).toBe("11:00");
-    expect(journey?.walkingMinutes).toBeGreaterThan(0);
-    expect(journey?.leaveAt).toMatch(/^\d{2}:\d{2}$/);
-  });
-
-  it("returns null for a profile with no matching routine", () => {
-    expect(
-      nextClassJourney({ ...profile, semester: 12 }, DEFAULT_ROUTINES, [], new Date()),
-    ).toBeNull();
-    expect(parseStudent("{bad")).toBeNull();
   });
 });

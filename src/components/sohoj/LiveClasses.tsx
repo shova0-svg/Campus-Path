@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { INSTITUTES } from "@/lib/campus-data";
 import {
   currentClasses,
-  DAY_ORDER,
-  parseRoutineStore,
-  ROUTINE_STORE_KEY,
+  DEFAULT_ROUTINES,
+  periodMinutes,
   type ClassRoutine,
   type RoutineEntry,
 } from "@/lib/routine";
@@ -18,31 +17,41 @@ function slotTime(routine: ClassRoutine, entry: RoutineEntry): string {
   return first && last ? `${first} – ${last}` : (first ?? "");
 }
 
+function dhakaDayName(now: Date): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Dhaka", weekday: "long" }).format(now);
+}
+
+function dhakaMinute(now: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return (Number(get("hour")) % 24) * 60 + Number(get("minute"));
+}
+
 export function LiveClasses() {
-  const [routines, setRoutines] = useState<ClassRoutine[]>([]);
-  // Epoch on the server and on the first client render keeps hydration stable.
   const [now, setNow] = useState(() => new Date(0));
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     setNow(new Date());
-    try {
-      setRoutines(parseRoutineStore(window.localStorage.getItem(ROUTINE_STORE_KEY)));
-    } catch {
-      setRoutines(parseRoutineStore(null));
-    }
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
 
-  const day = DAY_ORDER[now.getDay()];
-  const live = currentClasses(routines, now);
+  const routines = DEFAULT_ROUTINES;
+  const day = mounted ? dhakaDayName(now) : "";
+  const live = mounted ? currentClasses(routines, now) : [];
   const today = routines.flatMap((r) =>
-    r.entries.filter((e) => e.day === day).map((e) => ({ routine: r, entry: e })),
+    r.entries.filter((e) => e.day === day).map((entry) => ({ routine: r, entry })),
   );
+  const minute = mounted ? dhakaMinute(now) : 0;
   const upcoming = today
-    .filter(({ entry }) => entry.period * 100 > now.getHours() * 100 + now.getMinutes())
+    .filter(({ entry }) => periodMinutes(entry.period as 1 | 2 | 3 | 4 | 5 | 6 | 7) > minute)
     .slice(0, 4);
 
   return (
@@ -69,9 +78,15 @@ export function LiveClasses() {
           </p>
           <h1 className="mt-1 font-display text-xl font-semibold">এখন কী চলছে</h1>
           <p className="mt-1 text-xs text-primary-foreground/75">
-            {mounted ? day : ""} ·{" "}
-            {mounted ? now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""} ·{" "}
-            {live.length} classes running
+            {day} ·{" "}
+            {mounted
+              ? new Intl.DateTimeFormat("en-GB", {
+                  timeZone: "Asia/Dhaka",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(now)
+              : ""}{" "}
+            · {live.length} classes running
           </p>
         </div>
 
@@ -102,8 +117,10 @@ export function LiveClasses() {
                       )}
                     </p>
                     <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                      {routine?.title ?? routine?.department} ·{" "}
-                      {INSTITUTES.find((i) => i.id === routine?.instituteId)?.name}
+                      {routine?.semester
+                        ? `${routine.semester}${routine.semester === 1 ? "st" : "rd"} Semester · CST`
+                        : ""}{" "}
+                      · {INSTITUTES.find((i) => i.id === routine?.instituteId)?.name}
                     </p>
                   </div>
                 </li>

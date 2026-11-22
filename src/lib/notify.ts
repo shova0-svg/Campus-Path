@@ -84,7 +84,7 @@ function fire(title: string, body: string): void {
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.controller.postMessage({ type: "SHOW_NOTIFICATION", title, body });
     } else {
-      new Notification(title, { body, icon: "/icon-192.png" });
+      new Notification(title, { body, icon: "/icons/icon-192.png" });
     }
   };
   show();
@@ -111,18 +111,20 @@ export function scheduleJourneyReminders(journey: Journey): () => void {
     at(
       journey.currentEndsAt,
       "Current class ends",
-      `${journey.current.subject} · room ${journey.current.room} — ${journey.current.teacher}`,
+      `${journey.current.subject.name} · room ${journey.current.block.room} — ${journey.current.subject.teacher}`,
     );
   }
   at(
     journey.leaveAt,
     "Next Class Journey",
-    `Leave now — ${journey.next?.subject ?? "next class"} in room ${journey.next?.room ?? ""}. Walk ${journey.walkingMinutes} min.`,
+    journey.sameRoom
+      ? `Next class ${journey.next?.subject.name ?? ""} — same room / একই রুম, হাঁটতে হবে না.`
+      : `Leave now — ${journey.next?.subject.name ?? "next class"} in room ${journey.next?.block.room ?? ""}. Walk ${journey.walkingMinutes} min.`,
   );
   at(
     journey.nextStartsAt,
     "Next class starts",
-    `${journey.next?.subject ?? ""} · ${journey.next?.teacher ?? ""} · room ${journey.next?.room ?? ""}`,
+    `${journey.next?.subject.name ?? ""} · ${journey.next?.subject.teacher ?? ""} · room ${journey.next?.block.room ?? ""}`,
   );
 
   return () => timers.forEach((t) => window.clearTimeout(t));

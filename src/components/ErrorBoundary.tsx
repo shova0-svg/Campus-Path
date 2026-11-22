@@ -17,7 +17,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("Sohoj Rasta error boundary:", error, info.componentStack);
+    console.error("Campus Path error boundary:", error, info.componentStack);
   }
 
   override render() {

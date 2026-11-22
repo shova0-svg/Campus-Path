@@ -22,11 +22,11 @@ export function JourneyCard({ journey }: { journey: Journey }) {
               Current class ends
             </p>
             <p className="mt-1 truncate text-sm font-semibold">
-              {current ? current.subject : "No class right now"}
+              {current ? current.subject.name : "No class right now"}
             </p>
             {current && (
               <p className="truncate text-[11px] text-muted-foreground">
-                {current.teacher} · Room {current.room}
+                {current.subject.teacher} · Room {current.block.room}
               </p>
             )}
           </div>
@@ -41,11 +41,12 @@ export function JourneyCard({ journey }: { journey: Journey }) {
               Next class starts
             </p>
             <p className="mt-1 truncate text-sm font-semibold">
-              {next ? next.subject : "No more classes today"}
+              {next ? next.subject.name : "No more classes today"}
             </p>
             {next && (
               <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-                <MapPin className="size-3 shrink-0" /> Room {next.room} · {next.teacher}
+                <MapPin className="size-3 shrink-0" /> Room {next.block.room} ·{" "}
+                {next.subject.teacher}
               </p>
             )}
           </div>
@@ -64,7 +65,11 @@ export function JourneyCard({ journey }: { journey: Journey }) {
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Walking time
                 </p>
-                <p className="text-sm font-semibold">{journey.walkingMinutes} min</p>
+                <p className="text-sm font-semibold">
+                  {journey.sameRoom
+                    ? "same room / একই রুম, হাঁটতে হবে না"
+                    : `${journey.walkingMinutes} min`}
+                </p>
               </div>
             </div>
             <div className="text-right">

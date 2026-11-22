@@ -13,7 +13,7 @@ import {
 
 const rpi = INSTITUTES[0];
 
-describe("Sohoj Rasta campus data", () => {
+describe("Campus Path campus data", () => {
   it("defaults to Rajshahi Polytechnic and lists all 64 government/private institutes", () => {
     expect(INSTITUTES.slice(0, 3).map((i) => i.name)).toEqual([
       "Rajshahi Govt. Polytechnic Institute",

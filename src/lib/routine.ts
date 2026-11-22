@@ -1,26 +1,126 @@
 import type { CampusLocation } from "@/lib/campus-data";
 import type { LocationStore } from "@/lib/admin";
-import { civilRoutines } from "@/lib/civil-routines";
-import { eveningRoutines } from "@/lib/evening-routines";
+import {
+  DAYS,
+  PERIODS,
+  PERIOD_TIMES,
+  ROUTINES,
+  type Block,
+  type Day,
+  type Period,
+  type Routine,
+  type Subject,
+} from "@/data/rpi-cst-routines";
 
-/* ---------------- Models ---------------- */
+/* ---------------- New model (single source of truth) ---------------- */
+
+export {
+  DAYS,
+  PERIODS,
+  PERIOD_TIMES,
+  ROUTINES,
+  ROUTINE_1,
+  ROUTINE_3,
+} from "@/data/rpi-cst-routines";
+export type { Block, Day, Period, Routine, Subject } from "@/data/rpi-cst-routines";
 
 export type DayName =
   "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
 
-export const DAY_ORDER: DayName[] = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const DAY_NAMES: Record<Day, DayName> = {
+  Sun: "Sunday",
+  Mon: "Monday",
+  Tue: "Tuesday",
+  Wed: "Wednesday",
+  Thu: "Thursday",
+};
 
-export type Shift = "Morning" | "Evening" | "Day" | "Night";
+/** A block with its subject resolved and its times computed. */
+export interface ResolvedBlock {
+  block: Block;
+  subject: Subject;
+  startMinute: number;
+  endMinute: number;
+  startTime: string;
+  endTime: string;
+  time12: string;
+}
 
-export interface Period {
+export function subjectFor(routine: Routine, code: string): Subject | undefined {
+  return routine.subjects.find((s) => s.code === code);
+}
+
+function clock(minute: number): string {
+  const h = Math.floor(minute / 60) % 24;
+  return `${String(h).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+}
+
+export function format12(minute: number): string {
+  const h24 = Math.floor(minute / 60) % 24;
+  const m = minute % 60;
+  const suffix = h24 < 12 ? "AM" : "PM";
+  const h12 = h24 % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+export function periodMinutes(period: Period, end = false): number {
+  const [from, to] = PERIOD_TIMES[period].split("-");
+  const [h, m] = (end ? to : from)!.split(":").map(Number);
+  return h! * 60 + m!;
+}
+
+export function blockRange(block: Block): [number, number] {
+  return [periodMinutes(block.startPeriod), periodMinutes(block.endPeriod, true)];
+}
+
+export function resolveBlock(routine: Routine, block: Block): ResolvedBlock {
+  const subject = subjectFor(routine, block.subjectCode);
+  if (!subject) throw new Error(`Unknown subject code in routine data: ${block.subjectCode}`);
+  const [startMinute, endMinute] = blockRange(block);
+  return {
+    block,
+    subject,
+    startMinute,
+    endMinute,
+    startTime: clock(startMinute),
+    endTime: clock(endMinute),
+    time12: `${format12(startMinute)} - ${format12(endMinute)}`,
+  };
+}
+
+export function blocksForDay(routine: Routine, day: Day): ResolvedBlock[] {
+  return routine.blocks
+    .filter((b) => b.day === day)
+    .sort((a, b) => a.startPeriod - b.startPeriod)
+    .map((b) => resolveBlock(routine, b));
+}
+
+/** Asia/Dhaka (UTC+6) — never uses the device timezone. */
+export function dhakaNow(now: Date = new Date()): {
+  day: Day | null;
+  weekday: string;
+  minute: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const weekday = get("weekday");
+  const day = (["Sun", "Mon", "Tue", "Wed", "Thu"] as const).find((d) => d === weekday) ?? null;
+  return { day, weekday, minute: (Number(get("hour")) % 24) * 60 + Number(get("minute")) };
+}
+
+/* ---------------- Derived compatibility view ----------------
+ * The rest of the app (room pages, QR, admin lists, sync) still consumes the
+ * legacy ClassRoutine shape. These two objects are DERIVED from ROUTINES above —
+ * they are not a second dataset. There is no other routine data in the repo.
+ */
+
+export interface PeriodRow {
   id: number;
   label: string;
   time: string;
@@ -29,7 +129,6 @@ export interface Period {
 export interface RoutineEntry {
   id: string;
   day: DayName;
-  /** First period of the class (a merged class spans period → endPeriod). */
   period: number;
   endPeriod: number;
   code: string;
@@ -43,247 +142,69 @@ export interface ClassRoutine {
   id: string;
   instituteId: string;
   semester: number;
-  shift: Shift;
+  shift: string;
   department: string;
-  /** Group label (A/B), kept in sync with the title for the DB layer. */
-  group?: string;
   title: string;
   classStart: string;
-  classLoad?: number;
-  periods: Period[];
+  classLoad: number;
+  periods: PeriodRow[];
   entries: RoutineEntry[];
-  /** seeded = typed from the notice board, imported = parsed from pasted text, admin = edited in app. */
-  source: "seeded" | "imported" | "admin";
-  /** Original upload/ref file name, when one was supplied. */
-  file?: string;
-  /** Image-imported routines should be checked by the campus admin. */
+  source: "seeded";
   verified: boolean;
   createdAt: string;
   updatedAt: string;
-  /** Incremented on every publish; previous snapshot kept for undo. */
-  version?: number;
-  _previous?: ClassRoutine;
 }
 
-export const DEFAULT_PERIODS: Period[] = [
-  { id: 1, label: "1", time: "8:00-8:45" },
-  { id: 2, label: "2", time: "8:45-9:30" },
-  { id: 3, label: "3", time: "9:30-10:15" },
-  { id: 4, label: "4", time: "10:15-11:00" },
-  { id: 5, label: "5", time: "11:00-11:45" },
-  { id: 6, label: "6", time: "11:45-12:30" },
-  { id: 7, label: "7", time: "12:30-1:15" },
-];
+export const DEFAULT_PERIODS: PeriodRow[] = PERIODS.map((p) => ({
+  id: p,
+  label: String(p),
+  time: PERIOD_TIMES[p],
+}));
 
-/* ---------------- Seed data (Rajshahi Polytechnic, CST) ---------------- */
-
-const SUBJECT_3RD = [
-  { code: "25811", subject: "Social Science", teacher: "SAMROZ NAHAR", acronym: "SN" },
-  { code: "25922", subject: "Physics-II", teacher: "MST. NAZMUN NAHER", acronym: "NN" },
-  { code: "25931", subject: "Mathematics-III", teacher: "ANJUMAN ARA", acronym: "AA" },
-  {
-    code: "28531",
-    subject: "Application Development Using Python",
-    teacher: "MD. SORIAT ULLAH",
-    acronym: "MSU",
-  },
-  {
-    code: "28532",
-    subject: "Computer Graphics Design-II",
-    teacher: "MD. AZIZUL AMAN AL AMIN",
-    acronym: "A4",
-  },
-  {
-    code: "28533",
-    subject: "IT Support Services",
-    teacher: "MD. ABDULLAH-AL-MAMUN",
-    acronym: "AAM",
-  },
-  { code: "26831", subject: "Digital Electronics-I", teacher: "MD. NURUN NOBE", acronym: "MNN" },
-];
-
-const SUBJECT_1ST = [
-  {
-    code: "21011",
-    subject: "Engineering Drawing",
-    teacher: "MD. ABDULLAH-AL-MAMUN",
-    acronym: "AAM",
-  },
-  { code: "25711", subject: "Bangla-I", teacher: "MST. RABEYA SIDDIQUA", acronym: "RS" },
-  { code: "25712", subject: "English-I", teacher: "MD. SHIMUL HOSSAIN", acronym: "SH" },
-  { code: "25911", subject: "Mathematics-I", teacher: "MD. ABDUR RAZZAK", acronym: "AR" },
-  {
-    code: "25912",
-    subject: "Physics-I",
-    teacher: "SYED MAHMUDUN NABI KHONDKER",
-    acronym: "MNK",
-  },
-  {
-    code: "28511",
-    subject: "Computer Office Application",
-    teacher: "MD. FARUQ HOSSAIN",
-    acronym: "MFH",
-  },
-  { code: "26711", subject: "Basic Electricity", teacher: "MD. MOHOSIN", acronym: "MM" },
-];
-
-type Cell = [code: string, period: number, endPeriod: number, room: string];
-
-function makeEntries(
-  prefix: string,
-  subjects: typeof SUBJECT_3RD,
-  cells: Record<DayName, Cell[]>,
-): RoutineEntry[] {
-  return DAY_ORDER.flatMap((day) =>
-    (cells[day] ?? []).map(([code, period, endPeriod, room], i) => {
-      const s = subjects.find((x) => x.code === code);
+function derive(routine: Routine): ClassRoutine {
+  const byCode = new Map(routine.subjects.map((s) => [s.code, s]));
+  const stamp = `${routine.classStart}T00:00:00.000Z`;
+  return {
+    id: `rpi-cst-${routine.semester}-1`,
+    instituteId: routine.institute,
+    semester: routine.semester,
+    shift: "Morning",
+    department: "Computer Science & Technology",
+    title: routine.title,
+    classStart: routine.classStart.split("-").reverse().join("-"),
+    classLoad: routine.classLoad,
+    periods: DEFAULT_PERIODS,
+    entries: routine.blocks.map((b, i) => {
+      const s = byCode.get(b.subjectCode)!;
       return {
-        id: `${prefix}-${day.toLowerCase()}-${period}-${i}`,
-        day,
-        period,
-        endPeriod,
-        code,
-        subject: s?.subject ?? code,
-        teacher: s?.teacher ?? "—",
-        acronym: s?.acronym ?? code,
-        room,
+        id: `${routine.institute}-cst-${routine.semester}-${i}`,
+        day: DAY_NAMES[b.day],
+        period: b.startPeriod,
+        endPeriod: b.endPeriod,
+        code: s.code,
+        subject: s.name,
+        teacher: s.teacher,
+        acronym: s.acronym,
+        room: b.room,
       };
     }),
-  );
-}
-
-const THIRD_SEM_CELLS: Record<DayName, Cell[]> = {
-  Sunday: [
-    ["28533", 2, 2, "2302"],
-    ["25922", 3, 4, "2106"],
-    ["28533", 5, 5, "2306"],
-    ["25931", 6, 7, "2306"],
-  ],
-  Monday: [
-    ["28533", 1, 3, "1305"],
-    ["25811", 4, 4, "1305"],
-    ["28531", 5, 7, "1308"],
-  ],
-  Tuesday: [
-    ["25931", 1, 2, "2302"],
-    ["26831", 3, 3, "2302"],
-    ["25922", 4, 4, "2302"],
-    ["28532", 5, 7, "1305"],
-  ],
-  Wednesday: [
-    ["26831", 1, 2, "5201"],
-    ["25922", 3, 3, "1305"],
-    ["28533", 4, 5, "1305"],
-  ],
-  Thursday: [
-    ["25931", 1, 2, "2306"],
-    ["25922", 3, 3, "2306"],
-    ["28533", 4, 4, "2306"],
-    ["28531", 5, 5, "2306"],
-    ["25922", 6, 6, "2306"],
-    ["26831", 7, 7, "2306"],
-  ],
-  Friday: [],
-  Saturday: [],
-};
-
-const FIRST_SEM_CELLS: Record<DayName, Cell[]> = {
-  Sunday: [
-    ["25912", 1, 2, "2106"],
-    ["25911", 3, 4, "2302"],
-    ["26711", 5, 6, "5208"],
-  ],
-  Monday: [
-    ["25911", 1, 2, "2302"],
-    ["25711", 3, 3, "2302"],
-    ["28511", 5, 6, "2301"],
-    ["26711", 7, 7, "3109"],
-  ],
-  Tuesday: [
-    ["25912", 2, 2, "2306"],
-    ["26711", 3, 3, "2306"],
-    ["25712", 4, 4, "2306"],
-    ["21011", 5, 6, "2302"],
-  ],
-  Wednesday: [
-    ["28511", 2, 2, "1308"],
-    ["25711", 4, 4, "2303"],
-    ["25912", 5, 5, "2303"],
-    ["26711", 6, 6, "2303"],
-  ],
-  Thursday: [
-    ["25712", 1, 1, "2303"],
-    ["25911", 2, 3, "2303"],
-    ["25912", 4, 4, "2305"],
-    ["21011", 5, 7, "2305"],
-  ],
-  Friday: [],
-  Saturday: [],
-};
-
-const STAMP = "2026-11-20T00:00:00.000Z";
-
-export const DEFAULT_ROUTINES: ClassRoutine[] = [
-  {
-    id: "rpi-cst-1-morning",
-    instituteId: "rpi",
-    semester: 1,
-    shift: "Morning",
-    department: "Computer Science & Technology",
-    title: "1st Semester · Morning Shift · CST",
-    classStart: "11-10-2026",
-    classLoad: 33,
-    periods: DEFAULT_PERIODS,
-    entries: makeEntries("rpi1", SUBJECT_1ST, FIRST_SEM_CELLS),
     source: "seeded",
     verified: true,
-    createdAt: STAMP,
-    updatedAt: STAMP,
-  },
-  {
-    id: "rpi-cst-3-morning",
-    instituteId: "rpi",
-    semester: 3,
-    shift: "Morning",
-    department: "Computer Science & Technology",
-    title: "3rd Semester · Morning Shift · CST",
-    classStart: "27-09-2026",
-    classLoad: 34,
-    periods: DEFAULT_PERIODS,
-    entries: makeEntries("rpi3", SUBJECT_3RD, THIRD_SEM_CELLS),
-    source: "seeded",
-    verified: true,
-    createdAt: STAMP,
-    updatedAt: STAMP,
-  },
-  ...civilRoutines(DEFAULT_PERIODS),
-  ...eveningRoutines(),
-];
-
-/* ---------------- Storage ---------------- */
-
-export const ROUTINE_STORE_KEY = "sohoj-rasta-routines-v1";
-
-function safeParse(raw: string | null): unknown {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
 }
 
-export function parseRoutineStore(raw: string | null): ClassRoutine[] {
-  const saved = safeParse(raw);
-  if (!Array.isArray(saved)) return DEFAULT_ROUTINES.map((r) => ({ ...r }));
-  // Seeded routines are refreshed from code so corrections reach existing devices.
-  // Admin-created or admin-edited routines (source !== "seeded") are preserved.
-  const seeded = DEFAULT_ROUTINES.map((r) => ({ ...r }));
-  const kept = (saved as ClassRoutine[]).filter(
-    (r) => r && !seeded.some((d) => d.id === r.id && r.source === "seeded"),
-  );
-  const freshSeeded = seeded.filter((d) => !kept.some((r) => r.id === d.id));
-  return [...freshSeeded, ...kept];
+/** Exactly two derived routines. Rebuilt from source on every load. */
+export const DEFAULT_ROUTINES: ClassRoutine[] = ROUTINES.map(derive);
+
+/* ---------------- Storage (v2 — v1 cache is never read) ---------------- */
+
+export const ROUTINE_STORE_KEY = "sohoj-rasta-routines-v2";
+
+/** Old v1 cached data is ignored: stored bytes are deliberately not read. */
+export function parseRoutineStore(_raw: string | null): ClassRoutine[] {
+  return DEFAULT_ROUTINES.map((r) => ({ ...r }));
 }
 
 export function upsertRoutine(list: ClassRoutine[], routine: ClassRoutine): ClassRoutine[] {
@@ -296,99 +217,7 @@ export function deleteRoutine(list: ClassRoutine[], id: string): ClassRoutine[] 
   return list.filter((r) => r.id !== id);
 }
 
-/* ---------------- Auto parse pasted routine text ---------------- */
-
-const DAY_TOKENS: Record<string, DayName> = {
-  sunday: "Sunday",
-  sun: "Sunday",
-  monday: "Monday",
-  mon: "Monday",
-  tuesday: "Tuesday",
-  tue: "Tuesday",
-  wednesday: "Wednesday",
-  wed: "Wednesday",
-  thursday: "Thursday",
-  thu: "Thursday",
-  friday: "Friday",
-  fri: "Friday",
-  saturday: "Saturday",
-  sat: "Saturday",
-};
-
-function parseCell(raw: string, day: DayName, period: number, prefix: string): RoutineEntry | null {
-  const parts = raw
-    .trim()
-    .split(/[\s,|]+/)
-    .filter(Boolean);
-  if (parts.length === 0) return null;
-  const code = parts.find((p) => /^\d{4,5}$/.test(p)) ?? parts[0] ?? "";
-  const room = [...parts].reverse().find((p) => /^\d{3,4}$/.test(p) && p !== code) ?? "";
-  const acronym = parts.find((p) => /^[A-Za-z]{1,5}$/.test(p) && p !== code && p !== room) ?? code;
-  return {
-    id: `${prefix}-${day.toLowerCase()}-${period}-${Math.random().toString(36).slice(2, 7)}`,
-    day,
-    period,
-    endPeriod: period,
-    code,
-    subject: code,
-    teacher: "—",
-    acronym,
-    room,
-  };
-}
-
-/**
- * Parses pasted routine text into entries. Accepted lines:
- *   "Sunday"                       → sets the current day
- *   "1: 28533 MSU 2302"            → period 1 cell
- *   "1 8:00-8:45 28533 MSU 2302"   → period with time header
- *   "Sunday\t28533 MSU\t25922 NN"  → tab separated day row
- */
-export function parseRoutineText(text: string, prefix = "import"): RoutineEntry[] {
-  const entries: RoutineEntry[] = [];
-  let day: DayName | null = null;
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || /^(period|day|sl|day\/time)/i.test(line)) continue;
-
-    const dayOnly = line.replace(/:$/, "").toLowerCase();
-    const matchedDay = DAY_TOKENS[dayOnly];
-    if (matchedDay) {
-      day = matchedDay;
-      continue;
-    }
-
-    const labeled = line.match(/^(\d{1,2})\s*[:.)-]?\s*(.*)$/);
-    if (labeled && day) {
-      const period = Number(labeled[1]);
-      const rest = (labeled[2] ?? "").replace(/^\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}\s*/, "");
-      const cell = parseCell(rest, day, period, prefix);
-      if (cell) entries.push(cell);
-      continue;
-    }
-
-    if (line.includes("\t") && day) {
-      const cells = line.split("\t");
-      cells.forEach((cell, i) => {
-        const parsed = parseCell(cell, day as DayName, i + 1, prefix);
-        if (parsed && parsed.code) entries.push(parsed);
-      });
-      continue;
-    }
-
-    if (day && /[A-Za-z0-9]/.test(line)) {
-      const cells = line.split(/\s{3,}|\s{2,}/);
-      cells.forEach((cell, i) => {
-        const parsed = parseCell(cell, day as DayName, i + 1, prefix);
-        if (parsed && parsed.code) entries.push(parsed);
-      });
-    }
-  }
-  return entries;
-}
-
-/* ---------------- Rooms derived from routine cells ---------------- */
+/* ---------------- Room-number logic (unchanged) ---------------- */
 
 /** Builds a room id from its number, e.g. "2302" → "routine-room-2302". */
 export function routineRoomId(room: string): string {
@@ -418,7 +247,6 @@ export function roomFloor(room: string): number {
   return parseRoomCode(room)?.floor ?? 0;
 }
 
-/** Human-readable breakdown, e.g. "Building 1 · 3rd Floor · Room 05". */
 export function formatRoomCode(room: string): string | null {
   const parts = parseRoomCode(room);
   if (!parts) return null;
@@ -433,7 +261,6 @@ function ordinalSuffix(n: number): string {
   return s[(v - 20) % 10] ?? s[v] ?? s[0] ?? "th";
 }
 
-/** Sorts rooms by building → floor → room number; other rooms keep their relative order at the end. */
 export function sortRooms<T extends CampusLocation>(rooms: T[]): T[] {
   return [...rooms].sort((a, b) => {
     const pa = parseRoomCode(a.name);
@@ -462,19 +289,6 @@ export function buildingIdForRoom(code: string): string {
     return "non-departmental";
   }
   return "academic";
-}
-
-/** Rooms referenced by a routine but not yet in the room store. */
-export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): CampusLocation[] {
-  const seen = new Set<string>();
-  const rooms: CampusLocation[] = [];
-  for (const entry of routine.entries) {
-    const code = entry.room.trim();
-    if (!code || seen.has(code)) continue;
-    seen.add(code);
-    rooms.push(makeRoutineRoom(code, instituteId));
-  }
-  return rooms;
 }
 
 export function makeRoutineRoom(code: string, instituteId: string): CampusLocation {
@@ -517,6 +331,19 @@ export function allCampusRooms(instituteId: string): CampusLocation[] {
   ].map((code) => makeRoutineRoom(code, instituteId));
 }
 
+/** Rooms referenced by a routine but not yet in the room store. */
+export function roomsFromRoutine(routine: ClassRoutine, instituteId: string): CampusLocation[] {
+  const seen = new Set<string>();
+  const rooms: CampusLocation[] = [];
+  for (const entry of routine.entries) {
+    const code = entry.room.trim();
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    rooms.push(makeRoutineRoom(code, instituteId));
+  }
+  return rooms;
+}
+
 export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEntry[] {
   const code = room.replace(/^Room\s*/i, "").trim();
   return routines.flatMap((r) =>
@@ -524,7 +351,7 @@ export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEn
   );
 }
 
-/** Adds rooms referenced by every saved routine to the room store (idempotent). */
+/** Adds rooms referenced by the two routines to the room store (idempotent). */
 export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]): LocationStore {
   let next = { ...store };
   const catalog = allCampusRooms("rpi");
@@ -543,7 +370,6 @@ export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]
         list.unshift(room);
         continue;
       }
-      // Migrate rooms saved by older versions (floor used to be the first digit).
       const existing = list[index];
       if (!existing) continue;
       list[index] = {
@@ -558,7 +384,7 @@ export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]
   return next;
 }
 
-/** Handles morning (8:00-8:45), noon wrap (12:30-1:15) and 2nd shift (1:30-2:15). */
+/** Kept for the derived view: parses the legacy "8:00-8:45" / "12:30-1:15" strings. */
 export function periodRange(time: string): [number, number] | null {
   const [start, end] = time.split(/\s*[-–]\s*/);
   const sm = start?.match(/(\d{1,2}):(\d{2})/);
@@ -573,33 +399,37 @@ export function periodRange(time: string): [number, number] | null {
   return [sh * 60 + Number(sm[2]), eh * 60 + Number(em[2])];
 }
 
-/** Classes happening in a room right now, based on the wall clock and routine periods. */
+/** Classes happening in a room right now (Asia/Dhaka). */
 export function currentClassesInRoom(
   routines: ClassRoutine[],
   room: string,
   now: Date = new Date(),
 ): RoutineEntry[] {
   const code = room.replace(/^Room\s*/i, "").trim();
-  const day = DAY_ORDER[now.getDay()];
+  const { weekday, minute } = dhakaNow(now);
+  const day = DAY_ORDER_NAMES[weekday];
   if (!day) return [];
-  const current = now.getHours() * 60 + now.getMinutes();
-  return routines.flatMap((routine) => {
-    const period = routine.periods.find((p) => {
-      const range = periodRange(p.time);
-      return range && current >= range[0] && current <= range[1];
-    });
-    if (!period) return [];
-    return routine.entries
-      .filter(
-        (e) =>
-          e.room.trim() === code &&
-          e.day === day &&
-          period.id >= e.period &&
-          period.id <= e.endPeriod,
-      )
-      .map((e) => ({ ...e, id: `${routine.id}-now-${e.id}` }));
-  });
+  return routines.flatMap((routine) =>
+    routine.entries
+      .filter((e) => {
+        if (e.room.trim() !== code || e.day !== day) return false;
+        const start = periodRange(routine.periods.find((p) => p.id === e.period)?.time ?? "");
+        const end = periodRange(routine.periods.find((p) => p.id === e.endPeriod)?.time ?? "");
+        return start && end && minute >= start[0] && minute <= end[1];
+      })
+      .map((e) => ({ ...e, id: `${routine.id}-now-${e.id}` })),
+  );
 }
+
+const DAY_ORDER_NAMES: Record<string, DayName> = {
+  Sun: "Sunday",
+  Mon: "Monday",
+  Tue: "Tuesday",
+  Wed: "Wednesday",
+  Thu: "Thursday",
+  Fri: "Friday",
+  Sat: "Saturday",
+};
 
 /** Classes happening anywhere on campus right now (for the home overview). */
 export function currentClasses(routines: ClassRoutine[], now: Date = new Date()): RoutineEntry[] {
@@ -607,36 +437,4 @@ export function currentClasses(routines: ClassRoutine[], now: Date = new Date())
     const allRooms = new Set(routine.entries.map((e) => e.room).filter(Boolean));
     return [...allRooms].flatMap((room) => currentClassesInRoom([routine], room, now));
   });
-}
-
-/* ---------------- Cloud OCR adapter (ready for Lovable Cloud) ---------------- */
-
-/**
- * Configure VITE_ROUTINE_OCR_URL to a Lovable Cloud edge function that accepts
- * a multipart upload (file + semester/shift/department) and returns
- * { entries, subjects?, classStart?, classLoad? }. Until then the local
- * paste/auto-parser is used and uploads are kept as a reference file name.
- */
-export interface OcrResult {
-  entries: RoutineEntry[];
-  classStart?: string;
-  classLoad?: number;
-}
-
-export function hasOcrEndpoint(): boolean {
-  return Boolean(import.meta.env["VITE_ROUTINE_OCR_URL"]);
-}
-
-export async function uploadRoutineForOCR(file: File, prefix: string): Promise<OcrResult | null> {
-  const url = import.meta.env["VITE_ROUTINE_OCR_URL"] as string | undefined;
-  if (!url) return null;
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(url, { method: "POST", body: form });
-  if (!res.ok) throw new Error(`OCR failed (${res.status})`);
-  const data = (await res.json()) as OcrResult;
-  return {
-    ...data,
-    entries: (data.entries ?? []).map((e, i) => ({ ...e, id: `${prefix}-ocr-${i}` })),
-  };
 }

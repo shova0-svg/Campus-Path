@@ -5,7 +5,7 @@ import { INSTITUTES } from "@/lib/campus-data";
 export const Route = createFileRoute("/teachers")({
   head: () => ({
     meta: [
-      { title: "Teachers — Sohoj Rasta" },
+      { title: "Teachers — Campus Path" },
       {
         name: "description",
         content: "Department-wise faculty directory of Rajshahi Govt. Polytechnic Institute.",

@@ -1,10 +1,27 @@
-# Sohoj Rasta (সহজ রাস্তা)
+# Campus Path (ক্যাম্পাস পাথ)
 
-Smart, offline-first campus navigator for Bangladesh polytechnic students. Find rooms, see your class routine, get class-journey push notifications — works without GPS and keeps working without internet.
+![Campus Path](public/brand/campus-path-logo-light.svg)
+
+**Find your way on campus** / ক্যাম্পাসে নিজের পথ খুঁজে নিন
+
+Campus Path is a smart, offline-first campus navigator for Bangladesh polytechnic students. Find rooms, see your class routine, get class-journey push notifications — works without GPS and keeps working without internet.
 
 **Live app**: https://sohozrasta.lovable.app
 
 **Pilot target**: Rajshahi Govt. Polytechnic Institute (20–30 students)
+
+## Brand
+
+- Name: **Campus Path** / **ক্যাম্পাস পাথ**. Tagline: "Find your way on campus" / "ক্যাম্পাসে নিজের পথ খুঁজে নিন".
+- Colors: navy `#0B1F3A` (primary dark), `#14365F`, `#081628`, gold `#C9962F` (light `#F6D98A`), ice blue `#9FD8E6`, white.
+- Artwork: `public/brand/campus-path-icon.svg` (app icon) and `public/brand/campus-path-logo-light.svg` (light-background use: this README, og:image, print/share). The in-app wordmark is live text in `src/components/brand/Logo.tsx` so it works in light and dark mode.
+- Regenerate PWA icons, favicons and the social preview from the SVGs:
+
+```sh
+npm run icons
+```
+
+This writes `public/icons/*` and `public/og-image.png` using `sharp`. The uploaded SVGs are never edited or redrawn.
 
 ## Development
 
@@ -24,7 +41,7 @@ npm run build        # production build
 | Supabase repos       | `src/lib/repo/*` (loose `SupabaseClient` from `client.ts`)                                                          | Generated types only know `profiles`; repos own row↔model mapping.                           |
 | Offline cache        | `src/lib/cache.ts` (stale-while-revalidate), `src/lib/resources.ts` (`startSync()`)                                 | Last-known data renders instantly; Supabase revalidates in background; offline stays usable. |
 | Auth & roles         | `src/hooks/use-auth.tsx`, `src/hooks/use-admin-role.ts`, `src/lib/admin.ts`                                         | Lovable Cloud auth; admin membership in `institute_admins`; RLS is the real enforcement.     |
-| UI                   | `src/components/sohoj/*`, `src/routes/*`                                                                            | Bangla + English mix; no redesign of the original screens.                                   |
+| UI                   | `src/components/sohoj/*`, `src/components/brand/Logo.tsx`, `src/routes/*`                                           | Bangla + English mix; no redesign of the original screens.                                   |
 | Global feedback      | `FeedbackHost` in `__root.tsx` + `openFeedback()`                                                                   | Any card / error boundary can prefill and open one dialog.                                   |
 | Push                 | `src/lib/notify.ts` (local fallback), `src/lib/analytics.ts`, `public/sw.js`                                        | Web Push when VAPID is configured, local timers otherwise.                                   |
 

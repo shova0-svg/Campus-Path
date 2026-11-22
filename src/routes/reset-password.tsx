@@ -11,10 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Set a new password — Sohoj Rasta" },
-      { name: "description", content: "Choose a new password for your Sohoj Rasta account." },
-      { property: "og:title", content: "Set a new password — Sohoj Rasta" },
-      { property: "og:description", content: "Choose a new password for your Sohoj Rasta account." },
+      { title: "Set a new password — Campus Path" },
+      { name: "description", content: "Choose a new password for your Campus Path account." },
+      { property: "og:title", content: "Set a new password — Campus Path" },
+      {
+        property: "og:description",
+        content: "Choose a new password for your Campus Path account.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -54,7 +57,10 @@ function ResetPasswordPage() {
           </div>
         </header>
         <section className="-mt-8 px-5 pb-10">
-          <form onSubmit={submit} className="space-y-4 rounded-3xl bg-card p-5 shadow-[var(--shadow-card)]">
+          <form
+            onSubmit={submit}
+            className="space-y-4 rounded-3xl bg-card p-5 shadow-[var(--shadow-card)]"
+          >
             <div className="space-y-1.5">
               <Label htmlFor="new-password">New password</Label>
               <Input

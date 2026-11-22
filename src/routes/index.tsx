@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BrandLogo } from "@/components/sohoj/BrandLogo";
+import { Logo } from "@/components/brand/Logo";
 const QrScannerDialog = lazy(() =>
   import("@/components/sohoj/QrScannerDialog").then((m) => ({ default: m.QrScannerDialog })),
 );
@@ -67,7 +67,6 @@ import {
 } from "@/lib/resources";
 import { removeBuildingRow, upsertBuildingRow } from "@/lib/repo/buildings";
 import { removeRoomRow, upsertRoomRow } from "@/lib/repo/rooms";
-import { removeRoutineRow, upsertRoutineRow } from "@/lib/repo/routines";
 import { removeTeacherRow, upsertTeacherRow } from "@/lib/repo/teachers";
 import { addAdminByEmail, removeAdminRow } from "@/lib/repo/admins";
 import type { Building } from "@/lib/campus-data";
@@ -86,12 +85,8 @@ import {
   classesInRoom,
   currentClasses,
   currentClassesInRoom,
-  deleteRoutine,
-  makeRoutineRoom,
   mergeRoutineRooms,
-  roomsFromRoutine,
   sortRooms,
-  upsertRoutine,
   type ClassRoutine,
 } from "@/lib/routine";
 import { CATEGORY_ICON, CATEGORY_TONE } from "@/components/sohoj/category-icon";
@@ -111,7 +106,7 @@ import {
   type StartPointId,
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
-import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
+import { matchRoutine, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import { deleteTeacher, upsertTeacher, type Teacher, type TeacherStore } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { openFeedback } from "@/lib/feedback";
@@ -121,13 +116,13 @@ import { Onboarding, InstallHint } from "@/components/sohoj/Onboarding";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Sohoj Rasta (সহজ রাস্তা) — Smart Campus Navigator" },
+      { title: "Campus Path — Find your way on campus" },
       {
         name: "description",
         content:
           "Find any classroom, lab or office in Bangladesh polytechnic campuses with step-by-step directions, QR checkpoints and offline maps.",
       },
-      { property: "og:title", content: "Sohoj Rasta (সহজ রাস্তা) — Smart Campus Navigator" },
+      { property: "og:title", content: "Campus Path — Find your way on campus" },
       {
         property: "og:description",
         content: "নতুন ক্যাম্পাসে আপনার বিশ্বস্ত গাইড — rooms, labs and offices found in seconds.",
@@ -201,7 +196,7 @@ function Index() {
     events.forEach((e) => window.addEventListener(e, updated));
     return () => events.forEach((e) => window.removeEventListener(e, updated));
   }, []);
-  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
@@ -217,6 +212,7 @@ function Index() {
       void navigate({ to: "/student", replace: true });
       return;
     }
+    setStudentProfile(saved);
     setInstituteId(saved.instituteId);
     setFormInstituteId(saved.instituteId);
   }, [authLoading, user, navigate]);
@@ -263,8 +259,7 @@ function Index() {
   const visibleInstitutes =
     isSuper || !profile ? INSTITUTES : INSTITUTES.filter((i) => allowedInstituteIds.includes(i.id));
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
-  const activeRoutine =
-    instituteRoutines.find((r) => r.id === activeRoutineId) ?? instituteRoutines[0];
+  const activeRoutine = studentProfile ? matchRoutine(studentProfile) : null;
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -346,51 +341,6 @@ function Index() {
     void removeRoomRow(loc.id).catch(() => {});
     if (selectedId === loc.id) setSelectedId(null);
     toast.success(`${loc.name} deleted`);
-  }
-
-  function saveRoutine(routine: ClassRoutine, extraRooms: string[] = []) {
-    if (!isAdmin) return;
-    const previous = routines.find((r) => r.id === routine.id);
-    const published: ClassRoutine = {
-      ...routine,
-      version: (previous?.version ?? routine.version ?? 1) + (previous ? 1 : 0),
-      ...(previous ? { _previous: previous } : {}),
-      updatedAt: new Date().toISOString(),
-    };
-    routinesResource.set(upsertRoutine(routines, published));
-    void upsertRoutineRow(published).catch(() => {});
-
-    const autoRooms = [
-      ...roomsFromRoutine(routine, routine.instituteId),
-      ...extraRooms.map((code) => makeRoutineRoom(code, routine.instituteId)),
-    ];
-    let nextStore = store;
-    const seen = new Set(autoRooms.map((r) => r.id));
-    for (const room of [...new Map(autoRooms.map((r) => [r.id, r])).values()]) {
-      if (!(nextStore[routine.instituteId] ?? []).some((l) => l.id === room.id)) {
-        nextStore = upsertLocation(nextStore, routine.instituteId, room);
-      }
-      void upsertRoomRow({ ...room, instituteId: routine.instituteId }).catch(() => {});
-    }
-    commit(nextStore);
-    toast.success("Routine published", {
-      description: `${seen.size} ta room auto create hoyeche`,
-    });
-  }
-
-  function restoreRoutineVersion(id: string) {
-    const current = routines.find((r) => r.id === id);
-    if (!current?._previous || !isAdmin) return;
-    const restored = { ...current._previous, version: (current.version ?? 1) + 1 };
-    routinesResource.set(upsertRoutine(routines, restored));
-    void upsertRoutineRow(restored).catch(() => {});
-    toast.success("Last version restored");
-  }
-
-  function removeRoutine(id: string) {
-    routinesResource.set(deleteRoutine(routines, id));
-    void removeRoutineRow(id).catch(() => {});
-    toast.success("Routine deleted");
   }
 
   function addAdmin(email: string, instituteId: string) {
@@ -479,7 +429,7 @@ function Index() {
     if (isAdmin) setPanelOpen(true);
     else
       toast.error("Access Denied: Unauthorized Email", {
-        description: `${user.email ?? ""} is not allowed to manage Sohoj Rasta.`,
+        description: `${user.email ?? ""} is not allowed to manage Campus Path.`,
       });
   }
 
@@ -545,18 +495,18 @@ function Index() {
     <Suspense
       fallback={
         <div className="grid min-h-dvh place-items-center px-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+          <Logo variant="icon" size={40} className="animate-pulse motion-reduce:animate-none" />
         </div>
       }
     >
       <div className="bg-desk min-h-screen lg:flex lg:items-start lg:justify-center lg:gap-16 lg:px-10 lg:py-10">
         {/* Desktop pitch panel */}
         <aside className="hidden max-w-sm pt-16 lg:block">
-          <BrandLogo className="size-14" />
+          <Logo variant="icon" size={36} className="size-14" />
           <h1 className="mt-6 text-4xl font-bold leading-tight text-primary">
             Every room,
             <br />
-            one <span className="text-emerald">sohoj</span> path.
+            one <span className="text-emerald">campus</span> path.
           </h1>
           <p className="mt-4 font-bangla text-lg text-muted-foreground">
             বাংলাদেশের পলিটেকনিক শিক্ষার্থীদের জন্য স্মার্ট ক্যাম্পাস নেভিগেশন।
@@ -588,14 +538,14 @@ function Index() {
           <header className="bg-hero rounded-b-[2rem] px-5 pb-16 pt-7 text-primary-foreground">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <BrandLogo />
+                <Logo variant="icon" size={36} />
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald">
                     {greeting}
                   </p>
-                  <h1 className="text-lg font-bold leading-tight">Sohoj Rasta</h1>
+                  <h1 className="text-lg font-bold leading-tight">Campus Path</h1>
                   <p className="font-bangla text-xs text-primary-foreground/75">
-                    সহজ রাস্তা · আপনার স্মার্ট ক্যাম্পাস গাইড
+                    ক্যাম্পাস পাথ · আপনার স্মার্ট ক্যাম্পাস গাইড
                   </p>
                 </div>
               </div>
@@ -891,22 +841,8 @@ function Index() {
                 liveClasses={currentClassesInRoom(routines, selected.name)}
                 onBack={() => setSelectedId(null)}
               />
-            ) : view === "routine" && activeRoutine ? (
-              <div className="space-y-3">
-                {instituteRoutines.length > 1 && (
-                  <Select value={activeRoutine.id} onValueChange={setActiveRoutineId}>
-                    <SelectTrigger className="h-11 rounded-2xl" aria-label="Choose routine">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {instituteRoutines.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+            ) : view === "routine" ? (
+              activeRoutine ? (
                 <RoutineView
                   routine={activeRoutine}
                   onSelectRoom={(room) => {
@@ -920,7 +856,11 @@ function Index() {
                       });
                   }}
                 />
-              </div>
+              ) : (
+                <p className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground font-bangla">
+                  এই সেমিস্টারের রুটিন এখনো যোগ করা হয়নি / Routine for this semester is not added yet.
+                </p>
+              )
             ) : view === "map" && institute.map ? (
               <CampusMap
                 map={institute.map}
@@ -1117,7 +1057,8 @@ function Index() {
             </section>
 
             <p className="text-center text-[11px] text-muted-foreground">
-              Sohoj Rasta · Made for Bangladesh polytechnic students
+              <Logo variant="icon" size={16} /> Campus Path · Made for Bangladesh polytechnic
+              students
             </p>
           </div>
         </main>
@@ -1134,17 +1075,12 @@ function Index() {
               isSuper={isSuper}
               allowedInstituteIds={allowedInstituteIds}
               admins={admins}
-              routines={routines}
               buildings={buildings}
               teacherStore={teacherStore}
               onLogout={handleLogout}
               onAdd={openAddForm}
               onEdit={openEditForm}
               onDelete={removeLocation}
-              onSaveRoutine={saveRoutine}
-              onDeleteRoutine={removeRoutine}
-              onPublishRoutine={saveRoutine}
-              onRestoreRoutine={restoreRoutineVersion}
               onAddAdmin={addAdmin}
               onRemoveAdmin={removeAdmin}
               onSaveBuilding={saveBuilding}

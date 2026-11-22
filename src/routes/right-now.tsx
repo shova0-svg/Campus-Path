@@ -4,7 +4,7 @@ import { LiveClasses } from "@/components/sohoj/LiveClasses";
 export const Route = createFileRoute("/right-now")({
   head: () => ({
     meta: [
-      { title: "Right now on campus — Sohoj Rasta" },
+      { title: "Right now on campus — Campus Path" },
       {
         name: "description",
         content: "Live class schedule: what is happening on campus right now.",

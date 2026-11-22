@@ -4,7 +4,7 @@ import { ArrowLeft, Bell, Flag, LogOut, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JourneyCard } from "@/components/sohoj/JourneyCard";
 import { StudentSetup } from "@/components/sohoj/StudentSetup";
-import { buildingsResource, routinesResource } from "@/lib/resources";
+import { buildingsResource } from "@/lib/resources";
 import { loadStudentProfile, saveStudentProfile } from "@/lib/repo/student";
 import { nextClassJourney, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import {
@@ -19,11 +19,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { openFeedback } from "@/lib/feedback";
 import { logEvent } from "@/lib/analytics";
 import { InstallHint } from "@/components/sohoj/Onboarding";
+import { Logo } from "@/components/brand/Logo";
 
 export const Route = createFileRoute("/student")({
   head: () => ({
     meta: [
-      { title: "Student — Sohoj Rasta" },
+      { title: "Student — Campus Path" },
       { name: "description", content: "Your class journey, based on your routine and campus map." },
     ],
   }),
@@ -34,7 +35,6 @@ function StudentPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [routines, setRoutines] = useState(() => routinesResource.get());
   const [allBuildings, setAllBuildings] = useState(() => buildingsResource.get());
 
   useEffect(() => {
@@ -53,11 +53,9 @@ function StudentPage() {
         }
       });
     }
-    routinesResource.refresh();
     buildingsResource.refresh();
   }, []);
 
-  useEffect(() => routinesResource.subscribe(setRoutines), []);
   useEffect(() => buildingsResource.subscribe(setAllBuildings), []);
 
   const buildings = useMemo(() => {
@@ -68,10 +66,8 @@ function StudentPage() {
 
   const journey = useMemo(
     () =>
-      profile
-        ? nextClassJourney(profile, routines, buildings[profile.instituteId] ?? [], new Date())
-        : null,
-    [profile, routines, buildings],
+      profile ? nextClassJourney(profile, new Date(), buildings[profile.instituteId] ?? []) : null,
+    [profile, buildings],
   );
 
   useEffect(() => {
@@ -124,6 +120,7 @@ function StudentPage() {
             </Button>
           </Link>
           <div className="flex items-center gap-1">
+            <Logo variant="icon" size={24} />
             <Button variant="ghost" size="sm" onClick={() => openFeedback({ page: "student" })}>
               <MessageSquare /> Feedback
             </Button>
@@ -174,8 +171,7 @@ function StudentPage() {
               </>
             ) : (
               <p className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-                Ei profile-er jonno kono routine paoa jay ni. Department/semester/shift thik kore
-                save koro.
+                এই সেমিস্টারের রুটিন এখনো যোগ করা হয়নি / Routine for this semester is not added yet.
               </p>
             )}
           </>

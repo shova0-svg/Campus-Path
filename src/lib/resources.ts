@@ -6,7 +6,6 @@ import { TEACHERS } from "@/lib/teachers";
 import { listAdmins } from "@/lib/repo/admins";
 import { listBuildings, type StoredBuilding } from "@/lib/repo/buildings";
 import { listRooms, type StoredRoom } from "@/lib/repo/rooms";
-import { listRoutines } from "@/lib/repo/routines";
 import { listTeachers } from "@/lib/repo/teachers";
 
 function seedBuildings(): StoredBuilding[] {
@@ -34,10 +33,11 @@ export const roomsResource = createResource<StoredRoom[]>({
 });
 
 export const routinesResource = createResource<typeof DEFAULT_ROUTINES>({
-  key: "sohoj-rasta-routines-v1",
+  key: "sohoj-rasta-routines-v2",
   event: "sohoj:routines-changed",
   seed: () => DEFAULT_ROUTINES,
-  fetcher: listRoutines,
+  // Only the two code routines are authoritative; cached/remote rows never inject others.
+  fetcher: async () => DEFAULT_ROUTINES,
 });
 
 export const teachersResource = createResource<typeof TEACHERS>({

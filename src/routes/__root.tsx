@@ -94,31 +94,34 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
-    // Replace these placeholders with the app's name and description when first building the app.
-    // Each content route, / included, must still set its own head(). Never add og:image or
-    // twitter:image here: every page without its own would inherit the root's preview image.
+    // Each content route, / included, must still set its own head().
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Sohoj Rasta (সহজ রাস্তা) — Smart Campus Navigator" },
+      { title: "Campus Path — Find your way on campus" },
       {
         name: "description",
-        content: "Smart campus navigation for polytechnic students in Bangladesh.",
+        content:
+          "Find your way on campus — class routines, room navigation and QR checkpoints for polytechnic students in Bangladesh.",
       },
-      { name: "author", content: "Sohoj Rasta" },
-      { property: "og:title", content: "Sohoj Rasta (সহজ রাস্তা)" },
+      { name: "author", content: "Campus Path" },
+      { property: "og:title", content: "Campus Path" },
       {
         property: "og:description",
-        content: "Smart campus navigation for polytechnic students in Bangladesh.",
+        content: "Find your way on campus — smart campus navigation for polytechnic students.",
       },
-      { name: "theme-color", content: "#1E3A8A" },
+      { name: "theme-color", content: "#0B1F3A" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "apple-mobile-web-app-title", content: "Sohoj Rasta" },
+      { name: "apple-mobile-web-app-title", content: "Campus Path" },
+      { name: "application-name", content: "Campus Path" },
+      { property: "og:site_name", content: "Campus Path" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Campus Path" },
+      { name: "twitter:description", content: "Find your way on campus" },
+      { property: "og:image", content: "/og-image.png" },
     ],
     links: [
       {
@@ -126,8 +129,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/icon-192.png" },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { rel: "icon", href: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
