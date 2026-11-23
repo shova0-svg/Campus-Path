@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import {
+  BellRing,
   BookOpen,
   Building2,
   CalendarClock,
@@ -57,6 +58,8 @@ import {
   type LocationStore,
 } from "@/lib/admin";
 import { useAdminRole } from "@/hooks/use-admin-role";
+import { useNotices } from "@/hooks/use-notices";
+import { NoticeView } from "@/components/sohoj/NoticeView";
 import {
   adminsResource,
   buildingsResource,
@@ -173,7 +176,7 @@ function Index() {
   const [qrOpen, setQrOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [view, setView] = useState<"list" | "routine" | "map">("list");
+  const [view, setView] = useState<"list" | "routine" | "map" | "notice">("list");
   const [allBuildings, setAllBuildings] = useState(() => buildingsResource.get());
   const [allTeachers, setAllTeachers] = useState(() => teachersResource.get());
   const [routines, setRoutines] = useState<ClassRoutine[]>(() => routinesResource.get());
@@ -253,6 +256,14 @@ function Index() {
   const teacherStore = useMemo<TeacherStore>(() => groupByInstitute(allTeachers), [allTeachers]);
 
   const institute = INSTITUTES.find((i) => i.id === instituteId) ?? INSTITUTES[0];
+  const noticesApi = useNotices(institute.id);
+  const refreshNotices = noticesApi.refresh;
+  useEffect(() => {
+    void refreshNotices();
+    const timer = window.setInterval(() => void refreshNotices(), 10 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [institute.id, refreshNotices]);
+
   const buildings = buildingStore[institute.id] ?? institute.buildings;
   const locations = useMemo(() => store[institute.id] ?? institute.locations, [store, institute]);
   const isAdmin = adminRole.isAdmin;
@@ -768,7 +779,7 @@ function Index() {
               <div
                 className={cn(
                   "grid gap-1 rounded-2xl border border-border bg-card p-1 shadow-[var(--shadow-card)]",
-                  institute.map && instituteRoutines.length > 0 ? "grid-cols-3" : "grid-cols-2",
+                  "grid-cols-4",
                 )}
                 role="tablist"
                 aria-label="Campus view"
@@ -806,6 +817,23 @@ function Index() {
                     <BookOpen className="size-4" /> Class Routine
                   </button>
                 )}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={view === "notice"}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setView("notice");
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                    view === "notice"
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <BellRing className="size-4" /> Notice
+                </button>
                 {institute.map && (
                   <button
                     type="button"
@@ -906,6 +934,13 @@ function Index() {
                   </p>
                 )}
               </div>
+            ) : view === "notice" ? (
+              <NoticeView
+                notices={noticesApi.notices.filter((n) => n.instituteId === institute.id)}
+                loading={noticesApi.loading}
+                error={noticesApi.error}
+                onRefresh={() => void noticesApi.refresh()}
+              />
             ) : view === "map" && institute.map ? (
               <CampusMap
                 map={institute.map}
@@ -1132,6 +1167,7 @@ function Index() {
               onDeleteBuilding={removeBuilding}
               onSaveTeacher={saveTeacher}
               onDeleteTeacher={removeTeacher}
+              noticesApi={noticesApi}
             />
             <LocationFormDialog
               open={formOpen}

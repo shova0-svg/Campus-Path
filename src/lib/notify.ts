@@ -81,15 +81,27 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
 }
 
-function fire(title: string, body: string): void {
+function fire(title: string, body: string, url?: string): void {
   const show = () => {
     if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.controller.postMessage({ type: "SHOW_NOTIFICATION", title, body });
+      navigator.serviceWorker.controller.postMessage({
+        type: "SHOW_NOTIFICATION",
+        title,
+        body,
+        url,
+      });
     } else {
-      new Notification(title, { body, icon: "/icons/icon-192.png" });
+      new Notification(title, { body, icon: "/icons/icon-192.png", data: { url } });
     }
   };
   show();
+}
+
+/** Local notification for a newly published notice (works while the app is open). */
+export function showNoticeNotification(title: string, noticeTitle: string, url: string): void {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  fire(title, noticeTitle.slice(0, 140), url);
 }
 
 /** Schedules class reminders while the app is open (no Firebase needed). */

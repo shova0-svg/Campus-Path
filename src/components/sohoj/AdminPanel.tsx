@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  BellRing,
   Building2,
   BarChart3,
   LogOut,
@@ -63,6 +64,8 @@ import {
   type TeacherStore,
 } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
+import { NoticeAdmin } from "./NoticeAdmin";
+import type { NoticesApi } from "@/hooks/use-notices";
 import { listFeedback, listUsageEvents, type FeedbackRow } from "@/lib/repo/feedback";
 import { aggregateUsage, type UsageEvent } from "@/lib/stats";
 import {
@@ -72,7 +75,7 @@ import {
   type FeedbackCategory,
 } from "@/lib/feedback";
 
-type Tab = "rooms" | "buildings" | "teachers" | "qr" | "feedback" | "stats" | "admins";
+type Tab = "rooms" | "buildings" | "teachers" | "qr" | "notices" | "feedback" | "stats" | "admins";
 
 interface Props {
   open: boolean;
@@ -95,6 +98,7 @@ interface Props {
   onDeleteBuilding: (buildingId: string) => void;
   onSaveTeacher: (teacher: Teacher) => void;
   onDeleteTeacher: (id: string) => void;
+  noticesApi: NoticesApi;
 }
 
 export function AdminPanel({
@@ -118,6 +122,7 @@ export function AdminPanel({
   onDeleteBuilding,
   onSaveTeacher,
   onDeleteTeacher,
+  noticesApi,
 }: Props) {
   const [tab, setTab] = useState<Tab>("rooms");
   const [instituteId, setInstituteId] = useState(currentInstituteId);
@@ -184,6 +189,7 @@ export function AdminPanel({
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "teachers", label: "Teachers", icon: UserRound },
     { id: "qr", label: "QR", icon: QrCode },
+    { id: "notices", label: "Notice", icon: BellRing },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
     { id: "stats", label: "Stats", icon: BarChart3 },
     ...(isSuper ? [{ id: "admins" as Tab, label: "Admins", icon: Users }] : []),
@@ -195,7 +201,7 @@ export function AdminPanel({
         <DialogContent
           className={cn(
             "flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-3xl p-0",
-            tab === "feedback" || tab === "stats" ? "max-w-lg" : "max-w-md",
+            tab === "feedback" || tab === "stats" || tab === "notices" ? "max-w-lg" : "max-w-md",
           )}
         >
           <div className="bg-hero px-5 pb-4 pt-5 text-primary-foreground">
@@ -503,6 +509,17 @@ export function AdminPanel({
               buildings={buildings}
               rooms={rooms}
               routines={DEFAULT_ROUTINES}
+            />
+          )}
+
+          {tab === "notices" && (
+            <NoticeAdmin
+              sources={noticesApi.sources}
+              onSourcesChange={noticesApi.setSources}
+              onAddManual={noticesApi.addManual}
+              onFetchNow={() => void noticesApi.refresh()}
+              loading={noticesApi.loading}
+              error={noticesApi.error}
             />
           )}
 

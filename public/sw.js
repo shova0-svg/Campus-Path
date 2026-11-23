@@ -20,7 +20,7 @@ self.addEventListener("message", (event) => {
       body: event.data.body || "",
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      data: { url: "/student" },
+      data: { url: event.data.url || "/student" },
     });
   }
 });
@@ -86,6 +86,8 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
   // Sign-in redirects must always reach the network.
   if (url.pathname.startsWith("/~oauth")) return;
+  // Live notice fetches must never be served from the offline cache.
+  if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
     // Cache-first for pages so the app opens instantly with data off.
