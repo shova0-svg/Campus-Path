@@ -62,10 +62,10 @@ export function LandingPage() {
               </span>
             </span>
             <div className="hidden flex-1 text-center leading-tight lg:block">
-              <p className="text-[10px] font-semibold tracking-wide text-white/65">
-                Development By Siratun Janaat Shova
+              <p className="text-[13px] font-semibold tracking-wide text-white/85">
+                Development By Siratun Jannat Shova
               </p>
-              <p className="mt-0.5 text-[10px] text-white/40">
+              <p className="mt-1 text-[12px] text-white/60">
                 Rajshahi Govt. Polytechnic Institute, Computer Science and Technology 1st semester
               </p>
             </div>
@@ -82,8 +82,8 @@ export function LandingPage() {
               </Button>
             </nav>
           </div>
-          <div className="mt-3 border-t border-white/10 pt-3 text-center text-[10px] leading-relaxed text-white/45 lg:hidden">
-            <p className="font-semibold text-white/60">Development By Siratun Janaat Shova</p>
+          <div className="mt-3 border-t border-white/10 pt-3 text-center text-[11px] leading-relaxed text-white/60 lg:hidden">
+            <p className="font-semibold text-white/85">Development By Siratun Jannat Shova</p>
             <p>
               Rajshahi Govt. Polytechnic Institute, Computer Science and Technology 1st semester
             </p>
