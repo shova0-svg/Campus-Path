@@ -1,5 +1,5 @@
 /* Campus Path service worker — offline-first app shell + data cache. */
-const CACHE = "campus-path-v2";
+const CACHE = "campus-path-v3";
 const CORE = [
   "/",
   "/auth",
@@ -22,6 +22,10 @@ self.addEventListener("message", (event) => {
       badge: "/icons/icon-192.png",
       data: { url: event.data.url || "/student" },
     });
+  }
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
+  if (event.data?.type === "CLEAR_CACHE") {
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
   }
 });
 
@@ -89,42 +93,32 @@ self.addEventListener("fetch", (event) => {
   // Live notice fetches must never be served from the offline cache.
   if (url.pathname.startsWith("/api/")) return;
 
+  const cacheOk = (res) => {
+    if (res && res.ok && res.type === "basic") {
+      const copy = res.clone();
+      void caches.open(CACHE).then((c) => c.put(request, copy));
+    }
+    return res;
+  };
+
   if (request.mode === "navigate") {
-    // Cache-first for pages so the app opens instantly with data off.
+    // Network-first: a new deploy must never be hidden by an old cached shell.
     event.respondWith(
-      caches.match(request).then((hit) => {
-        if (hit) {
-          // Refresh in the background for the next visit.
-          void fetch(request)
-            .then((res) => {
-              if (res.ok) void caches.open(CACHE).then((c) => c.put(request, res.clone()));
-            })
-            .catch(() => {});
-          return hit;
-        }
-        return fetch(request)
-          .then((res) => {
-            if (res.ok) void caches.open(CACHE).then((c) => c.put(request, res.clone()));
-            return res;
-          })
-          .catch(() => caches.match("/"));
-      }),
+      fetch(request)
+        .then(cacheOk)
+        .catch(() => caches.match(request).then((hit) => hit || caches.match("/"))),
     );
     return;
   }
 
-  // Static assets: cache-first, fill cache on first load.
+  // Static assets: stale-while-revalidate, but only cache successful responses.
   event.respondWith(
     caches.match(request).then(
       (hit) =>
         hit ||
-        fetch(request).then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            void caches.open(CACHE).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        }),
+        fetch(request)
+          .then(cacheOk)
+          .catch(() => Response.error()),
     ),
   );
 });

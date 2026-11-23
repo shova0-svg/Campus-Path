@@ -8,6 +8,19 @@ interface State {
   error: Error | null;
 }
 
+/** Removes a stale service worker/cache and reloads, without touching saved data. */
+async function resetApp(): Promise<void> {
+  if ("serviceWorker" in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((r) => r.unregister()));
+  }
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  }
+  window.location.href = "/?fresh=1";
+}
+
 /** Last-resort React boundary — a failed render must never leave a blank screen. */
 export class ErrorBoundary extends Component<Props, State> {
   override state: State = { error: null };
@@ -63,6 +76,12 @@ export class ErrorBoundary extends Component<Props, State> {
               className="rounded-xl px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10"
             >
               Report this / জানান
+            </button>
+            <button
+              onClick={() => void resetApp()}
+              className="rounded-xl px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+            >
+              Reset app / ক্যাশে মুছুন — reload fresh
             </button>
           </div>
           {showDebug && (
