@@ -13,8 +13,10 @@ export function logEvent(event: UsageEventName, meta: Record<string, unknown> = 
     try {
       const profile = parseStudent(window.localStorage.getItem(STUDENT_KEY));
       const { data } = await supabase.auth.getSession();
+      // The RLS policy only allows authenticated inserts; don't generate a 401 for guests.
+      if (!data.session?.user) return;
       await db.from("usage_events").insert({
-        user_id: data.session?.user?.id ?? null,
+        user_id: data.session.user.id,
         institute_id: profile?.instituteId ?? "rpi",
         event,
         meta,
