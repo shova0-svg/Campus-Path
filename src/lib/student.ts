@@ -8,6 +8,7 @@ import {
   type Day,
   type ResolvedBlock,
   type Routine,
+  type Shift,
 } from "@/lib/routine";
 
 export interface StudentProfile {
@@ -37,7 +38,7 @@ export function parseStudent(raw: string | null): StudentProfile | null {
       department: p.department ?? "",
       semester: Number(p.semester) || 1,
       ...(p.group ? { group: p.group } : {}),
-      shift: p.shift ?? "Morning",
+      shift: p.shift ?? "1",
     };
   } catch {
     return null;
@@ -51,19 +52,33 @@ function isCst(department: string): boolean {
   );
 }
 
-function isFirstShift(shift: string): boolean {
-  const s = shift.trim().toLowerCase();
-  return s === "" || s === "1" || s === "1st" || s === "morning" || s === "first";
+/** Accepts legacy text shifts ("Morning") and numeric 1/2. Defaults to 1st shift. */
+export function parseShift(value: string | number | undefined | null): Shift {
+  const s = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (s === "2" || s === "2nd" || s === "second" || s === "evening") return 2;
+  return 1;
 }
 
-/** RPI + CST + semester 1 or 3 + 1st shift → the matching routine; otherwise null. */
+/** RPI + CST + a supported semester/shift → its routine; otherwise null. */
 export function matchRoutine(
-  profile: StudentProfile,
+  profileOrSemester: StudentProfile | number,
+  shift: Shift | number = 1,
   routines: Routine[] = ROUTINES,
 ): Routine | null {
-  if (profile.instituteId !== "rpi" || !isCst(profile.department) || !isFirstShift(profile.shift))
-    return null;
-  return routines.find((r) => r.semester === profile.semester) ?? null;
+  if (typeof profileOrSemester === "object") {
+    const profile = profileOrSemester;
+    if (profile.instituteId !== "rpi" || !isCst(profile.department)) return null;
+    return (
+      routines.find(
+        (r) => r.semester === profile.semester && r.shift === parseShift(profile.shift),
+      ) ?? null
+    );
+  }
+  return (
+    routines.find((r) => r.semester === profileOrSemester && r.shift === parseShift(shift)) ?? null
+  );
 }
 
 export interface Journey {

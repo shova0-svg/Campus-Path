@@ -9,6 +9,7 @@ import {
   type Day,
   type Period,
   type Routine,
+  type Shift,
   type Subject,
 } from "@/data/rpi-cst-routines";
 
@@ -23,8 +24,12 @@ export {
   ROUTINE_3,
   ROUTINE_4,
   ROUTINE_6,
+  ROUTINE_E,
+  ROUTINE_F,
+  ROUTINE_G,
+  ROUTINE_H,
 } from "@/data/rpi-cst-routines";
-export type { Block, Day, Period, Routine, Subject } from "@/data/rpi-cst-routines";
+export type { Block, Day, Period, Routine, Shift, Subject } from "@/data/rpi-cst-routines";
 
 export type DayName =
   "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
@@ -65,20 +70,27 @@ export function format12(minute: number): string {
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-export function periodMinutes(period: Period, end = false): number {
-  const [from, to] = PERIOD_TIMES[period].split("-");
+export function periodMinutes(period: Period, end = false, shift: Shift = 1): number {
+  const [from, to] = PERIOD_TIMES[shift][period].split("-");
   const [h, m] = (end ? to : from)!.split(":").map(Number);
   return h! * 60 + m!;
 }
 
-export function blockRange(block: Block): [number, number] {
-  return [periodMinutes(block.startPeriod), periodMinutes(block.endPeriod, true)];
+export function blockRange(block: Block, shift: Shift = 1): [number, number] {
+  return [
+    periodMinutes(block.startPeriod, false, shift),
+    periodMinutes(block.endPeriod, true, shift),
+  ];
+}
+
+export function periodsForShift(shift: Shift): PeriodRow[] {
+  return PERIODS.map((p) => ({ id: p, label: String(p), time: PERIOD_TIMES[shift][p] }));
 }
 
 export function resolveBlock(routine: Routine, block: Block): ResolvedBlock {
   const subject = subjectFor(routine, block.subjectCode);
   if (!subject) throw new Error(`Unknown subject code in routine data: ${block.subjectCode}`);
-  const [startMinute, endMinute] = blockRange(block);
+  const [startMinute, endMinute] = blockRange(block, routine.shift);
   return {
     block,
     subject,
@@ -138,8 +150,10 @@ export interface RoutineEntry {
   teacher: string;
   acronym: string;
   room: string;
-  /** Semester and period time, used by room/teacher pages. */
+  /** Semester, shift and period time, used by room/teacher pages. */
   semester?: number;
+  shift?: number;
+  teacherPhone?: string;
   time?: string;
 }
 
@@ -160,25 +174,21 @@ export interface ClassRoutine {
   updatedAt: string;
 }
 
-export const DEFAULT_PERIODS: PeriodRow[] = PERIODS.map((p) => ({
-  id: p,
-  label: String(p),
-  time: PERIOD_TIMES[p],
-}));
+export const DEFAULT_PERIODS: PeriodRow[] = periodsForShift(1);
 
 function derive(routine: Routine): ClassRoutine {
   const byCode = new Map(routine.subjects.map((s) => [s.code, s]));
   const stamp = `${routine.classStart}T00:00:00.000Z`;
   return {
-    id: `rpi-cst-${routine.semester}-1`,
+    id: routine.id ?? `rpi-cst-${routine.semester}-1`,
     instituteId: routine.institute,
     semester: routine.semester,
-    shift: "Morning",
+    shift: String(routine.shift),
     department: "Computer Science & Technology",
     title: routine.title,
     classStart: routine.classStart.split("-").reverse().join("-"),
     classLoad: routine.classLoad,
-    periods: DEFAULT_PERIODS,
+    periods: periodsForShift(routine.shift),
     entries: routine.blocks.map((b, i) => {
       const s = byCode.get(b.subjectCode)!;
       return {
@@ -192,7 +202,9 @@ function derive(routine: Routine): ClassRoutine {
         acronym: s.acronym,
         room: b.room,
         semester: routine.semester,
-        time: `${PERIOD_TIMES[b.startPeriod].split("-")[0]}-${PERIOD_TIMES[b.endPeriod].split("-")[1]}`,
+        shift: routine.shift,
+        ...(s.teacherPhone ? { teacherPhone: s.teacherPhone } : {}),
+        time: `${PERIOD_TIMES[routine.shift][b.startPeriod].split("-")[0]}-${PERIOD_TIMES[routine.shift][b.endPeriod].split("-")[1]}`,
       };
     }),
     source: "seeded",
@@ -202,12 +214,12 @@ function derive(routine: Routine): ClassRoutine {
   };
 }
 
-/** Four derived routines. Rebuilt from source on every load. */
+/** Eight derived routines. Rebuilt from source on every load. */
 export const DEFAULT_ROUTINES: ClassRoutine[] = ROUTINES.map(derive);
 
 /* ---------------- Storage (v2 — v1 cache is never read) ---------------- */
 
-export const ROUTINE_STORE_KEY = "sohoj-rasta-routines-v3";
+export const ROUTINE_STORE_KEY = "sohoj-rasta-routines-v4";
 
 /**
  * Stored/remote rows can never hide a routine that exists in code: missing ids
@@ -376,7 +388,7 @@ export function classesInRoom(routines: ClassRoutine[], room: string): RoutineEn
   );
 }
 
-/** Adds rooms referenced by the two routines to the room store (idempotent). */
+/** Adds rooms referenced by all eight routines to the room store (idempotent). */
 export function mergeRoutineRooms(store: LocationStore, routines: ClassRoutine[]): LocationStore {
   let next = { ...store };
   const catalog = allCampusRooms("rpi");

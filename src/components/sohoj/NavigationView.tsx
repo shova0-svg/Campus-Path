@@ -212,7 +212,8 @@ export function NavigationView({
                   </p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">
                     {e.day} · Period {e.period}
-                    {e.endPeriod > e.period ? `–${e.endPeriod}` : ""} · Room {e.room}
+                    {e.endPeriod > e.period ? `–${e.endPeriod}` : ""} ·{" "}
+                    {e.shift === 2 ? "2nd" : "1st"} Shift · Room {e.room}
                   </p>
                 </div>
               ))}
@@ -237,7 +238,7 @@ export function NavigationView({
                     <span className="flex flex-wrap items-center gap-1 truncate font-semibold">
                       {e.subject}
                       <span className="rounded-full bg-card px-1.5 text-[9px] font-medium text-muted-foreground">
-                        Sem {e.semester ?? "—"}
+                        Sem {e.semester ?? "—"} · {e.shift === 2 ? "2nd" : "1st"} Shift
                       </span>
                       {isLive && (
                         <span className="rounded-full bg-emerald px-1.5 text-[9px] font-bold text-emerald-foreground">

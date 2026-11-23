@@ -34,7 +34,7 @@ export const roomsResource = createResource<StoredRoom[]>({
 });
 
 export const routinesResource = createResource<typeof DEFAULT_ROUTINES>({
-  key: "sohoj-rasta-routines-v3",
+  key: "sohoj-rasta-routines-v4",
   event: "sohoj:routines-changed",
   seed: () => DEFAULT_ROUTINES,
   // Code routines are authoritative; cached/remote rows can only add extra admin routines.

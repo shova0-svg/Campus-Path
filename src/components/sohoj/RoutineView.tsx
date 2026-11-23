@@ -35,14 +35,18 @@ import {
   type Day,
   type Period,
   type Routine,
+  type Shift,
   type Subject,
 } from "@/lib/routine";
 import {
   NO_ROUTINE_MESSAGE,
   readRoutineView,
-  routineForSemester,
+  routineForSelection,
   SELECTABLE_SEMESTERS,
+  SELECTABLE_SHIFTS,
+  ROUTINE_VIEW_KEY,
   writeRoutineView,
+  type RoutineViewSelection,
 } from "@/lib/routine-view";
 import { resolveTeacher } from "@/lib/routine-teachers";
 import { phoneHref, TEACHERS, type Teacher } from "@/lib/teachers";
@@ -51,8 +55,10 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   profileSemester?: number | null;
-  /** Test hook: start on a given semester without touching storage. */
+  profileShift?: number;
+  /** Test hook: start on a given selection without touching storage. */
   initialSemester?: number;
+  initialShift?: number;
   instituteId?: string;
   isSuper?: boolean;
   teachers?: Teacher[];
@@ -203,7 +209,8 @@ function RoutineBody({
         </h2>
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-primary-foreground/80">
           <span className="rounded-full bg-primary-foreground/15 px-2.5 py-1">
-            {ordinal(routine.semester)} Semester (1st Shift)
+            {ordinal(routine.semester)} Semester ({routine.shift === 1 ? "1st" : "2nd"} Shift /{" "}
+            {routine.shift === 1 ? "১ম" : "২য়"})
           </span>
           <span className="rounded-full bg-primary-foreground/15 px-2.5 py-1">
             Class Start: {classStart}
@@ -254,7 +261,7 @@ function RoutineBody({
                   P{period}
                 </span>
                 <span className="font-bangla text-xs text-muted-foreground">
-                  Free / কোনো ক্লাস নেই · {PERIOD_TIMES[period]}
+                  Free / কোনো ক্লাস নেই · {PERIOD_TIMES[routine.shift][period]}
                 </span>
               </div>
             );
@@ -262,7 +269,11 @@ function RoutineBody({
           if (block.startPeriod !== period) return null;
 
           const resolved = resolveBlock(routine, block);
-          const matched = resolveTeacher(resolved.subject.teacher, teachers);
+          const matched = resolveTeacher(
+            resolved.subject.teacher,
+            resolved.subject.teacherPhone ?? "",
+            teachers,
+          );
           const isNow = currentBlock?.block === block;
           const isNext = nextBlock?.block === block;
           return (
@@ -307,8 +318,16 @@ function RoutineBody({
                       <UserRound className="size-3 shrink-0" /> {resolved.subject.teacher}
                     </button>
                   ) : (
-                    <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                       <UserRound className="size-3 shrink-0" /> {resolved.subject.teacher}
+                      {resolved.subject.teacherPhone && (
+                        <a
+                          href={`tel:${resolved.subject.teacherPhone.replace(/^0/, "+880")}`}
+                          className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-[10px] font-semibold text-primary"
+                        >
+                          <Phone className="size-3" /> from routine / রুটিন থেকে
+                        </a>
+                      )}
                     </p>
                   )}
                   <div className="mt-1.5 flex items-center justify-between gap-2">
@@ -466,28 +485,37 @@ function RoutineBody({
 /** Dropdown + selected routine. Never mutates the student profile. */
 export function RoutineView({
   profileSemester = null,
+  profileShift = 1,
   initialSemester,
+  initialShift,
   instituteId = "rpi",
   isSuper = false,
   teachers = TEACHERS,
   onSelectRoom,
 }: Props) {
-  const [selection, setSelection] = useState<number>(
-    () =>
-      initialSemester ??
-      readRoutineView(
-        typeof window === "undefined" ? null : window.localStorage.getItem("routine-view-v1"),
-        profileSemester,
-      ),
-  );
+  const [selection, setSelection] = useState<RoutineViewSelection>(() => {
+    if (initialSemester !== undefined) {
+      return {
+        institute: instituteId,
+        department: "cst",
+        semester: initialSemester,
+        shift: (initialShift ?? profileShift) as Shift,
+      };
+    }
+    return readRoutineView(
+      typeof window === "undefined" ? null : window.localStorage.getItem(ROUTINE_VIEW_KEY),
+      profileSemester,
+      profileShift as Shift,
+    );
+  });
 
-  const changeSemester = (value: string) => {
-    const semester = Number(value);
-    setSelection(semester);
-    writeRoutineView(semester);
+  const update = (patch: Partial<RoutineViewSelection>) => {
+    const next = { ...selection, ...patch };
+    setSelection(next);
+    writeRoutineView(next);
   };
 
-  const routine = routineForSemester(selection);
+  const routine = routineForSelection(selection);
   const instituteName =
     INSTITUTES.find((i) => i.id === instituteId)?.name ?? "Rajshahi Govt. Polytechnic Institute";
 
@@ -517,7 +545,10 @@ export function RoutineView({
               ))}
             </SelectContent>
           </Select>
-          <Select value={String(selection)} onValueChange={changeSemester}>
+          <Select
+            value={String(selection.semester)}
+            onValueChange={(v) => update({ semester: Number(v) })}
+          >
             <SelectTrigger className="h-10 rounded-xl" aria-label="Routine semester">
               <SelectValue />
             </SelectTrigger>
@@ -531,24 +562,40 @@ export function RoutineView({
               ))}
             </SelectContent>
           </Select>
-          <Select value="1">
+          <Select
+            value={String(selection.shift)}
+            onValueChange={(v) => update({ shift: Number(v) as Shift })}
+          >
             <SelectTrigger className="h-10 rounded-xl" aria-label="Routine shift">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1st Shift</SelectItem>
+              {SELECTABLE_SHIFTS.map((sh) => (
+                <SelectItem key={sh} value={String(sh)}>
+                  {sh === 1 ? "1st shift / ১ম শিফট" : "2nd shift / ২য় শিফট"}
+                  {sh === profileShift ? " — My shift / আমার শিফট" : ""}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-        {profileSemester && selection !== profileSemester && (
-          <button
-            type="button"
-            onClick={() => changeSemester(String(profileSemester))}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-[11px] font-semibold text-primary"
-          >
-            <RotateCcw className="size-3.5" /> Back to my routine / আমার রুটিনে ফিরুন
-          </button>
-        )}
+        {profileSemester &&
+          (selection.semester !== profileSemester || selection.shift !== profileShift) && (
+            <button
+              type="button"
+              onClick={() =>
+                update({
+                  semester: profileSemester,
+                  shift: profileShift as Shift,
+                  institute: instituteId,
+                  department: "cst",
+                })
+              }
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-[11px] font-semibold text-primary"
+            >
+              <RotateCcw className="size-3.5" /> Back to my routine / আমার রুটিনে ফিরুন
+            </button>
+          )}
       </section>
 
       {routine ? (

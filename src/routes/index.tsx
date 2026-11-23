@@ -110,7 +110,7 @@ import {
   type StartPointId,
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
-import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
+import { parseShift, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import { deleteTeacher, upsertTeacher, type Teacher, type TeacherStore } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { openFeedback } from "@/lib/feedback";
@@ -888,6 +888,7 @@ function Index() {
             ) : view === "routine" ? (
               <RoutineView
                 profileSemester={studentProfile?.semester ?? null}
+                profileShift={parseShift(studentProfile?.shift)}
                 instituteId={institute.id}
                 isSuper={isSuper}
                 teachers={allTeachers}

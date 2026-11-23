@@ -9,7 +9,7 @@ const result = spawnSync(
     "run",
     "src/test/routine.test.ts",
     "-t",
-    "prints the real-directory match report",
+    "prints the match report for all distinct teachers",
     "--disableConsoleIntercept",
   ],
   { stdio: "inherit", shell: process.platform === "win32" },

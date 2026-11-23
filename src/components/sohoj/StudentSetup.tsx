@@ -12,7 +12,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { INSTITUTES } from "@/lib/campus-data";
 import { DEPARTMENT_OPTIONS, departmentEnglish } from "@/lib/teachers";
-import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
+import { parseShift, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 
 interface Props {
   onLogin: (profile: StudentProfile) => void;
@@ -25,7 +25,7 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0]?.id ?? "rpi");
   const [department, setDepartment] = useState(DEPARTMENT_OPTIONS[1]?.english ?? "");
   const [semester, setSemester] = useState("1");
-  const [shift, setShift] = useState("Morning");
+  const [shift, setShift] = useState("1");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
       setInstituteId(existing.instituteId);
       setDepartment(departmentEnglish(existing.department));
       setSemester(String(existing.semester));
-      setShift(existing.shift);
+      setShift(String(parseShift(existing.shift)));
       setSaved(true);
     }
   }, []);
@@ -132,9 +132,12 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["Morning"].map((s) => (
-                <SelectItem key={s} value={s}>
-                  1st Shift
+              {[
+                { value: "1", label: "1st shift / ১ম শিফট" },
+                { value: "2", label: "2nd shift / ২য় শিফট" },
+              ].map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
