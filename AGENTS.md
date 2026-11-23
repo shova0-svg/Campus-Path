@@ -83,6 +83,14 @@ use the editor.
 - Regenerate icons with `npm run icons` (`scripts/generate-icons.mjs`, `sharp` devDependency) → `public/icons/*`, `public/og-image.png`, `public/favicon.svg`.
 - IMPORTANT: do not rename `sohoj-*` localStorage keys, `SOHOJ1|` QR prefix, `sohoj:*` events, Supabase identifiers or `src/components/sohoj/*` paths — those are data/QR compat identifiers, not brand text.
 
+## Class push reminders
+
+- Edge Function `send-class-reminders` runs every minute via pg_cron (`campus-path-class-reminders`) and sends Web Push to `push_subscriptions`.
+- Required Edge Function secrets (names only): `CRON_SECRET` (shared auth), `CRON_DB_KEY` (valid service-role key for PostgREST), `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
+- Vault secret `campus_path_cron_key` must hold the same `CRON_SECRET` value; the cron job reads it from `vault.decrypted_secrets` so no key is stored in `cron.job`.
+- Dedupe: `notification_log` unique `(user_id, kind, class_key)` prevents a repeat for the same class/day.
+- Debug: call the function with `Authorization: Bearer <CRON_SECRET>` and `?dryRun=1[&now=ISO]` to preview due reminders without sending.
+
 <!-- AGENT-SKILLS:BEGIN -->
 
 ## Skills to use going forward

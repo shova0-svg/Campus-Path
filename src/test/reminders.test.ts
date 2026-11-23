@@ -62,7 +62,7 @@ describe("class reminder computation", () => {
   it("warns when it is time to leave for the next class (walking time)", () => {
     // Room 2303 → 90m / 12 ≈ 8 min walk; next class starts 09:30 → leave ~09:22.
     const due = dueReminders(profile, routine, at(9, 22));
-    expect(due.some((r) => r.kind === "leave_now" && r.body.includes("Walk 8 min"))).toBe(true);
+    expect(due.some((r) => r.kind === "leave_now" && /walk 8 min/i.test(r.body))).toBe(true);
   });
 
   it("skips leave-now after the last class of the day", () => {

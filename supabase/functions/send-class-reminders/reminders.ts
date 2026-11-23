@@ -15,6 +15,9 @@ export interface ReminderEntry {
   subject: string;
   teacher: string;
   room: string;
+  acronym?: string;
+  teacherPhone?: string;
+  time?: string;
 }
 
 export interface ReminderRoutine {
@@ -48,9 +51,21 @@ export function dhakaNow(now: Date): { day: string; minute: number } {
     hour12: false,
   }).formatToParts(now);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  const hour = Number(get("hour")) % 24;
-  const minute = Number(get("minute"));
-  return { day: get("weekday"), minute: hour * 60 + minute };
+  return {
+    day: get("weekday"),
+    minute: (Number(get("hour")) % 24) * 60 + Number(get("minute")),
+  };
+}
+
+function shiftNumber(value: string): number {
+  const s = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return s === "2" || s === "2nd" || s === "second" || s === "evening" ? 2 : 1;
+}
+
+function shiftLabel(shift: string): string {
+  return shiftNumber(shift) === 2 ? "2nd Shift / ২য় শিফট" : "1st Shift / ১ম শিফট";
 }
 
 function range(time: string | undefined): [number, number] | null {
@@ -73,7 +88,7 @@ function label(minute: number): string {
   return `${String(h).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
 }
 
-function walkingMinutes(room: string): number {
+function defaultWalkingMinutes(room: string): number {
   const code = room.trim();
   let meters = 80;
   if (code.startsWith("4")) meters = 95;
@@ -88,12 +103,11 @@ function matches(profile: ReminderProfile, routine: ReminderRoutine): boolean {
     a.toLowerCase().includes(b.toLowerCase()) || b.toLowerCase().includes(a.toLowerCase());
   return (
     routine.semester === profile.semester &&
-    routine.shift.toLowerCase() === profile.shift.toLowerCase() &&
+    shiftNumber(routine.shift) === shiftNumber(profile.shift) &&
     dept(routine.department, profile.department) &&
     (!profile.group ||
       !routine.group ||
-      routine.group.toUpperCase() === profile.group.toUpperCase() ||
-      !!routine.title?.toLowerCase().includes(`group ${profile.group.toLowerCase()}`))
+      routine.group.toUpperCase() === profile.group.toUpperCase())
   );
 }
 
@@ -101,28 +115,32 @@ export function findRoutine(
   profile: ReminderProfile,
   routines: ReminderRoutine[],
 ): ReminderRoutine | null {
-  const candidates = routines.filter((r) => matches(profile, r));
-  const grouped = candidates.filter((r) =>
-    r.title?.toLowerCase().includes(`group ${profile.group.toLowerCase()}`),
-  );
-  return grouped[0] ?? candidates[0] ?? null;
+  return routines.find((r) => matches(profile, r)) ?? null;
 }
 
-/** Returns the reminders due right now (within a ~1 minute window). */
+/**
+ * Reminders due right now. `walkMinutes` can be supplied by the caller (from
+ * the campus building distances) so the notification carries real travel time.
+ */
 export function dueReminders(
   profile: ReminderProfile,
   routine: ReminderRoutine | null,
   now: Date,
+  walkMinutes: (room: string) => number = defaultWalkingMinutes,
 ): DueReminder[] {
   if (!routine || !matches(profile, routine)) return [];
   const { day, minute } = dhakaNow(now);
   if (day === "Friday" || day === "Saturday") return [];
 
   const timeOf = (id: number) => range(routine.periods.find((p) => p.id === id)?.time);
-
   const entries = routine.entries.filter((e) => e.day === day).sort((a, b) => a.period - b.period);
   const out: DueReminder[] = [];
   const seen = new Set<string>();
+  const semester = `Semester ${routine.semester}`;
+  const shift = shiftLabel(routine.shift);
+
+  const detail = (e: ReminderEntry, start: [number, number], end: [number, number]) =>
+    `${e.subject} (${e.code}) · ${e.teacher}${e.acronym ? ` [${e.acronym}]` : ""} · Room ${e.room} · ${semester} · ${shift} · ${label(start[0])}-${label(end[1])}`;
 
   const add = (r: DueReminder) => {
     const key = `${r.kind}-${r.classKey}`;
@@ -135,24 +153,24 @@ export function dueReminders(
     const start = timeOf(e.period);
     const end = timeOf(e.endPeriod);
     if (!start || !end) return;
-    const key = `${day}-${e.code || e.subject}-${e.period}`;
-    const detail = `${e.subject} · ${e.teacher} · Room ${e.room}`;
+    const key = `${routine.semester}-${shiftNumber(routine.shift)}-${day}-${e.code || e.subject}-${e.period}`;
 
     if (minute >= end[1] - 5 && minute <= end[1]) {
       add({
         kind: "class_ends_soon",
         classKey: key,
-        title: "Class ends soon",
-        body: `${detail} — ends ${label(end[1])}`,
+        title: "Class ends soon / ক্লাস শেষ হতে যাচ্ছে",
+        body: `${detail(e, start, end)} — ends ${label(end[1])}`,
         url: "/student",
       });
     }
     if (minute >= start[0] - 5 && minute <= start[0]) {
+      const walk = walkMinutes(e.room);
       add({
         kind: "class_starting_soon",
         classKey: key,
-        title: "Class starting in 5 min",
-        body: `${detail} — starts ${label(start[0])}`,
+        title: "Class starting in 5 min / ৫ মিনিটে ক্লাস",
+        body: `${detail(e, start, end)} — starts ${label(start[0])} · Walk ${walk} min, leave by ${label(start[0] - walk)}`,
         url: "/student",
       });
     }
@@ -160,15 +178,16 @@ export function dueReminders(
     const next = entries[index + 1];
     if (!next) return; // last class of the day — no leave-now reminder
     const nextStart = timeOf(next.period);
-    if (!nextStart) return;
-    const walk = walkingMinutes(next.room);
+    const nextEnd = timeOf(next.endPeriod);
+    if (!nextStart || !nextEnd) return;
+    const walk = walkMinutes(next.room);
     const leaveAt = nextStart[0] - walk;
     if (minute >= leaveAt - 1 && minute <= leaveAt + 1) {
       add({
         kind: "leave_now",
-        classKey: `${day}-${next.code || next.subject}-${next.period}`,
-        title: "Next Class Journey",
-        body: `Leave now — ${next.subject} in Room ${next.room}. Walk ${walk} min.`,
+        classKey: `${routine.semester}-${shiftNumber(routine.shift)}-${day}-${next.code || next.subject}-${next.period}`,
+        title: "Leave now / এখন বের হন",
+        body: `Next: ${detail(next, nextStart, nextEnd)} — walk ${walk} min, leave by ${label(leaveAt)}`,
         url: "/student",
       });
     }
