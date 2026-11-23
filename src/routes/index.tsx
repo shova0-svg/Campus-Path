@@ -568,7 +568,7 @@ function Index() {
                   </p>
                   <h1 className="text-lg font-bold leading-tight">Campus Path</h1>
                   <p className="font-bangla text-xs text-primary-foreground/75">
-                    ক্যাম্পাস পাথ · আপনার স্মার্ট ক্যাম্পাস গাইড
+                    আপনার স্মার্ট ক্যাম্পাস গাইড
                   </p>
                 </div>
               </div>
@@ -672,9 +672,11 @@ function Index() {
                       <CalendarClock className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">Right now on campus</span>
-                      <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                        এখন কী চলছে — দেখতে ট্যাপ করুন
+                      <span className="block truncate text-sm font-semibold">
+                        Right now on campus
+                      </span>
+                      <span className="font-bangla mt-0.5 block truncate text-xs text-muted-foreground">
+                        এখন কী চলছে
                       </span>
                     </span>
                     <span className="shrink-0 rounded-full bg-emerald-soft px-2.5 py-1 text-[10px] font-bold text-emerald">
@@ -693,9 +695,9 @@ function Index() {
                       <UserRound className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">Student Account</span>
-                      <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                        Next Class Journey — দেখতে ট্যাপ করুন
+                      <span className="block truncate text-sm font-semibold">Student Account</span>
+                      <span className="font-bangla mt-0.5 block truncate text-xs text-muted-foreground">
+                        পরের ক্লাসের যাত্রা
                       </span>
                     </span>
                     <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
@@ -711,9 +713,9 @@ function Index() {
                       <UserRound className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">Teachers</span>
-                      <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                        বিভাগভিত্তিক শিক্ষক তালিকা — দেখতে ট্যাপ করুন
+                      <span className="block truncate text-sm font-semibold">Teachers</span>
+                      <span className="font-bangla mt-0.5 block truncate text-xs text-muted-foreground">
+                        বিভাগভিত্তিক শিক্ষক তালিকা
                       </span>
                     </span>
                     <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
@@ -724,11 +726,13 @@ function Index() {
 
             {/* Current location */}
             <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-float)]">
-              <div className="flex items-baseline justify-between">
+              <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between">
                 <p className="flex items-center gap-1.5 text-sm font-semibold">
                   <LocateFixed className="size-4 text-emerald" /> Where are you now?
                 </p>
-                <span className="font-bangla text-xs text-muted-foreground">আপনি এখন কোথায়?</span>
+                <span className="font-bangla text-[11px] text-muted-foreground">
+                  আপনি এখন কোথায়?
+                </span>
               </div>
               <div className="mt-3 flex gap-2">
                 <Select
@@ -789,13 +793,15 @@ function Index() {
                   aria-selected={view === "list"}
                   onClick={() => setView("list")}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                    "flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-0.5 py-2.5 text-[10px] font-semibold transition-all sm:gap-1.5 sm:px-1 sm:text-xs",
                     view === "list"
                       ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
                       : "text-muted-foreground",
                   )}
                 >
-                  <List className="size-4" /> Destinations
+                  <List className="size-3.5 shrink-0 sm:size-4" />{" "}
+                  <span className="sm:hidden">Places</span>
+                  <span className="hidden sm:inline">Destinations</span>
                 </button>
                 {instituteRoutines.length > 0 && (
                   <button
@@ -807,13 +813,15 @@ function Index() {
                       setView("routine");
                     }}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                      "flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-0.5 py-2.5 text-[10px] font-semibold transition-all sm:gap-1.5 sm:px-1 sm:text-xs",
                       view === "routine"
                         ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
                         : "text-muted-foreground",
                     )}
                   >
-                    <BookOpen className="size-4" /> Class Routine
+                    <BookOpen className="size-3.5 shrink-0 sm:size-4" />{" "}
+                    <span className="sm:hidden">Routine</span>
+                    <span className="hidden sm:inline">Class Routine</span>
                   </button>
                 )}
                 <button
@@ -825,13 +833,13 @@ function Index() {
                     setView("notice");
                   }}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                    "flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-0.5 py-2.5 text-[10px] font-semibold transition-all sm:gap-1.5 sm:px-1 sm:text-xs",
                     view === "notice"
                       ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
                       : "text-muted-foreground",
                   )}
                 >
-                  <BellRing className="size-4" /> Notice
+                  <BellRing className="size-3.5 shrink-0 sm:size-4" /> Notice
                 </button>
                 {institute.map && (
                   <button
@@ -843,13 +851,15 @@ function Index() {
                       setView("map");
                     }}
                     className={cn(
-                      "flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs font-semibold transition-all sm:text-sm",
+                      "flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-0.5 py-2.5 text-[10px] font-semibold transition-all sm:gap-1.5 sm:px-1 sm:text-xs",
                       view === "map"
                         ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
                         : "text-muted-foreground",
                     )}
                   >
-                    <MapIcon className="size-4" /> Campus Map
+                    <MapIcon className="size-3.5 shrink-0 sm:size-4" />{" "}
+                    <span className="sm:hidden">Map</span>
+                    <span className="hidden sm:inline">Campus Map</span>
                   </button>
                 )}
               </div>

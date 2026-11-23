@@ -205,7 +205,7 @@ function RoutineBody({
           <CalendarDays className="size-3.5" /> Class routine / ক্লাস রুটিন
         </p>
         <h2 className="mt-1 font-display text-lg font-semibold leading-tight">
-          Department of Computer Science &amp; Technology
+          Computer Science &amp; Technology
         </h2>
         <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-primary-foreground/80">
           <span className="rounded-full bg-primary-foreground/15 px-2.5 py-1">
@@ -525,7 +525,10 @@ export function RoutineView({
         <p className="text-xs font-semibold">Routine dekhun / রুটিন দেখুন</p>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <Select value={instituteId} disabled={!isSuper}>
-            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine polytechnic">
+            <SelectTrigger
+              className="h-10 rounded-xl [&>span]:truncate"
+              aria-label="Routine polytechnic"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -533,7 +536,10 @@ export function RoutineView({
             </SelectContent>
           </Select>
           <Select value="cst">
-            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine department">
+            <SelectTrigger
+              className="h-10 rounded-xl [&>span]:truncate"
+              aria-label="Routine department"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -549,7 +555,10 @@ export function RoutineView({
             value={String(selection.semester)}
             onValueChange={(v) => update({ semester: Number(v) })}
           >
-            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine semester">
+            <SelectTrigger
+              className="h-10 rounded-xl [&>span]:truncate"
+              aria-label="Routine semester"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -557,7 +566,6 @@ export function RoutineView({
                 <SelectItem key={s} value={String(s)} disabled={s === 2 || s === 5}>
                   {ordinal(s)} Semester
                   {s === 2 || s === 5 ? " — Coming soon / শীঘ্রই আসছে" : ""}
-                  {s === profileSemester ? " — My semester / আমার সেমিস্টার" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -566,19 +574,24 @@ export function RoutineView({
             value={String(selection.shift)}
             onValueChange={(v) => update({ shift: Number(v) as Shift })}
           >
-            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine shift">
+            <SelectTrigger className="h-10 rounded-xl [&>span]:truncate" aria-label="Routine shift">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {SELECTABLE_SHIFTS.map((sh) => (
                 <SelectItem key={sh} value={String(sh)}>
                   {sh === 1 ? "1st shift / ১ম শিফট" : "2nd shift / ২য় শিফট"}
-                  {sh === profileShift ? " — My shift / আমার শিফট" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+        {profileSemester && (
+          <p className="mt-2 truncate text-[11px] font-medium text-muted-foreground">
+            My / আমার: {ordinal(profileSemester)} Semester · {profileShift === 1 ? "1st" : "2nd"}{" "}
+            shift
+          </p>
+        )}
         {profileSemester &&
           (selection.semester !== profileSemester || selection.shift !== profileShift) && (
             <button
@@ -593,7 +606,7 @@ export function RoutineView({
               }
               className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-[11px] font-semibold text-primary"
             >
-              <RotateCcw className="size-3.5" /> Back to my routine / আমার রুটিনে ফিরুন
+              <RotateCcw className="size-3.5" /> My routine / আমার রুটিন
             </button>
           )}
       </section>

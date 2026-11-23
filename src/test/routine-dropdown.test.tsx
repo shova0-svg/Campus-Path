@@ -18,7 +18,7 @@ describe("routine dropdown selection", () => {
     );
     expect(screen.getByText("4th Semester (2nd Shift / ২য়)")).toBeTruthy();
     expect(screen.getAllByText("Java Programming").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Back to my routine/)).toBeTruthy();
+    expect(screen.getByText(/My routine/)).toBeTruthy();
   });
 
   it("semester 6, shift 2 renders H", () => {
@@ -40,6 +40,6 @@ describe("routine dropdown selection", () => {
     render(
       <RoutineView initialSemester={1} initialShift={2} profileSemester={1} profileShift={2} />,
     );
-    expect(screen.queryByText(/Back to my routine/)).toBeNull();
+    expect(screen.queryByText(/My routine/)).toBeNull();
   });
 });
