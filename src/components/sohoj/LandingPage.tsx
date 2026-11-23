@@ -52,26 +52,42 @@ export function LandingPage() {
 
       <div className="relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-5 md:px-8 lg:px-12">
         {/* nav */}
-        <header className="flex items-center justify-between gap-4 py-5 md:py-7">
-          <span className="inline-flex items-center gap-2.5">
-            <Logo variant="icon" size={36} />
-            <span className="font-display text-lg leading-none tracking-tight">
-              <span className="font-light text-white">Campus </span>
-              <span className="font-bold text-[#F0CC76]">Path</span>
+        <header className="py-5 md:py-7">
+          <div className="flex items-center justify-between gap-4">
+            <span className="inline-flex items-center gap-2.5">
+              <Logo variant="icon" size={36} />
+              <span className="font-display text-lg leading-none tracking-tight">
+                <span className="font-light text-white">Campus </span>
+                <span className="font-bold text-[#F0CC76]">Path</span>
+              </span>
             </span>
-          </span>
-          <nav className="flex items-center gap-2 md:gap-3">
-            <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white">
-              <Link to="/auth">Sign in</Link>
-            </Button>
-            <Button
-              size="sm"
-              asChild
-              className="rounded-full bg-[#C9962F] px-4 font-semibold text-[#081628] hover:bg-[#F6D98A]"
-            >
-              <Link to="/auth">Create account</Link>
-            </Button>
-          </nav>
+            <div className="hidden flex-1 text-center leading-tight lg:block">
+              <p className="text-[10px] font-semibold tracking-wide text-white/65">
+                Development By Siratun Janaat Shova
+              </p>
+              <p className="mt-0.5 text-[10px] text-white/40">
+                Rajshahi Govt. Polytechnic Institute, Computer Science and Technology 1st semester
+              </p>
+            </div>
+            <nav className="flex items-center gap-2 md:gap-3">
+              <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white">
+                <Link to="/auth">Sign in</Link>
+              </Button>
+              <Button
+                size="sm"
+                asChild
+                className="rounded-full bg-[#C9962F] px-4 font-semibold text-[#081628] hover:bg-[#F6D98A]"
+              >
+                <Link to="/auth">Create account</Link>
+              </Button>
+            </nav>
+          </div>
+          <div className="mt-3 border-t border-white/10 pt-3 text-center text-[10px] leading-relaxed text-white/45 lg:hidden">
+            <p className="font-semibold text-white/60">Development By Siratun Janaat Shova</p>
+            <p>
+              Rajshahi Govt. Polytechnic Institute, Computer Science and Technology 1st semester
+            </p>
+          </div>
         </header>
 
         {/* hero */}
