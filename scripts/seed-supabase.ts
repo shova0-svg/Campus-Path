@@ -5,7 +5,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { INSTITUTES } from "../src/lib/campus-data";
-import { DEFAULT_ROUTINES } from "../src/lib/routine";
+import { DEFAULT_ROUTINES, roomsFromRoutine } from "../src/lib/routine";
 import { TEACHERS } from "../src/lib/teachers";
 
 const url = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
@@ -78,7 +78,20 @@ async function main() {
   );
   // Only insert rooms whose building FK exists in the seeded buildings set.
   const buildingIds = new Set(buildings.map((b) => b.id));
-  const validRooms = rooms.filter((r) => buildingIds.has(r.building_id));
+  // Rooms referenced by the two routines must exist even if not in the demo list.
+  const routineRooms = DEFAULT_ROUTINES.flatMap((r) => roomsFromRoutine(r, "rpi")).map((room) => ({
+    id: `rpi-${room.id}`,
+    institute_id: "rpi",
+    building_id: `rpi-${room.buildingId}`,
+    room_no: room.name.replace(/^Room /, ""),
+    name: room.name,
+    type: room.category,
+    floor: room.floor,
+    data: room as unknown as Record<string, unknown>,
+  }));
+  const validRooms = [
+    ...new Map([...rooms, ...routineRooms].map((r) => [r.id, r])).values(),
+  ].filter((r) => buildingIds.has(r.building_id));
   const { error: e3 } = await db.from("rooms").upsert(validRooms);
   if (e3) throw e3;
   console.log(`rooms: ${validRooms.length}`);
@@ -114,9 +127,11 @@ async function main() {
     room_no: t.room,
     data: t as unknown as Record<string, unknown>,
   }));
-  const { error: e5 } = await db.from("teachers").upsert(teachers);
+  // Several people appear in more than one faculty list; one row per id per upsert.
+  const uniqueTeachers = [...new Map(teachers.map((t) => [t.id, t])).values()];
+  const { error: e5 } = await db.from("teachers").upsert(uniqueTeachers);
   if (e5) throw e5;
-  console.log(`teachers: ${teachers.length}`);
+  console.log(`teachers: ${uniqueTeachers.length}`);
 
   console.log("Seed complete.");
 }

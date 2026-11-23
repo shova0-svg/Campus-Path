@@ -1,1 +1,5 @@
-project_id = "fyubfnydikyrlsifuwmr"
+project_id = "trdefthkfdnchbgshgvk"
+
+[auth]
+site_url = "https://campus-path-chi.vercel.app"
+additional_redirect_urls = ["https://campus-path-chi.vercel.app/**", "http://localhost:8080/**"]
