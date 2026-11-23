@@ -8,6 +8,7 @@ import {
   type Routine,
 } from "@/lib/routine";
 import { TEACHERS, teacherId, type Teacher } from "@/lib/teachers";
+import { TEACHER_ALIASES } from "@/data/teacher-aliases";
 
 const PREFIXES = ["MD", "MST", "MRS", "MS", "DR", "ENGR"];
 const BN_DIGITS: Record<string, string> = {
@@ -69,10 +70,13 @@ function byPhone(phone: string, directory: Teacher[]): Teacher[] {
 }
 
 function byName(name: string, directory: Teacher[]): Teacher[] {
-  const target = normalizeName(name);
+  const aliased = TEACHER_ALIASES[name.trim().toUpperCase()];
+  const target = normalizeName(aliased ?? name);
   if (!target) return [];
   const exact = directory.filter((t) => normalizeName(t.name) === target);
   if (exact.length > 0) return exact;
+  // An alias is a manual, verified mapping — never fall back to fuzzy matching it.
+  if (aliased) return [];
   return directory.filter((t) => tokenSetMatch(significant(name), significant(t.name)));
 }
 

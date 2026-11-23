@@ -28,11 +28,13 @@ import {
 } from "@/lib/routine-view";
 import {
   closestCandidates,
+  scheduleByTeacherId,
   normalizeName,
   normalizePhone,
   resolveTeacher,
 } from "@/lib/routine-teachers";
 import { TEACHERS, type Teacher } from "@/lib/teachers";
+import { TEACHER_ALIASES, UNCONFIRMED_ALIASES } from "@/data/teacher-aliases";
 import { matchRoutine, nextClassJourney, parseShift, type StudentProfile } from "@/lib/student";
 
 const ALL = [
@@ -540,6 +542,32 @@ describe("teacher matching", () => {
     expect(resolveTeacher("Nobody Here", undefined, [mk("MD. MOHOSIN")])).toBeNull();
   });
 
+  it("resolves all verified 1st-shift name aliases and keeps the 6 ambiguous ones unmatched", () => {
+    for (const [notice, directoryName] of Object.entries(TEACHER_ALIASES)) {
+      expect(resolveTeacher(notice, undefined, TEACHERS)?.name, notice).toBe(directoryName);
+    }
+    for (const notice of Object.keys(UNCONFIRMED_ALIASES)) {
+      expect(resolveTeacher(notice, undefined, TEACHERS), notice).toBeNull();
+    }
+  });
+
+  it("keeps acronym collisions as different people", () => {
+    const first = resolveTeacher("MD. ABDULLAH-AL MAMUN", undefined, TEACHERS);
+    const second = resolveTeacher("Abdullah Al Mahmud", "01721702964", TEACHERS);
+    expect(first?.name).not.toBe(second?.name);
+    const mm = resolveTeacher("Mahmudunnabi Milon", "01717487578", TEACHERS);
+    expect(resolveTeacher("MD. MOHOSIN", undefined, TEACHERS)).toBeNull();
+    expect(mm?.name).toBe("মাহমুন্নবী মিলন");
+  });
+
+  it("gives resolved 1st-shift teachers a real weekly schedule", () => {
+    const schedules = scheduleByTeacherId(TEACHERS);
+    const mapped = [...schedules.values()].find((s) => s.routineName === "MD. ABDULLAH-AL MAMUN");
+    expect(mapped).toBeTruthy();
+    expect(mapped!.classes.length).toBeGreaterThan(0);
+    expect(mapped!.classes.every((c) => c.shift === 1)).toBe(true);
+  });
+
   it("prints the match report for all distinct teachers of all 8 routines", () => {
     const names = [
       ...new Set(
@@ -558,13 +586,19 @@ describe("teacher matching", () => {
         const how =
           byPhone.length === 1
             ? "phone"
-            : normalizeName(found.name) === normalizeName(name)
-              ? "exact"
-              : "token";
+            : TEACHER_ALIASES[name.trim().toUpperCase()]
+              ? "alias"
+              : normalizeName(found.name) === normalizeName(name)
+                ? "exact"
+                : "token";
         matched.push(`${name} -> ${found.name} (${how})`);
       } else {
         const closest = closestCandidates(name, TEACHERS);
-        unmatched.push(`${name} (closest: ${closest.length ? closest.join(", ") : "none"})`);
+        const suggestions = UNCONFIRMED_ALIASES[name.trim().toUpperCase()] ?? [];
+        const pool = closest.length ? closest : suggestions;
+        unmatched.push(
+          `${name} (closest: ${pool.length ? pool.join(", ") + (suggestions.length ? " [unconfirmed]" : "") : "none"})`,
+        );
       }
     }
     console.log(
