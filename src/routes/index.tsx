@@ -60,6 +60,7 @@ import {
 import { useAdminRole } from "@/hooks/use-admin-role";
 import { useNotices } from "@/hooks/use-notices";
 import { NoticeView } from "@/components/sohoj/NoticeView";
+import { LandingPage } from "@/components/sohoj/LandingPage";
 import {
   adminsResource,
   buildingsResource,
@@ -211,10 +212,7 @@ function Index() {
   // Entry gate: login first, then class profile, then the app.
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
-      void navigate({ to: "/auth", replace: true });
-      return;
-    }
+    if (!user) return; // signed-out visitors see the landing page
     const saved = parseStudent(window.localStorage.getItem(STUDENT_KEY));
     if (!saved) {
       void navigate({ to: "/student", replace: true });
@@ -259,10 +257,11 @@ function Index() {
   const noticesApi = useNotices(institute.id);
   const refreshNotices = noticesApi.refresh;
   useEffect(() => {
+    if (!user) return;
     void refreshNotices();
     const timer = window.setInterval(() => void refreshNotices(), 10 * 60 * 1000);
     return () => window.clearInterval(timer);
-  }, [institute.id, refreshNotices]);
+  }, [user, institute.id, refreshNotices]);
 
   const buildings = buildingStore[institute.id] ?? institute.buildings;
   const locations = useMemo(() => store[institute.id] ?? institute.locations, [store, institute]);
@@ -516,6 +515,8 @@ function Index() {
     setQrBuilding(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  if (!authLoading && !user) return <LandingPage />;
 
   return (
     <Suspense
