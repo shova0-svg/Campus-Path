@@ -90,7 +90,6 @@ import {
   currentClasses,
   currentClassesInRoom,
   mergeRoutineRooms,
-  ROUTINES,
   sortRooms,
   type ClassRoutine,
 } from "@/lib/routine";
@@ -111,7 +110,7 @@ import {
   type StartPointId,
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
-import { matchRoutine, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
+import { parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
 import { deleteTeacher, upsertTeacher, type Teacher, type TeacherStore } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { openFeedback } from "@/lib/feedback";
@@ -205,7 +204,6 @@ function Index() {
     return () => events.forEach((e) => window.removeEventListener(e, updated));
   }, []);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
-  const [routineChoice, setRoutineChoice] = useState<1 | 3 | null>(null);
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
@@ -274,9 +272,7 @@ function Index() {
   const visibleInstitutes =
     isSuper || !profile ? INSTITUTES : INSTITUTES.filter((i) => allowedInstituteIds.includes(i.id));
   const instituteRoutines = routines.filter((r) => r.instituteId === institute.id);
-  const matchedRoutine = studentProfile ? matchRoutine(studentProfile) : null;
-  const activeRoutine =
-    ROUTINES.find((r) => r.semester === (routineChoice ?? matchedRoutine?.semester)) ?? null;
+
   const now = new Date();
   // Dhaka time keeps server and client render identical regardless of host timezone.
   const hour =
@@ -890,59 +886,21 @@ function Index() {
                 onBack={() => setSelectedId(null)}
               />
             ) : view === "routine" ? (
-              <div className="space-y-3">
-                <div
-                  className="flex gap-1 rounded-full bg-muted p-1"
-                  role="tablist"
-                  aria-label="Choose routine"
-                >
-                  {ROUTINES.map((r) => {
-                    const active = r.semester === (routineChoice ?? matchedRoutine?.semester);
-                    return (
-                      <button
-                        key={r.semester}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        onClick={() => setRoutineChoice(r.semester)}
-                        className={cn(
-                          "flex-1 rounded-full px-3 py-2 text-xs font-semibold transition-colors",
-                          active ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-                        )}
-                      >
-                        {r.semester === 1 ? "1st" : "3rd"} Semester
-                      </button>
-                    );
-                  })}
-                </div>
-                {activeRoutine ? (
-                  <RoutineView
-                    routine={activeRoutine}
-                    onSelectRoom={(room) => {
-                      const found = locations.find(
-                        (l) =>
-                          l.name === `Room ${room}` || l.id.endsWith(`-${room}-${institute.id}`),
-                      );
-                      if (found) openLocation(found.id);
-                      else
-                        toast("Room not in list yet", {
-                          description: "Admin panel-e routine save korle room auto create hobey.",
-                        });
-                    }}
-                  />
-                ) : (
-                  <p className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground font-bangla">
-                    এই সেমিস্টারের রুটিন এখনো যোগ করা হয়নি / Routine for this semester is not added
-                    yet.
-                  </p>
-                )}
-              </div>
-            ) : view === "notice" ? (
-              <NoticeView
-                notices={noticesApi.notices.filter((n) => n.instituteId === institute.id)}
-                loading={noticesApi.loading}
-                error={noticesApi.error}
-                onRefresh={() => void noticesApi.refresh()}
+              <RoutineView
+                profileSemester={studentProfile?.semester ?? null}
+                instituteId={institute.id}
+                isSuper={isSuper}
+                teachers={allTeachers}
+                onSelectRoom={(room) => {
+                  const found = locations.find(
+                    (l) => l.name === `Room ${room}` || l.id.endsWith(`-${room}-${institute.id}`),
+                  );
+                  if (found) openLocation(found.id);
+                  else
+                    toast("Room not in list yet", {
+                      description: "Admin panel-e routine save korle room auto create hobey.",
+                    });
+                }}
               />
             ) : view === "map" && institute.map ? (
               <CampusMap

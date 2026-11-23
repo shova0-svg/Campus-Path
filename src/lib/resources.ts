@@ -1,12 +1,13 @@
 import { createResource } from "@/lib/cache";
 import { defaultAdmins } from "@/lib/admin";
 import { INSTITUTES } from "@/lib/campus-data";
-import { DEFAULT_ROUTINES } from "@/lib/routine";
+import { DEFAULT_ROUTINES, mergeWithCodeRoutines } from "@/lib/routine";
 import { TEACHERS } from "@/lib/teachers";
 import { listAdmins } from "@/lib/repo/admins";
 import { listBuildings, type StoredBuilding } from "@/lib/repo/buildings";
 import { listRooms, type StoredRoom } from "@/lib/repo/rooms";
 import { listTeachers } from "@/lib/repo/teachers";
+import { listRoutines } from "@/lib/repo/routines";
 
 function seedBuildings(): StoredBuilding[] {
   return INSTITUTES.flatMap((i) =>
@@ -33,11 +34,11 @@ export const roomsResource = createResource<StoredRoom[]>({
 });
 
 export const routinesResource = createResource<typeof DEFAULT_ROUTINES>({
-  key: "sohoj-rasta-routines-v2",
+  key: "sohoj-rasta-routines-v3",
   event: "sohoj:routines-changed",
   seed: () => DEFAULT_ROUTINES,
-  // Only the two code routines are authoritative; cached/remote rows never inject others.
-  fetcher: async () => DEFAULT_ROUTINES,
+  // Code routines are authoritative; cached/remote rows can only add extra admin routines.
+  fetcher: async () => mergeWithCodeRoutines(await listRoutines().catch(() => null)),
 });
 
 export const teachersResource = createResource<typeof TEACHERS>({

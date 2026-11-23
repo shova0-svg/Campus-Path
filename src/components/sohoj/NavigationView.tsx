@@ -221,26 +221,42 @@ export function NavigationView({
 
           <p className="mt-3 text-[11px] font-semibold text-muted-foreground">Full week schedule</p>
           <ul className="mt-1.5 space-y-1.5">
-            {roomClasses.map((e) => (
-              <li
-                key={e.id}
-                className="flex items-center gap-2 rounded-xl bg-muted/60 px-2.5 py-2 text-xs"
-              >
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-[10px] font-bold text-primary">
-                  {e.acronym}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold">{e.subject}</span>
-                  <span className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-medium text-primary">
-                    <UserRound className="size-3 shrink-0" /> {e.teacher}
+            {roomClasses.map((e) => {
+              const isLive = liveClasses.some(
+                (l) => l.subject === e.subject && l.day === e.day && l.period === e.period,
+              );
+              return (
+                <li
+                  key={e.id}
+                  className="flex items-center gap-2 rounded-xl bg-muted/60 px-2.5 py-2 text-xs"
+                >
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-[10px] font-bold text-primary">
+                    {e.acronym}
                   </span>
-                </span>
-                <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
-                  {e.day.slice(0, 3)} · P{e.period}
-                  {e.endPeriod > e.period ? `-${e.endPeriod}` : ""}
-                </span>
-              </li>
-            ))}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-1 truncate font-semibold">
+                      {e.subject}
+                      <span className="rounded-full bg-card px-1.5 text-[9px] font-medium text-muted-foreground">
+                        Sem {e.semester ?? "—"}
+                      </span>
+                      {isLive && (
+                        <span className="rounded-full bg-emerald px-1.5 text-[9px] font-bold text-emerald-foreground">
+                          Now / এখন
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-1 truncate text-[10px] font-medium text-primary">
+                      <UserRound className="size-3 shrink-0" /> {e.teacher} ({e.acronym})
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right text-[10px] font-semibold text-muted-foreground">
+                    {e.day.slice(0, 3)} · P{e.period}
+                    {e.endPeriod > e.period ? `-${e.endPeriod}` : ""}
+                    <span className="block font-normal">{e.time ?? ""}</span>
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

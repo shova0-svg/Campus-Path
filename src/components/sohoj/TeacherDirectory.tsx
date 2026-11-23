@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  CalendarClock,
   Building2,
   ExternalLink,
   Flag,
@@ -11,6 +12,13 @@ import {
   UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   groupTeachers,
@@ -18,12 +26,16 @@ import {
   searchTeachers,
   allTeachers,
   TEACHER_SOURCE,
+  TEACHERS,
   teacherId,
   type Teacher,
   type TeacherStore,
 } from "@/lib/teachers";
 import { teachersResource } from "@/lib/resources";
 import { openFeedback } from "@/lib/feedback";
+import { scheduleByTeacherId } from "@/lib/routine-teachers";
+import { format12 } from "@/lib/routine";
+import type { TeacherSchedule } from "@/lib/routine-teachers";
 
 interface Props {
   instituteName: string;
@@ -53,6 +65,11 @@ export function TeacherDirectory({ instituteName }: Props) {
   }, []);
 
   const teachers = useMemo(() => allTeachers(store), [store]);
+  const directory = useMemo(
+    () => [...new Map([...TEACHERS, ...teachers].map((t) => [teacherId(t), t])).values()],
+    [teachers],
+  );
+  const schedules = useMemo(() => scheduleByTeacherId(directory), [directory]);
   const allGroups = useMemo(() => groupTeachers(teachers), [teachers]);
   const results = useMemo(() => searchTeachers(teachers, query), [teachers, query]);
   const groups = useMemo(() => groupTeachers(results), [results]);
@@ -145,7 +162,11 @@ export function TeacherDirectory({ instituteName }: Props) {
             </div>
             <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {group.teachers.map((teacher) => (
-                <TeacherCard key={teacherId(teacher)} teacher={teacher} />
+                <TeacherCard
+                  key={teacherId(teacher)}
+                  teacher={teacher}
+                  schedule={schedules.get(teacherId(teacher))}
+                />
               ))}
             </ul>
           </section>
@@ -155,7 +176,14 @@ export function TeacherDirectory({ instituteName }: Props) {
   );
 }
 
-function TeacherCard({ teacher }: { teacher: Teacher }) {
+function TeacherCard({
+  teacher,
+  schedule,
+}: {
+  teacher: Teacher;
+  schedule?: (TeacherSchedule & { routineName: string }) | undefined;
+}) {
+  const [open, setOpen] = useState(false);
   return (
     <li className="animate-rise flex gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-[var(--shadow-card)]">
       {teacher.photo ? (
@@ -198,6 +226,15 @@ function TeacherCard({ teacher }: { teacher: Teacher }) {
           )}
         </div>
       </div>
+      {schedule && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="shrink-0 self-start rounded-lg bg-primary-soft px-2 py-1.5 text-[10px] font-bold text-primary"
+        >
+          Classes / ক্লাস
+        </button>
+      )}
       <button
         type="button"
         aria-label={`Report wrong info about ${teacher.name}`}
@@ -212,6 +249,41 @@ function TeacherCard({ teacher }: { teacher: Teacher }) {
       >
         <Flag className="size-3.5" />
       </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader className="text-left">
+            <DialogTitle>{teacher.name} · Classes / ক্লাস</DialogTitle>
+            <DialogDescription className="font-bangla">
+              সব রুটিন থেকে weekly schedule — {schedule?.classes.length ?? 0} ক্লাস
+            </DialogDescription>
+          </DialogHeader>
+          {schedule?.now && (
+            <p className="rounded-xl bg-emerald-soft px-3 py-2 text-xs font-bold text-emerald">
+              Now in room {schedule.now.room} / এখন {schedule.now.room} রুমে · {schedule.now.subject}
+            </p>
+          )}
+          {schedule?.next && !schedule.now && (
+            <p className="rounded-xl bg-primary-soft px-3 py-2 text-xs font-semibold text-primary">
+              Next class / পরের ক্লাস: {schedule.next.subject} · Room {schedule.next.room} ·{" "}
+              {format12(schedule.next.startMinute)}
+            </p>
+          )}
+          <ul className="max-h-72 space-y-1.5 overflow-y-auto">
+            {schedule?.classes.map((c, i) => (
+              <li key={i} className="rounded-xl bg-muted/60 px-2.5 py-2 text-[11px]">
+                <span className="font-semibold">{c.subject}</span>
+                <span className="ml-1.5 rounded-full bg-card px-1.5 text-[9px] text-muted-foreground">
+                  Sem {c.semester} · {c.acronym}
+                </span>
+                <span className="mt-0.5 block text-muted-foreground">
+                  {c.day} · P{c.period}
+                  {c.endPeriod > c.period ? `-${c.endPeriod}` : ""} · {c.time12} · Room {c.room}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
     </li>
   );
 }

@@ -5,13 +5,29 @@ import {
   Clock3,
   DoorOpen,
   GraduationCap,
+  Mail,
+  Phone,
+  RotateCcw,
   UserRound,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   blocksForDay,
   DAYS,
   dhakaNow,
-  format12,
   PERIOD_TIMES,
   PERIODS,
   resolveBlock,
@@ -21,10 +37,25 @@ import {
   type Routine,
   type Subject,
 } from "@/lib/routine";
+import {
+  NO_ROUTINE_MESSAGE,
+  readRoutineView,
+  routineForSemester,
+  SELECTABLE_SEMESTERS,
+  writeRoutineView,
+} from "@/lib/routine-view";
+import { resolveTeacher } from "@/lib/routine-teachers";
+import { phoneHref, TEACHERS, type Teacher } from "@/lib/teachers";
+import { INSTITUTES } from "@/lib/campus-data";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  routine: Routine;
+  profileSemester?: number | null;
+  /** Test hook: start on a given semester without touching storage. */
+  initialSemester?: number;
+  instituteId?: string;
+  isSuper?: boolean;
+  teachers?: Teacher[];
   onSelectRoom?: (room: string) => void;
 }
 
@@ -37,7 +68,7 @@ const DAY_LABEL: Record<Day, string> = {
 };
 
 function ordinal(n: number): string {
-  const suffix = n === 1 ? "st" : n === 3 ? "rd" : "th";
+  const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
   return `${n}${suffix}`;
 }
 
@@ -115,25 +146,35 @@ function SubjectTable({ subjects }: { subjects: Subject[] }) {
   );
 }
 
-export function RoutineView({ routine, onSelectRoom }: Props) {
+function nowMinutes(now: Date): number {
+  return dhakaNow(now).minute;
+}
+
+/** The actual routine screen — dropdown selects which routine is passed in. */
+function RoutineBody({
+  routine,
+  teachers,
+  onSelectRoom,
+}: {
+  routine: Routine;
+  teachers: Teacher[];
+  onSelectRoom?: (room: string) => void;
+}) {
   const [now, setNow] = useState(() => new Date());
-  const [activeDay, setActiveDay] = useState<Day>(() => {
-    const d = dhakaNow().day;
-    return d ?? "Sun";
-  });
+  const [activeDay, setActiveDay] = useState<Day>(() => dhakaNow().day ?? "Sun");
   const [weekOpen, setWeekOpen] = useState(false);
   const [subjectsOpen, setSubjectsOpen] = useState(false);
+  const [teacherInfo, setTeacherInfo] = useState<Teacher | null>(null);
 
   useEffect(() => {
-    const d = dhakaNow().day;
-    setActiveDay(d ?? "Sun");
+    setActiveDay(dhakaNow().day ?? "Sun");
     const timer = window.setInterval(() => {
       const current = dhakaNow();
       setNow(new Date());
       setActiveDay(current.day ?? "Sun");
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [routine.semester]);
 
   const isWeekend = dhakaNow(now).day === null;
   const today = dhakaNow(now).day;
@@ -153,7 +194,6 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
 
   return (
     <section className="animate-rise overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]">
-      {/* 1. Header */}
       <div className="bg-hero px-5 py-5 text-primary-foreground">
         <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald">
           <CalendarDays className="size-3.5" /> Class routine / ক্লাস রুটিন
@@ -177,26 +217,22 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
         </div>
       </div>
 
-      {/* 2. Day tabs */}
       <div className="flex gap-2 overflow-x-auto border-b border-border px-4 py-3 [scrollbar-width:none]">
-        {DAYS.map((day) => {
-          const active = day === activeDay;
-          return (
-            <button
-              key={day}
-              type="button"
-              onClick={() => setActiveDay(day)}
-              className={cn(
-                "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
-                active
-                  ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
-                  : "bg-muted text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {day}
-            </button>
-          );
-        })}
+        {DAYS.map((day) => (
+          <button
+            key={day}
+            type="button"
+            onClick={() => setActiveDay(day)}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-all",
+              day === activeDay
+                ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                : "bg-muted text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {day}
+          </button>
+        ))}
       </div>
 
       {isWeekend && (
@@ -205,7 +241,6 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
         </p>
       )}
 
-      {/* 3. Day timeline (all 7 periods) */}
       <div className="space-y-2 p-4">
         {PERIODS.map((period) => {
           const block = blockAt(routine, activeDay, period);
@@ -227,6 +262,7 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
           if (block.startPeriod !== period) return null;
 
           const resolved = resolveBlock(routine, block);
+          const matched = resolveTeacher(resolved.subject.teacher, teachers);
           const isNow = currentBlock?.block === block;
           const isNext = nextBlock?.block === block;
           return (
@@ -262,9 +298,19 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{resolved.subject.name}</p>
-                  <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
-                    <UserRound className="size-3 shrink-0" /> {resolved.subject.teacher}
-                  </p>
+                  {matched ? (
+                    <button
+                      type="button"
+                      onClick={() => setTeacherInfo(matched)}
+                      className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      <UserRound className="size-3 shrink-0" /> {resolved.subject.teacher}
+                    </button>
+                  ) : (
+                    <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+                      <UserRound className="size-3 shrink-0" /> {resolved.subject.teacher}
+                    </p>
+                  )}
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <span className="font-mono text-[10px] text-muted-foreground">
                       {resolved.subject.code}
@@ -286,7 +332,6 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
         })}
       </div>
 
-      {/* 4. Full week grid */}
       <details className="group border-t border-border" open={weekOpen}>
         <summary
           className="flex cursor-pointer items-center justify-between px-4 py-3 text-xs font-semibold text-primary"
@@ -362,7 +407,6 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
         </div>
       </details>
 
-      {/* 5. Subjects table */}
       <details className="group border-t border-border" open={subjectsOpen}>
         <summary
           className="flex cursor-pointer items-center justify-between px-4 py-3 text-xs font-semibold text-primary"
@@ -382,13 +426,142 @@ export function RoutineView({ routine, onSelectRoom }: Props) {
       </details>
 
       <div className="flex items-center gap-1.5 border-t border-border bg-muted/30 px-4 py-2.5 text-[10px] text-muted-foreground">
-        <Clock3 className="size-3" /> Period times 1st shift · Asia/Dhaka (UTC+6) · tap a room to
-        see its classes
+        <Clock3 className="size-3" /> Period times 1st shift · Asia/Dhaka (UTC+6) · tap a room or
+        teacher for details
       </div>
+
+      <Dialog open={teacherInfo !== null} onOpenChange={(o) => !o && setTeacherInfo(null)}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader className="text-left">
+            <DialogTitle>{teacherInfo?.name}</DialogTitle>
+            <DialogDescription className="font-bangla">
+              {teacherInfo?.designation || "Teacher"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-xs">
+            {teacherInfo?.mobile && (
+              <a
+                href={phoneHref(teacherInfo.mobile)}
+                className="flex items-center gap-2 rounded-xl bg-emerald-soft px-3 py-2 font-semibold text-emerald"
+              >
+                <Phone className="size-3.5" /> {teacherInfo.mobile}
+              </a>
+            )}
+            {teacherInfo?.email && (
+              <a
+                href={`mailto:${teacherInfo.email}`}
+                className="flex items-center gap-2 rounded-xl bg-primary-soft px-3 py-2 font-semibold text-primary"
+              >
+                <Mail className="size-3.5" /> {teacherInfo.email}
+              </a>
+            )}
+            {teacherInfo?.room && <p className="text-muted-foreground">Room {teacherInfo.room}</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-function nowMinutes(now: Date): number {
-  return dhakaNow(now).minute;
+/** Dropdown + selected routine. Never mutates the student profile. */
+export function RoutineView({
+  profileSemester = null,
+  initialSemester,
+  instituteId = "rpi",
+  isSuper = false,
+  teachers = TEACHERS,
+  onSelectRoom,
+}: Props) {
+  const [selection, setSelection] = useState<number>(
+    () =>
+      initialSemester ??
+      readRoutineView(
+        typeof window === "undefined" ? null : window.localStorage.getItem("routine-view-v1"),
+        profileSemester,
+      ),
+  );
+
+  const changeSemester = (value: string) => {
+    const semester = Number(value);
+    setSelection(semester);
+    writeRoutineView(semester);
+  };
+
+  const routine = routineForSemester(selection);
+  const instituteName =
+    INSTITUTES.find((i) => i.id === instituteId)?.name ?? "Rajshahi Govt. Polytechnic Institute";
+
+  return (
+    <div className="space-y-3">
+      <section className="animate-rise rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+        <p className="text-xs font-semibold">Routine dekhun / রুটিন দেখুন</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <Select value={instituteId} disabled={!isSuper}>
+            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine polytechnic">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={instituteId}>{instituteName}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value="cst">
+            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine department">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cst">Computer Science &amp; Technology</SelectItem>
+              {["Civil Technology", "Mechanical Technology", "Electrical Technology"].map((d) => (
+                <SelectItem key={d} value={d} disabled>
+                  Coming soon / শীঘ্রই আসছে
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={String(selection)} onValueChange={changeSemester}>
+            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine semester">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SELECTABLE_SEMESTERS.map((s) => (
+                <SelectItem key={s} value={String(s)} disabled={s === 2 || s === 5}>
+                  {ordinal(s)} Semester
+                  {s === 2 || s === 5 ? " — Coming soon / শীঘ্রই আসছে" : ""}
+                  {s === profileSemester ? " — My semester / আমার সেমিস্টার" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value="1">
+            <SelectTrigger className="h-10 rounded-xl" aria-label="Routine shift">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1st Shift</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {profileSemester && selection !== profileSemester && (
+          <button
+            type="button"
+            onClick={() => changeSemester(String(profileSemester))}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-[11px] font-semibold text-primary"
+          >
+            <RotateCcw className="size-3.5" /> Back to my routine / আমার রুটিনে ফিরুন
+          </button>
+        )}
+      </section>
+
+      {routine ? (
+        <RoutineBody
+          routine={routine}
+          teachers={teachers}
+          {...(onSelectRoom ? { onSelectRoom } : {})}
+        />
+      ) : (
+        <p className="rounded-3xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground font-bangla">
+          {NO_ROUTINE_MESSAGE}
+        </p>
+      )}
+    </div>
+  );
 }

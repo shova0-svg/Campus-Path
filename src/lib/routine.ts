@@ -21,6 +21,8 @@ export {
   ROUTINES,
   ROUTINE_1,
   ROUTINE_3,
+  ROUTINE_4,
+  ROUTINE_6,
 } from "@/data/rpi-cst-routines";
 export type { Block, Day, Period, Routine, Subject } from "@/data/rpi-cst-routines";
 
@@ -116,7 +118,7 @@ export function dhakaNow(now: Date = new Date()): {
 
 /* ---------------- Derived compatibility view ----------------
  * The rest of the app (room pages, QR, admin lists, sync) still consumes the
- * legacy ClassRoutine shape. These two objects are DERIVED from ROUTINES above —
+ * legacy ClassRoutine shape. These objects are DERIVED from ROUTINES above —
  * they are not a second dataset. There is no other routine data in the repo.
  */
 
@@ -136,6 +138,9 @@ export interface RoutineEntry {
   teacher: string;
   acronym: string;
   room: string;
+  /** Semester and period time, used by room/teacher pages. */
+  semester?: number;
+  time?: string;
 }
 
 export interface ClassRoutine {
@@ -186,6 +191,8 @@ function derive(routine: Routine): ClassRoutine {
         teacher: s.teacher,
         acronym: s.acronym,
         room: b.room,
+        semester: routine.semester,
+        time: `${PERIOD_TIMES[b.startPeriod].split("-")[0]}-${PERIOD_TIMES[b.endPeriod].split("-")[1]}`,
       };
     }),
     source: "seeded",
@@ -195,16 +202,34 @@ function derive(routine: Routine): ClassRoutine {
   };
 }
 
-/** Exactly two derived routines. Rebuilt from source on every load. */
+/** Four derived routines. Rebuilt from source on every load. */
 export const DEFAULT_ROUTINES: ClassRoutine[] = ROUTINES.map(derive);
 
 /* ---------------- Storage (v2 — v1 cache is never read) ---------------- */
 
-export const ROUTINE_STORE_KEY = "sohoj-rasta-routines-v2";
+export const ROUTINE_STORE_KEY = "sohoj-rasta-routines-v3";
 
-/** Old v1 cached data is ignored: stored bytes are deliberately not read. */
-export function parseRoutineStore(_raw: string | null): ClassRoutine[] {
-  return DEFAULT_ROUTINES.map((r) => ({ ...r }));
+/**
+ * Stored/remote rows can never hide a routine that exists in code: missing ids
+ * are merged in, and a code routine always wins over a stale copy of the same id.
+ * Admin-created routines (other ids) are preserved.
+ */
+export function mergeWithCodeRoutines(stored: ClassRoutine[] | null): ClassRoutine[] {
+  const byId = new Map((stored ?? []).filter((r) => r && r.id).map((r) => [r.id, r]));
+  for (const routine of DEFAULT_ROUTINES) byId.set(routine.id, routine);
+  return [...byId.values()];
+}
+
+export function parseRoutineStore(raw: string | null): ClassRoutine[] {
+  const parsed = (() => {
+    try {
+      const value: unknown = raw ? JSON.parse(raw) : null;
+      return Array.isArray(value) ? (value as ClassRoutine[]) : null;
+    } catch {
+      return null;
+    }
+  })();
+  return mergeWithCodeRoutines(parsed);
 }
 
 export function upsertRoutine(list: ClassRoutine[], routine: ClassRoutine): ClassRoutine[] {
