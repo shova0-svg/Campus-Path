@@ -17,8 +17,8 @@ export const Route = createFileRoute("/teachers")({
 
 function TeachersPage() {
   return (
-    <div className="bg-desk min-h-dvh px-4 py-6 lg:flex lg:justify-center">
-      <main className="w-full max-w-md">
+    <div className="bg-desk min-h-dvh px-4 py-6 md:px-6 lg:flex lg:justify-center">
+      <main className="w-full max-w-md md:max-w-3xl lg:max-w-5xl">
         <TeacherDirectory instituteName={INSTITUTES[0].name} />
       </main>
     </div>

@@ -16,8 +16,8 @@ export const Route = createFileRoute("/right-now")({
 
 function RightNowPage() {
   return (
-    <div className="bg-desk min-h-dvh px-4 py-6 lg:flex lg:justify-center">
-      <main className="w-full max-w-md">
+    <div className="bg-desk min-h-dvh px-4 py-6 md:px-6 lg:flex lg:justify-center">
+      <main className="w-full max-w-md md:max-w-3xl lg:max-w-5xl">
         <LiveClasses />
       </main>
     </div>

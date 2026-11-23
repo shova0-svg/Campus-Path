@@ -97,7 +97,7 @@ function AuthPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <main className="mx-auto w-full max-w-md">
+      <main className="mx-auto w-full max-w-md md:max-w-lg">
         <header className="bg-hero rounded-b-[2rem] px-5 pb-14 pt-7 text-primary-foreground">
           <Link
             to="/"

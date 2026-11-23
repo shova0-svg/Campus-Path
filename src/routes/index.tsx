@@ -525,9 +525,9 @@ function Index() {
         </div>
       }
     >
-      <div className="bg-desk min-h-screen lg:flex lg:items-start lg:justify-center lg:gap-16 lg:px-10 lg:py-10">
+      <div className="bg-desk min-h-screen md:px-6 lg:flex lg:items-start lg:justify-center lg:gap-12 lg:px-10 lg:py-10">
         {/* Desktop pitch panel */}
-        <aside className="hidden max-w-sm pt-16 lg:block">
+        <aside className="hidden max-w-sm pt-16 xl:block">
           <Logo variant="icon" size={36} className="size-14" />
           <h1 className="mt-6 text-4xl font-bold leading-tight text-primary">
             Every room,
@@ -557,11 +557,11 @@ function Index() {
         </aside>
 
         {/* App frame */}
-        <main className="mx-auto min-h-dvh w-full max-w-md bg-background pb-[env(safe-area-inset-bottom)] lg:mx-0 lg:min-h-[calc(100dvh-5rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-border lg:shadow-[var(--shadow-float)]">
+        <main className="mx-auto min-h-dvh w-full max-w-md bg-background pb-[env(safe-area-inset-bottom)] md:my-6 md:max-w-3xl md:rounded-3xl md:border md:border-border md:shadow-[var(--shadow-float)] lg:mx-0 lg:my-0 lg:max-w-5xl lg:min-h-[calc(100dvh-5rem)] lg:rounded-[2rem]">
           <Onboarding />
 
           {/* Header */}
-          <header className="bg-hero rounded-b-[2rem] px-5 pb-16 pt-7 text-primary-foreground">
+          <header className="bg-hero rounded-b-[2rem] px-5 pb-16 pt-7 text-primary-foreground md:px-8 md:pb-20 md:pt-10 lg:px-10">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <Logo variant="icon" size={36} />
@@ -665,63 +665,65 @@ function Index() {
             </div>
           </header>
 
-          <div className="-mt-9 space-y-5 px-4 pb-10">
-            {/* Right now — details live on their own page */}
-            <Link to="/right-now" className="animate-rise block">
-              <section className="overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
-                <div className="flex items-center gap-3 p-4">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
-                    <CalendarClock className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">Right now on campus</span>
-                    <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                      এখন কী চলছে — দেখতে ট্যাপ করুন
+          <div className="-mt-12 space-y-5 px-4 pb-10 md:-mt-16 md:px-8 lg:px-10">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {/* Right now — details live on their own page */}
+              <Link to="/right-now" className="animate-rise block">
+                <section className="overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+                  <div className="flex items-center gap-3 p-4">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                      <CalendarClock className="size-5" />
                     </span>
-                  </span>
-                  <span className="shrink-0 rounded-full bg-emerald-soft px-2.5 py-1 text-[10px] font-bold text-emerald">
-                    {liveNow.length} live
-                  </span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                </div>
-              </section>
-            </Link>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">Right now on campus</span>
+                      <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                        এখন কী চলছে — দেখতে ট্যাপ করুন
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-emerald-soft px-2.5 py-1 text-[10px] font-bold text-emerald">
+                      {liveNow.length} live
+                    </span>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                  </div>
+                </section>
+              </Link>
 
-            {/* Student account + class journey */}
-            <Link to="/student" className="animate-rise block">
-              <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
-                <div className="flex items-center gap-3 p-4">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
-                    <UserRound className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">Student Account</span>
-                    <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                      Next Class Journey — দেখতে ট্যাপ করুন
+              {/* Student account + class journey */}
+              <Link to="/student" className="animate-rise block">
+                <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+                  <div className="flex items-center gap-3 p-4">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">
+                      <UserRound className="size-5" />
                     </span>
-                  </span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                </div>
-              </section>
-            </Link>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">Student Account</span>
+                      <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                        Next Class Journey — দেখতে ট্যাপ করুন
+                      </span>
+                    </span>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                  </div>
+                </section>
+              </Link>
 
-            {/* Faculty directory */}
-            <Link to="/teachers" className="animate-rise block">
-              <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
-                <div className="flex items-center gap-3 p-4">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
-                    <UserRound className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">Teachers</span>
-                    <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
-                      বিভাগভিত্তিক শিক্ষক তালিকা — দেখতে ট্যাপ করুন
+              {/* Faculty directory */}
+              <Link to="/teachers" className="animate-rise block">
+                <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+                  <div className="flex items-center gap-3 p-4">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
+                      <UserRound className="size-5" />
                     </span>
-                  </span>
-                  <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
-                </div>
-              </section>
-            </Link>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">Teachers</span>
+                      <span className="font-bangla mt-0.5 block text-xs text-muted-foreground">
+                        বিভাগভিত্তিক শিক্ষক তালিকা — দেখতে ট্যাপ করুন
+                      </span>
+                    </span>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                  </div>
+                </section>
+              </Link>
+            </div>
 
             {/* Current location */}
             <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-float)]">
@@ -999,7 +1001,7 @@ function Index() {
                     </span>
                   </div>
                   {showBuildings ? (
-                    <div className="space-y-2.5">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {buildings.map((b) => {
                         const inBuilding = locations.filter((l) => l.buildingId === b.id);
                         const floors = new Set(inBuilding.map((l) => l.floor)).size;
@@ -1049,7 +1051,7 @@ function Index() {
                               {group.list.length}
                             </span>
                           </div>
-                          <ul className="space-y-2.5">
+                          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {group.list.map((loc, i) => {
                               const Icon = CATEGORY_ICON[loc.category];
                               return (

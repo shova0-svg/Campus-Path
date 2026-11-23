@@ -37,7 +37,7 @@ export function NoticeView({ notices, loading, error, onRefresh }: Props) {
           এখনো কোনো নোটিশ নেই / No notices yet — Refresh চাপুন।
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {notices.map((n) => (
             <li
               key={`${n.instituteId}:${n.id}`}

@@ -113,7 +113,7 @@ function StudentPage() {
 
   return (
     <div className="bg-desk min-h-dvh px-4 py-6 lg:flex lg:justify-center">
-      <main className="w-full max-w-md space-y-4">
+      <main className="w-full max-w-md space-y-4 md:max-w-2xl lg:max-w-4xl">
         <div className="flex items-center justify-between gap-3">
           <Link to="/">
             <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
