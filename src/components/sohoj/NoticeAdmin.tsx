@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Check, Link2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,21 +12,30 @@ import {
 import { INSTITUTES } from "@/lib/campus-data";
 import { validateManualNotice } from "@/lib/notices";
 import type { NoticeSource } from "@/lib/notices";
+import type { StoredNotice } from "@/lib/repo/notices";
 
 interface Props {
   sources: NoticeSource[];
+  notices: StoredNotice[];
   onSourcesChange: (sources: NoticeSource[]) => void;
   onAddManual: (input: { title: string; date: string; url: string; instituteId: string }) => void;
   onFetchNow: () => void;
+  onApprove: (id: string, status: "approved" | "rejected") => void;
+  onEdit: (id: string, patch: { title?: string; url?: string; published_date?: string }) => void;
+  onRemove: (id: string) => void;
   loading: boolean;
   error: string;
 }
 
 export function NoticeAdmin({
   sources,
+  notices,
   onSourcesChange,
   onAddManual,
   onFetchNow,
+  onApprove,
+  onEdit,
+  onRemove,
   loading,
   error,
 }: Props) {
@@ -36,6 +45,8 @@ export function NoticeAdmin({
   const [url, setUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkInstitute, setLinkInstitute] = useState(INSTITUTES[0]?.id ?? "rpi");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function add() {
@@ -66,6 +77,9 @@ export function NoticeAdmin({
     setLinkUrl("");
     setErrors({});
   }
+
+  const pending = notices.filter((n) => n.status === "pending");
+  const approved = notices.filter((n) => n.status === "approved");
 
   return (
     <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
@@ -117,10 +131,10 @@ export function NoticeAdmin({
 
       <div className="space-y-2 rounded-2xl border border-border p-3">
         <p className="flex items-center gap-1.5 text-xs font-semibold">
-          <Link2 className="size-3.5 text-primary" /> Drop a notice link / সাইটের লিংক দিন
+          <Link2 className="size-3.5 text-primary" /> Drop a notice link
         </p>
         <p className="text-[11px] text-muted-foreground">
-          লিংক দিলে ওই সাইট থেকে নোটিশ ফেচ করে বেছে নেওয়া পলিটেকনিকের জন্য দেখাবে।
+          লিংক দিলে ওই সাইট থেকে নোটিশ ফেচ করে এখানে দেখাবে।
         </p>
         <Select value={linkInstitute} onValueChange={setLinkInstitute}>
           <SelectTrigger className="h-10 rounded-xl" aria-label="Notice source polytechnic">
@@ -167,6 +181,93 @@ export function NoticeAdmin({
               className="mt-1 text-[10px] text-destructive"
             >
               <Trash2 className="mr-1 inline size-3" /> Remove
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold">Pending approval ({pending.length})</p>
+        {pending.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border p-4 text-center text-[11px] text-muted-foreground">
+            Kono pending notice nei.
+          </p>
+        ) : (
+          pending.map((n) => (
+            <div key={n.id} className="rounded-xl border border-border p-2.5">
+              {editing === n.id ? (
+                <div className="space-y-1.5">
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    aria-label="Edit title"
+                    className="h-9 rounded-lg text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      onEdit(n.id, { title: editTitle });
+                      setEditing(null);
+                    }}
+                  >
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold">{n.title}</p>
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {n.date} · {n.url}
+                  </p>
+                  <div className="mt-1.5 flex gap-1.5">
+                    <Button size="sm" variant="emerald" onClick={() => onApprove(n.id, "approved")}>
+                      <Check className="size-3.5" /> Approve
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => onApprove(n.id, "rejected")}>
+                      <X className="size-3.5" /> Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditing(n.id);
+                        setEditTitle(n.title);
+                      }}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => onRemove(n.id)}>
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold">Published ({approved.length})</p>
+        {approved.map((n) => (
+          <div key={n.id} className="flex items-center gap-2 rounded-xl bg-muted/60 p-2.5">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold">{n.title}</span>
+              <span className="block truncate text-[10px] text-muted-foreground">
+                {n.date}
+                {n.pushedAt ? " · push sent" : ""}
+              </span>
+            </span>
+            <a
+              href={n.url || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-semibold text-primary"
+            >
+              View
+            </a>
+            <button type="button" aria-label={`Delete ${n.title}`} onClick={() => onRemove(n.id)}>
+              <Trash2 className="size-3.5 text-destructive" />
             </button>
           </div>
         ))}

@@ -515,9 +515,13 @@ export function AdminPanel({
           {tab === "notices" && (
             <NoticeAdmin
               sources={noticesApi.sources}
+              notices={noticesApi.all}
               onSourcesChange={noticesApi.setSources}
-              onAddManual={noticesApi.addManual}
-              onFetchNow={() => void noticesApi.refresh()}
+              onAddManual={(input) => void noticesApi.addManual(input)}
+              onFetchNow={() => void noticesApi.fetchSource()}
+              onApprove={(id, status) => void noticesApi.approve(id, status)}
+              onEdit={(id, patch) => void noticesApi.edit(id, patch)}
+              onRemove={(id) => void noticesApi.remove(id)}
               loading={noticesApi.loading}
               error={noticesApi.error}
             />

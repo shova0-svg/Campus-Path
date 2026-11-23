@@ -88,6 +88,12 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Notices
+
+- `public.notices` (pending/approved/rejected) + `public.notice_sources`: synced by `sync-notices` Edge Function every 10 minutes (`campus-path-notice-sync` cron).
+- Approved notices are pushed once (`pushed_at`) to students in that institute; `notices` RLS exposes only approved rows publicly, admins manage all.
+- Admin Panel → Notices: add manually, drop a source link, approve/reject/edit/delete. Client keeps an offline copy in `sohoj-notices-v1`.
+
 ## Class push reminders
 
 - Edge Function `send-class-reminders` runs every minute via pg_cron (`campus-path-class-reminders`) and sends Web Push to `push_subscriptions`.

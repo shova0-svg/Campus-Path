@@ -41,9 +41,13 @@ describe("NoticeAdmin", () => {
     render(
       <NoticeAdmin
         sources={sources}
+        notices={[]}
         onSourcesChange={vi.fn()}
         onAddManual={vi.fn()}
         onFetchNow={vi.fn()}
+        onApprove={vi.fn()}
+        onEdit={vi.fn()}
+        onRemove={vi.fn()}
         loading={false}
         error=""
       />,
