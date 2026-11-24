@@ -84,7 +84,7 @@ function ProductDetail() {
 
   if (loading) {
     return (
-      <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
+      <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
         <div className="mx-auto max-w-md space-y-3">
           <div className="aspect-square animate-pulse rounded-3xl bg-muted" />
           <div className="h-5 w-2/3 animate-pulse rounded bg-muted" />
@@ -96,7 +96,7 @@ function ProductDetail() {
 
   if (!product) {
     return (
-      <div className="bg-desk grid min-h-dvh place-items-center px-4 pb-28">
+      <div className="bg-desk grid min-h-dvh place-items-center px-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
         <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center">
           <Store className="mx-auto size-8 text-muted-foreground" />
           <p className="mt-3 text-sm font-semibold">Item not found / আইটেম পাওয়া যায়নি</p>
@@ -111,7 +111,7 @@ function ProductDetail() {
   const images = product.images.map(imageUrl);
 
   return (
-    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
+    <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
       <main className="mx-auto w-full max-w-md space-y-4">
         <div className="flex items-center gap-2">
           <Link to="/shop" aria-label="Back to shop">

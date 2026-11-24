@@ -621,7 +621,7 @@ function Index() {
             </div>
           </header>
 
-          <div className="-mt-12 space-y-5 px-4 pb-32 md:-mt-16 md:px-8 lg:px-10">
+          <div className="-mt-12 space-y-5 px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] md:-mt-16 md:px-8 lg:px-10">
             {updateBanner && (
               <Link to="/updates" className="block">
                 <div

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, CalendarClock, Clock3, DoorOpen, RefreshCw, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { INSTITUTES } from "@/lib/campus-data";
+import { INSTITUTES, ordinal } from "@/lib/campus-data";
 import {
   currentClasses,
   DEFAULT_ROUTINES,
@@ -117,10 +117,8 @@ export function LiveClasses() {
                       )}
                     </p>
                     <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                      {routine?.semester
-                        ? `${routine.semester}${routine.semester === 1 ? "st" : "rd"} Semester · CST`
-                        : ""}{" "}
-                      · {INSTITUTES.find((i) => i.id === routine?.instituteId)?.name}
+                      {routine?.semester ? `${ordinal(routine.semester)} Semester · CST` : ""} ·{" "}
+                      {INSTITUTES.find((i) => i.id === routine?.instituteId)?.name}
                     </p>
                   </div>
                 </li>

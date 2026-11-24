@@ -127,14 +127,14 @@ function NewProduct() {
 
   if (authLoading || !user) {
     return (
-      <div className="bg-desk grid min-h-dvh place-items-center pb-28 text-sm text-muted-foreground">
+      <div className="bg-desk grid min-h-dvh place-items-center pb-[calc(7rem+env(safe-area-inset-bottom))] text-sm text-muted-foreground">
         <Loader2 className="animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
+    <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
       <main className="mx-auto w-full max-w-md space-y-4">
         <div className="flex items-center gap-2">
           <Link to="/shop" aria-label="Back to shop">

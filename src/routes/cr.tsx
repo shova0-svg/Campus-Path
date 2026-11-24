@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Check, Pencil, Plus, Send, Trash2, Zap } from "lucide-react";
 import {
@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
+import { useConnectivity } from "@/hooks/use-connectivity";
+import { ordinal } from "@/lib/campus-data";
 import { useCrRole } from "@/hooks/use-cr-role";
 import {
   dateLabel,
@@ -62,6 +64,8 @@ function CrPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { loading: crLoading, assignments, isCr } = useCrRole();
+  const { online, check: checkConnectivity } = useConnectivity();
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [selected, setSelected] = useState(0);
 
   useEffect(() => {
@@ -101,6 +105,13 @@ function CrPage() {
   const [eventTime, setEventTime] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 320)}px`;
+  }, [body]);
+
   const [urgent, setUrgent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -154,8 +165,20 @@ function CrPage() {
       setType("");
       setEditing(null);
       await resource.refresh();
-    } catch {
-      toast.error("Internet দরকার / Internet needed to post");
+    } catch (e) {
+      const reachable = await checkConnectivity();
+      const detail = e instanceof Error ? e.message : "";
+      if (!reachable) {
+        toast.error("Internet দরকার / Internet needed to post");
+      } else if (/row-level security|permission denied/i.test(detail)) {
+        toast.error("আপনার CR একাউন্ট যাচাইকৃত নয় / CR account not verified — contact admin");
+      } else {
+        toast.error(
+          detail
+            ? `পোস্ট ব্যর্থ / Could not post: ${detail.slice(0, 120)}`
+            : "পোস্ট ব্যর্থ / Could not post",
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -172,7 +195,7 @@ function CrPage() {
 
   if (!isCr || !assignment) {
     return (
-      <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
+      <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
         <main className="mx-auto w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-[var(--shadow-card)]">
           <p className="text-3xl">📋</p>
           <h1 className="mt-3 font-display text-xl font-semibold">আপনি CR নন</h1>
@@ -195,7 +218,7 @@ function CrPage() {
   );
 
   return (
-    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
+    <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
       <main className="mx-auto w-full max-w-md space-y-4">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
@@ -208,9 +231,19 @@ function CrPage() {
           </span>
         </div>
 
+        {!online && (
+          <div
+            role="status"
+            className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs font-semibold text-destructive"
+            style={{ marginTop: "env(safe-area-inset-top)" }}
+          >
+            ইন্টারনেট সংযোগ নেই — আবার চেষ্টা করা হচ্ছে / No internet connection — retrying…
+          </div>
+        )}
+
         <section className="rounded-3xl bg-hero px-5 py-5 text-primary-foreground">
           <h1 className="font-display text-lg font-semibold">
-            CR of {assignment.department} · {assignment.semester}th Semester (
+            CR of {assignment.department} · {ordinal(assignment.semester)} Semester (
             {assignment.shift === 1 ? "1st" : "2nd"} Shift)
           </h1>
           <p className="font-bangla mt-1 text-xs text-primary-foreground/75">
@@ -306,12 +339,15 @@ function CrPage() {
               <label htmlFor="cr-body">Message / বার্তা</label>
               <span>{body.length}/1000</span>
             </div>
-            <Input
+            <textarea
               id="cr-body"
+              ref={bodyRef}
               value={body}
               onChange={(e) => setBody(e.target.value)}
+              rows={3}
               maxLength={1000}
-              className="mt-1 h-10 rounded-xl"
+              placeholder="বার্তা লিখুন / Write a message…"
+              className="mt-1 w-full resize-none overflow-hidden rounded-xl border border-input bg-background p-3 text-sm outline-none focus:border-ring"
             />
           </div>
           <label className="flex items-center gap-2 text-xs">

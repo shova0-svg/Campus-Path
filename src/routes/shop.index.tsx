@@ -20,6 +20,7 @@ import {
   type ShopSort,
 } from "@/lib/shop";
 import { currentShopInstitute } from "@/lib/shop-scope";
+import { useConnectivity } from "@/hooks/use-connectivity";
 import { listProducts } from "@/lib/repo/shop";
 
 export const Route = createFileRoute("/shop/")({
@@ -49,19 +50,8 @@ function ShopHome() {
   const [busy, setBusy] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
-  const [online, setOnline] = useState(true);
+  const { online } = useConnectivity();
   const touchY = useRef(0);
-
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebounced(query), 250);
@@ -108,7 +98,7 @@ function ShopHome() {
   }
 
   return (
-    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
+    <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
       <main className="mx-auto w-full max-w-md space-y-4">
         <div className="flex items-center gap-2">
           <Link to="/" aria-label="Back to home">

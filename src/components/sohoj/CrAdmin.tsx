@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { INSTITUTES } from "@/lib/campus-data";
+import { INSTITUTES, ordinal } from "@/lib/campus-data";
 import { DEPARTMENT_OPTIONS } from "@/lib/teachers";
 import { ROUTINES } from "@/lib/routine";
 import { crErrorMessage, isValidCrEmail, normalizeEmail } from "@/lib/class-updates";
@@ -97,7 +97,7 @@ export function CrAdmin({ instituteId }: { instituteId: string }) {
             <SelectContent>
               {SEMESTERS.map((s) => (
                 <SelectItem key={s} value={String(s)}>
-                  {s}th Semester
+                  {ordinal(s)} Semester
                 </SelectItem>
               ))}
             </SelectContent>
