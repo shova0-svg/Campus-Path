@@ -20,6 +20,7 @@ import { Route as TeachersRouteImport } from './routes/teachers'
 import { Route as UpdatesRouteImport } from './routes/updates'
 import { Route as ShopIndexRouteImport } from './routes/shop.index'
 import { Route as ShopProductIdRouteImport } from './routes/shop.$productId'
+import { Route as ShopNewRouteImport } from './routes/shop.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const ShopProductIdRoute = ShopProductIdRouteImport.update({
   path: '/$productId',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopNewRoute = ShopNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ShopRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
   '/shop/$productId': typeof ShopProductIdRoute
+  '/shop/new': typeof ShopNewRoute
   '/shop/': typeof ShopIndexRoute
 }
 export interface FileRoutesByTo {
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
   '/shop/$productId': typeof ShopProductIdRoute
+  '/shop/new': typeof ShopNewRoute
   '/shop': typeof ShopIndexRoute
 }
 export interface FileRoutesById {
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
   '/shop/$productId': typeof ShopProductIdRoute
+  '/shop/new': typeof ShopNewRoute
   '/shop/': typeof ShopIndexRoute
 }
 export interface FileRouteTypes {
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/teachers'
     | '/updates'
     | '/shop/$productId'
+    | '/shop/new'
     | '/shop/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/teachers'
     | '/updates'
     | '/shop/$productId'
+    | '/shop/new'
     | '/shop'
   id:
     | '__root__'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/teachers'
     | '/updates'
     | '/shop/$productId'
+    | '/shop/new'
     | '/shop/'
   fileRoutesById: FileRoutesById
 }
@@ -248,16 +260,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopProductIdRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/new': {
+      id: '/shop/new'
+      path: '/new'
+      fullPath: '/shop/new'
+      preLoaderRoute: typeof ShopNewRouteImport
+      parentRoute: typeof ShopRoute
+    }
   }
 }
 
 interface ShopRouteChildren {
   ShopProductIdRoute: typeof ShopProductIdRoute
+  ShopNewRoute: typeof ShopNewRoute
   ShopIndexRoute: typeof ShopIndexRoute
 }
 
 const ShopRouteChildren: ShopRouteChildren = {
   ShopProductIdRoute: ShopProductIdRoute,
+  ShopNewRoute: ShopNewRoute,
   ShopIndexRoute: ShopIndexRoute,
 }
 

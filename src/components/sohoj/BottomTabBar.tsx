@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { ClipboardCheck, House, MessageSquare, ShieldCheck, UserRound } from "lucide-react";
+import { ClipboardCheck, House, MessageSquare, ShieldCheck, Store, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type BottomTabId = "home" | "feedback" | "cr" | "profile" | "admin";
+export type BottomTabId = "home" | "feedback" | "shop" | "cr" | "profile" | "admin";
 
 interface Tab {
   id: BottomTabId;
@@ -14,6 +14,7 @@ interface Tab {
 const TABS: Tab[] = [
   { id: "home", label: "Home", ariaLabel: "Home", icon: House },
   { id: "feedback", label: "Feedback", ariaLabel: "Send feedback", icon: MessageSquare },
+  { id: "shop", label: "Shop", ariaLabel: "Campus Shop", icon: Store },
   { id: "cr", label: "CR", ariaLabel: "CR section", icon: ClipboardCheck },
   { id: "profile", label: "Profile", ariaLabel: "Account", icon: UserRound },
   { id: "admin", label: "Admin", ariaLabel: "Open admin panel", icon: ShieldCheck },

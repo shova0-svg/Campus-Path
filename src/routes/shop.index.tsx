@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, RefreshCw, Search, Store, WifiOff } from "lucide-react";
+import { ArrowLeft, Plus, RefreshCw, Search, Store, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -117,8 +117,13 @@ function ShopHome() {
             </Button>
           </Link>
           <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-primary">
-            <Store className="size-4" /> Campus Shop / ক্যাম্পাস শপ
+            <Store className="size-4" /> Campus Shop
           </span>
+          <Button variant="emerald" size="sm" asChild className="shrink-0">
+            <Link to="/shop/new">
+              <Plus className="size-4" /> Sell / বেচুন
+            </Link>
+          </Button>
         </div>
 
         {!online && (
@@ -236,15 +241,16 @@ function ShopHome() {
               <p className="font-bangla mt-1 text-xs text-muted-foreground">
                 নতুন আইটেমের জন্য আবার চেষ্টা করুন।
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-4"
-                onClick={() => void load(0)}
-                disabled={busy}
-              >
-                <RefreshCw className={busy ? "animate-spin" : ""} /> Retry / আবার
-              </Button>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => void load(0)} disabled={busy}>
+                  <RefreshCw className={busy ? "animate-spin" : ""} /> Retry / আবার
+                </Button>
+                <Button size="sm" variant="emerald" asChild>
+                  <Link to="/shop/new">
+                    <Plus /> Add product / আইটেম দিন
+                  </Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <>

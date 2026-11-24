@@ -24,8 +24,13 @@ export function GlobalTabBar() {
 
   if (!user || pathname === "/auth" || pathname === "/reset-password") return null;
 
-  const active: BottomTabId =
-    pathname === "/cr" ? "cr" : pathname === "/student" ? "profile" : "home";
+  const active: BottomTabId = pathname.startsWith("/shop")
+    ? "shop"
+    : pathname === "/cr"
+      ? "cr"
+      : pathname === "/student"
+        ? "profile"
+        : "home";
 
   async function select(id: BottomTabId) {
     switch (id) {
@@ -35,6 +40,10 @@ export function GlobalTabBar() {
         break;
       case "feedback":
         openFeedback({ page: pathname });
+        break;
+      case "shop":
+        await navigate({ to: "/shop" });
+        window.scrollTo({ top: 0 });
         break;
       case "cr":
         await navigate({ to: "/cr" });
