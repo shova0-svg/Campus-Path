@@ -7,6 +7,24 @@ import {
   soundEnabled,
 } from "@/lib/notify-sound";
 
+// jsdom in this repo has no localStorage backend; use a minimal in-memory one.
+const disk = new Map<string, string>();
+if (!window.localStorage) {
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => disk.get(k) ?? null,
+      setItem: (k: string, v: string) => void disk.set(k, v),
+      removeItem: (k: string) => void disk.delete(k),
+      clear: () => disk.clear(),
+      key: (i: number) => [...disk.keys()][i] ?? null,
+      get length() {
+        return disk.size;
+      },
+    },
+  });
+}
+
 describe("in-app notification sound", () => {
   beforeEach(() => window.localStorage.clear());
 
