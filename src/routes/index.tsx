@@ -8,9 +8,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
-  ClipboardCheck,
   Flag,
-  MessageSquare,
   List,
   Loader2,
   LocateFixed,
@@ -120,6 +118,7 @@ import { cn } from "@/lib/utils";
 import { openFeedback } from "@/lib/feedback";
 import { logEvent } from "@/lib/analytics";
 import { Onboarding, InstallHint } from "@/components/sohoj/Onboarding";
+import { BottomTabBar, type BottomTabId } from "@/components/sohoj/BottomTabBar";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -468,6 +467,34 @@ function Index() {
     toast("Signed out");
   }
 
+  /** Bottom tab actions reuse the existing screens, dialog and role logic. */
+  function selectBottomTab(id: BottomTabId) {
+    switch (id) {
+      case "home":
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
+      case "feedback":
+        openFeedback({ page: "home" });
+        break;
+      case "cr":
+        void navigate({ to: "/cr" });
+        break;
+      case "profile":
+        if (!user) {
+          void navigate({ to: "/auth" });
+        } else {
+          toast(`Signed in as ${displayName ?? user.email ?? ""}`, {
+            description: user.email ?? undefined,
+            action: { label: "Sign out", onClick: () => void handleLogout() },
+          });
+        }
+        break;
+      case "admin":
+        openAdmin();
+        break;
+    }
+  }
+
   function openAddForm(targetInstituteId: string) {
     setEditing(null);
     setFormInstituteId(targetInstituteId);
@@ -580,53 +607,6 @@ function Index() {
                   </p>
                 </div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                {user ? (
-                  <Button
-                    variant="glass"
-                    size="sm"
-                    onClick={() =>
-                      toast(`Signed in as ${displayName ?? user.email ?? ""}`, {
-                        description: user.email ?? undefined,
-                        action: { label: "Sign out", onClick: () => void handleLogout() },
-                      })
-                    }
-                    aria-label="Account"
-                    className="max-w-[9rem]"
-                  >
-                    <UserRound /> <span className="truncate">{displayName ?? "Account"}</span>
-                  </Button>
-                ) : (
-                  <Button variant="glass" size="sm" asChild>
-                    <Link to="/auth">
-                      <UserRound /> Sign in
-                    </Link>
-                  </Button>
-                )}
-                <Button
-                  variant="glass"
-                  size="sm"
-                  onClick={() => openFeedback({ page: "home" })}
-                  aria-label="Send feedback"
-                >
-                  <MessageSquare /> Feedback
-                </Button>
-                {isCrUser && (
-                  <Button variant="glass" size="sm" asChild aria-label="CR section">
-                    <Link to="/cr">
-                      <ClipboardCheck /> CR Section
-                    </Link>
-                  </Button>
-                )}
-                <Button
-                  variant="glass"
-                  size="sm"
-                  onClick={openAdmin}
-                  aria-label={isAdmin ? "Open admin panel" : "Admin login"}
-                >
-                  <ShieldCheck className={isAdmin ? "text-emerald" : undefined} /> Admin
-                </Button>
-              </div>
             </div>
 
             <div className="mt-5">
@@ -677,7 +657,7 @@ function Index() {
             </div>
           </header>
 
-          <div className="-mt-12 space-y-5 px-4 pb-10 md:-mt-16 md:px-8 lg:px-10">
+          <div className="-mt-12 space-y-5 px-4 pb-32 md:-mt-16 md:px-8 lg:px-10">
             {updateBanner && (
               <Link to="/updates" className="block">
                 <div
@@ -1177,6 +1157,13 @@ function Index() {
               students
             </p>
           </div>
+
+          <BottomTabBar
+            active={panelOpen ? "admin" : "home"}
+            isAdmin={isAdmin}
+            isCr={isCrUser}
+            onSelect={selectBottomTab}
+          />
         </main>
 
         <QrScannerDialog open={qrOpen} onOpenChange={setQrOpen} onDetected={handleQrDetected} />
