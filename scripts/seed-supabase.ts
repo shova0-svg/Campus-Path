@@ -24,7 +24,8 @@ const db = createClient(url, key, { auth: { persistSession: false } });
 function slug(value: string): string {
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 60);
 }

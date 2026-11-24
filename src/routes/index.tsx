@@ -913,6 +913,13 @@ function Index() {
                     });
                 }}
               />
+            ) : view === "notice" ? (
+              <NoticeView
+                notices={noticesApi.notices.filter((n) => n.instituteId === institute.id)}
+                loading={noticesApi.loading}
+                error={noticesApi.error}
+                onRefresh={() => void noticesApi.refresh()}
+              />
             ) : view === "map" && institute.map ? (
               <CampusMap
                 map={institute.map}
