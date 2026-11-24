@@ -664,7 +664,7 @@ function Index() {
                 </section>
               </Link>
             )}
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid-cols-1 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {/* Right now — details live on their own page */}
               <Link to="/right-now" className="animate-rise block">
                 <section className="overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
@@ -979,7 +979,7 @@ function Index() {
                     </span>
                   </div>
                   {showBuildings ? (
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid-cols-1 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {buildings.map((b) => {
                         const inBuilding = locations.filter((l) => l.buildingId === b.id);
                         const floors = new Set(inBuilding.map((l) => l.floor)).size;
@@ -1029,7 +1029,7 @@ function Index() {
                               {group.list.length}
                             </span>
                           </div>
-                          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          <ul className="grid-cols-1 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {group.list.map((loc, i) => {
                               const Icon = CATEGORY_ICON[loc.category];
                               return (

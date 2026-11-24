@@ -160,7 +160,7 @@ export function TeacherDirectory({ instituteName }: Props) {
                 {group.teachers.length}
               </span>
             </div>
-            <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid-cols-1 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {group.teachers.map((teacher) => (
                 <TeacherCard
                   key={teacherId(teacher)}

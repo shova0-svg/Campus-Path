@@ -234,7 +234,7 @@ function CrPage() {
         )}
 
         <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => prefill("off")}>
               কাল ক্লাস বন্ধ / Class off
             </Button>
