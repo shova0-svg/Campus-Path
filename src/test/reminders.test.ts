@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dueReminders,
   findRoutine,
+  normalizeNoticeName,
   type ReminderProfile,
   type ReminderRoutine,
 } from "@/lib/reminders";
@@ -75,6 +76,25 @@ describe("class reminder computation", () => {
     const friday = "2026-11-27";
     expect(dueReminders(profile, routine, at(10, 57, friday))).toHaveLength(0);
     expect(dueReminders(profile, null, at(10, 57))).toHaveLength(0);
+  });
+
+  it("computes due classes for a teacher across a pseudo routine", () => {
+    expect(normalizeNoticeName("MD. ABDULLAH-AL MAMUN")).toBe("ABDULLAH AL MAMUN");
+    const teacherProfile: ReminderProfile = {
+      semester: 0,
+      group: "",
+      shift: "1",
+      department: "CST",
+    };
+    const teacherRoutine: ReminderRoutine = {
+      semester: 0,
+      shift: "1",
+      department: "CST",
+      periods: routine.periods,
+      entries: routine.entries,
+    };
+    const due = dueReminders(teacherProfile, teacherRoutine, at(9, 27));
+    expect(due.some((r) => r.kind === "class_starting_soon")).toBe(true);
   });
 
   it("returns nothing when the routine does not match the student", () => {

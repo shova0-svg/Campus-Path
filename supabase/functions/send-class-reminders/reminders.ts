@@ -40,6 +40,29 @@ export interface DueReminder {
   url: string;
 }
 
+/** Shared identity helpers for teacher matching (no directory dependency). */
+export function normalizeNoticeName(name: string): string {
+  const prefixes = ["MD", "MST", "MRS", "MS", "DR", "ENGR"];
+  const tokens = String(name ?? "")
+    .toUpperCase()
+    .replace(/[.,]/g, " ")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  let i = 0;
+  while (i < tokens.length && prefixes.includes(tokens[i] ?? "")) i++;
+  return tokens.slice(i).join(" ");
+}
+
+export function normalizeNoticePhone(phone: string | undefined | null): string {
+  if (!phone) return "";
+  const digits = String(phone).replace(/\D/g, "");
+  if (digits.length === 13 && digits.startsWith("880")) return `0${digits.slice(3)}`;
+  return digits;
+}
+
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function dhakaNow(now: Date): { day: string; minute: number } {

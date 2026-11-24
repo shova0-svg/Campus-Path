@@ -13,6 +13,7 @@ import {
   Trash2,
   UserRound,
   Users,
+  UserCog,
 } from "lucide-react";
 import {
   Dialog,
@@ -65,6 +66,7 @@ import {
 } from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { NoticeAdmin } from "./NoticeAdmin";
+import { TeacherAccounts } from "./TeacherAccounts";
 import type { NoticesApi } from "@/hooks/use-notices";
 import { listFeedback, listUsageEvents, type FeedbackRow } from "@/lib/repo/feedback";
 import { aggregateUsage, type UsageEvent } from "@/lib/stats";
@@ -75,7 +77,16 @@ import {
   type FeedbackCategory,
 } from "@/lib/feedback";
 
-type Tab = "rooms" | "buildings" | "teachers" | "qr" | "notices" | "feedback" | "stats" | "admins";
+type Tab =
+  | "rooms"
+  | "buildings"
+  | "teachers"
+  | "teacherAccounts"
+  | "qr"
+  | "notices"
+  | "feedback"
+  | "stats"
+  | "admins";
 
 interface Props {
   open: boolean;
@@ -188,6 +199,7 @@ export function AdminPanel({
     { id: "rooms", label: "Rooms", icon: Pencil },
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "teachers", label: "Teachers", icon: UserRound },
+    { id: "teacherAccounts", label: "Teacher Accounts", icon: UserCog },
     { id: "qr", label: "QR", icon: QrCode },
     { id: "notices", label: "Notice", icon: BellRing },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
@@ -502,6 +514,8 @@ export function AdminPanel({
               )}
             </div>
           )}
+
+          {tab === "teacherAccounts" && <TeacherAccounts instituteId={institute.id} />}
 
           {tab === "qr" && (
             <QrMaker

@@ -3,9 +3,22 @@ import webpush from "https://esm.sh/web-push@3.6.7";
 import {
   dueReminders,
   findRoutine,
+  normalizeNoticeName,
+  type DueReminder,
   type ReminderProfile,
   type ReminderRoutine,
 } from "./reminders.ts";
+
+interface ReminderJob {
+  userId: string;
+  instituteId: string;
+  reminders: DueReminder[];
+}
+
+const shiftNumber = (value: string | number): number => {
+  const s = String(value ?? "").toLowerCase();
+  return s === "2" || s === "2nd" || s === "second" || s === "evening" ? 2 : 1;
+};
 
 Deno.serve(async (req) => {
   // Cron calls authenticate with a dedicated shared secret (never exposed to clients).
@@ -17,9 +30,8 @@ Deno.serve(async (req) => {
   const publicKey = Deno.env.get("VAPID_PUBLIC_KEY");
   const privateKey = Deno.env.get("VAPID_PRIVATE_KEY");
   const subject = Deno.env.get("VAPID_SUBJECT") ?? "mailto:admin@campus-path.app";
-  if (!publicKey || !privateKey) {
+  if (!publicKey || !privateKey)
     return new Response(JSON.stringify({ error: "VAPID keys not configured" }), { status: 503 });
-  }
   webpush.setVapidDetails(subject, publicKey, privateKey);
 
   const requestUrl = new URL(req.url);
@@ -27,14 +39,17 @@ Deno.serve(async (req) => {
   const now = override && !Number.isNaN(Date.parse(override)) ? new Date(override) : new Date();
   const dryRun = requestUrl.searchParams.get("dryRun") === "1";
 
-  // The injected SUPABASE_SERVICE_ROLE_KEY is not accepted by PostgREST on this
-  // project; CRON_DB_KEY holds the valid service-role key (Edge Function secret only).
   const dbKey = Deno.env.get("CRON_DB_KEY") ?? secret;
   const db = createClient(url, dbKey, { auth: { persistSession: false } });
-  const { data: profiles } = await db
+  const { data: studentRows } = await db
     .from("student_profiles")
     .select("*")
     .eq("reminder_enabled", true);
+  const { data: teacherRows } = await db
+    .from("teacher_profiles")
+    .select("*")
+    .eq("reminder_enabled", true)
+    .catch(() => ({ data: [] }));
   const { data: routinesRaw } = await db
     .from("routines")
     .select("institute_id, semester, shift, department, data");
@@ -58,11 +73,10 @@ Deno.serve(async (req) => {
     ...((r.data ?? {}) as Record<string, unknown>),
   })) as (ReminderRoutine & { instituteId: string })[];
 
-  const subscriptions = subs ?? [];
-  let sent = 0;
-  const preview: { user: string; reminders: unknown[] }[] = [];
+  const jobs: ReminderJob[] = [];
 
-  for (const p of profiles ?? []) {
+  // Students: their own semester + shift routine.
+  for (const p of studentRows ?? []) {
     const row = p as Record<string, unknown>;
     const profile: ReminderProfile = {
       semester: Number(row.semester),
@@ -76,26 +90,72 @@ Deno.serve(async (req) => {
     );
     if (!routine) continue;
     const reminders = dueReminders(profile, routine, now, walkMinutes);
-    if (reminders.length === 0) continue;
+    if (reminders.length > 0)
+      jobs.push({
+        userId: String(row.user_id),
+        instituteId: String(row.institute_id),
+        reminders,
+      });
+  }
 
-    const mine = subscriptions.filter((s: Record<string, unknown>) => s.user_id === row.user_id);
+  // Teachers: every class they teach, across all routines, grouped per shift.
+  for (const t of teacherRows ?? []) {
+    const row = t as { user_id: string; institute_id: string; teacher_name: string };
+    const name = normalizeNoticeName(row.teacher_name);
+    if (!name) continue;
+    const mine = routines.filter((r) => r.instituteId === row.institute_id);
+    const found: DueReminder[] = [];
+    for (const shift of [1, 2]) {
+      const shiftRoutines = mine.filter((r) => shiftNumber(r.shift) === shift);
+      if (shiftRoutines.length === 0) continue;
+      const entries = shiftRoutines.flatMap((r) =>
+        r.entries.filter((entry) => {
+          const subject = r.subjects.find((s) => s.code === entry.subjectCode);
+          return subject && normalizeNoticeName(subject.teacher) === name;
+        }),
+      );
+      if (entries.length === 0) continue;
+      const pseudo: ReminderRoutine = {
+        semester: 0,
+        shift: String(shift),
+        department: "CST",
+        periods: shiftRoutines[0]!.periods,
+        entries,
+      };
+      const profile: ReminderProfile = {
+        semester: 0,
+        group: "",
+        shift: String(shift),
+        department: "CST",
+      };
+      found.push(...dueReminders(profile, pseudo, now, walkMinutes));
+    }
+    if (found.length > 0)
+      jobs.push({ userId: row.user_id, instituteId: row.institute_id, reminders: found });
+  }
+
+  const subscriptions = subs ?? [];
+  let sent = 0;
+  const preview: { user: string; reminders: unknown[] }[] = [];
+  const dayKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dhaka",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+
+  for (const job of jobs) {
     if (dryRun) {
-      preview.push({ user: String(row.user_id), reminders });
+      preview.push({ user: job.userId, reminders: job.reminders });
       continue;
     }
+    const mine = subscriptions.filter((s: Record<string, unknown>) => s.user_id === job.userId);
     if (mine.length === 0) continue;
 
-    const dayKey = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Dhaka",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
-
-    for (const reminder of reminders) {
+    for (const reminder of job.reminders) {
       const classKey = `${dayKey}:${reminder.classKey}`;
       const { error: logError } = await db.from("notification_log").insert({
-        user_id: row.user_id,
+        user_id: job.userId,
         kind: reminder.kind,
         class_key: classKey,
       });
@@ -119,9 +179,8 @@ Deno.serve(async (req) => {
           sent++;
         } catch (e) {
           const status = (e as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) {
+          if (status === 404 || status === 410)
             await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-          }
         }
       }
     }
@@ -134,8 +193,8 @@ Deno.serve(async (req) => {
       ...(dryRun
         ? {
             preview,
-            profileCount: profiles?.length ?? 0,
-            routineCount: routinesRaw?.length ?? 0,
+            studentCount: studentRows?.length ?? 0,
+            teacherCount: teacherRows?.length ?? 0,
             subs: subscriptions.length,
           }
         : {}),
