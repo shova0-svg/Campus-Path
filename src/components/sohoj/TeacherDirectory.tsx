@@ -78,16 +78,16 @@ export function TeacherDirectory({ instituteName }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <Link to="/">
-          <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
+        <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
+          <Link to="/">
             <ArrowLeft /> Back to home
-          </Button>
-        </Link>
-        <a href={TEACHER_SOURCE} target="_blank" rel="noopener noreferrer">
-          <Button variant="ghost" size="sm">
+          </Link>
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
+          <a href={TEACHER_SOURCE} target="_blank" rel="noopener noreferrer">
             Source <ExternalLink className="size-3.5" />
-          </Button>
-        </a>
+          </a>
+        </Button>
       </div>
 
       <section className="animate-rise overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)]">
