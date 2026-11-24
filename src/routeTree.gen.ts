@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CrRouteImport } from './routes/cr'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RightNowRouteImport } from './routes/right-now'
 import { Route as StudentRouteImport } from './routes/student'
 import { Route as TeachersRouteImport } from './routes/teachers'
+import { Route as UpdatesRouteImport } from './routes/updates'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -24,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrRoute = CrRouteImport.update({
+  id: '/cr',
+  path: '/cr',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -46,56 +53,85 @@ const TeachersRoute = TeachersRouteImport.update({
   path: '/teachers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UpdatesRoute = UpdatesRouteImport.update({
+  id: '/updates',
+  path: '/updates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
+  '/updates': typeof UpdatesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
+  '/updates': typeof UpdatesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
+  '/updates': typeof UpdatesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/reset-password' | '/right-now' | '/student' | '/teachers'
-  fileRoutesByTo: FileRoutesByTo
-  to:
-    '/' | '/auth' | '/reset-password' | '/right-now' | '/student' | '/teachers'
-  id:
-    | '__root__'
     | '/'
     | '/auth'
+    | '/cr'
     | '/reset-password'
     | '/right-now'
     | '/student'
     | '/teachers'
+    | '/updates'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/auth'
+    | '/cr'
+    | '/reset-password'
+    | '/right-now'
+    | '/student'
+    | '/teachers'
+    | '/updates'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/cr'
+    | '/reset-password'
+    | '/right-now'
+    | '/student'
+    | '/teachers'
+    | '/updates'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  CrRoute: typeof CrRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RightNowRoute: typeof RightNowRoute
   StudentRoute: typeof StudentRoute
   TeachersRoute: typeof TeachersRoute
+  UpdatesRoute: typeof UpdatesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -112,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cr': {
+      id: '/cr'
+      path: '/cr'
+      fullPath: '/cr'
+      preLoaderRoute: typeof CrRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -142,16 +185,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeachersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/updates': {
+      id: '/updates'
+      path: '/updates'
+      fullPath: '/updates'
+      preLoaderRoute: typeof UpdatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  CrRoute: CrRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RightNowRoute: RightNowRoute,
   StudentRoute: StudentRoute,
   TeachersRoute: TeachersRoute,
+  UpdatesRoute: UpdatesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -14,6 +14,7 @@ import {
   UserRound,
   Users,
   UserCog,
+  UserRoundCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -67,6 +68,7 @@ import {
 import { cn } from "@/lib/utils";
 import { NoticeAdmin } from "./NoticeAdmin";
 import { TeacherAccounts } from "./TeacherAccounts";
+import { CrAdmin } from "./CrAdmin";
 import type { NoticesApi } from "@/hooks/use-notices";
 import { listFeedback, listUsageEvents, type FeedbackRow } from "@/lib/repo/feedback";
 import { aggregateUsage, type UsageEvent } from "@/lib/stats";
@@ -82,6 +84,7 @@ type Tab =
   | "buildings"
   | "teachers"
   | "teacherAccounts"
+  | "crs"
   | "qr"
   | "notices"
   | "feedback"
@@ -200,6 +203,7 @@ export function AdminPanel({
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "teachers", label: "Teachers", icon: UserRound },
     { id: "teacherAccounts", label: "Teacher Accounts", icon: UserCog },
+    ...(isSuper ? [{ id: "crs" as Tab, label: "CRs", icon: UserRoundCheck }] : []),
     { id: "qr", label: "QR", icon: QrCode },
     { id: "notices", label: "Notice", icon: BellRing },
     { id: "feedback", label: "Feedback", icon: MessageSquare },
@@ -516,6 +520,8 @@ export function AdminPanel({
           )}
 
           {tab === "teacherAccounts" && <TeacherAccounts instituteId={institute.id} />}
+
+          {tab === "crs" && isSuper && <CrAdmin instituteId={institute.id} />}
 
           {tab === "qr" && (
             <QrMaker

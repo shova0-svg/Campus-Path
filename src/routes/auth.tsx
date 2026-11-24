@@ -41,7 +41,11 @@ function AuthPage() {
   const [sentTo, setSentTo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/", replace: true });
+    if (!loading && user) {
+      const next = new URLSearchParams(window.location.search).get("next");
+      const allowed = next === "/cr" || next === "/updates" ? next : "/";
+      void navigate({ to: allowed as "/", replace: true });
+    }
   }, [loading, user, navigate]);
 
   async function submit(e: FormEvent) {

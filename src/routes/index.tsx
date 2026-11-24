@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
   Flag,
   MessageSquare,
   List,
@@ -60,6 +61,9 @@ import {
 import { useAdminRole } from "@/hooks/use-admin-role";
 import { useNotices } from "@/hooks/use-notices";
 import { NoticeView } from "@/components/sohoj/NoticeView";
+import { useCrRole } from "@/hooks/use-cr-role";
+import { useClassUpdates } from "@/hooks/use-class-updates";
+import { summarizeForBanner, dateLabel, UPDATE_TYPES } from "@/lib/class-updates";
 import { LandingPage } from "@/components/sohoj/LandingPage";
 import {
   adminsResource,
@@ -204,6 +208,10 @@ function Index() {
     return () => events.forEach((e) => window.removeEventListener(e, updated));
   }, []);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const { isCr: isCrUser } = useCrRole();
+  const { updates: classUpdates, unreadCount } = useClassUpdates(studentProfile);
+  const updateBanner = summarizeForBanner(classUpdates);
+
   const [qrBuilding, setQrBuilding] = useState<QrTarget | null>(null);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
@@ -603,6 +611,13 @@ function Index() {
                 >
                   <MessageSquare /> Feedback
                 </Button>
+                {isCrUser && (
+                  <Button variant="glass" size="sm" asChild aria-label="CR section">
+                    <Link to="/cr">
+                      <ClipboardCheck /> CR Section
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   variant="glass"
                   size="sm"
@@ -663,6 +678,48 @@ function Index() {
           </header>
 
           <div className="-mt-12 space-y-5 px-4 pb-10 md:-mt-16 md:px-8 lg:px-10">
+            {updateBanner && (
+              <Link to="/updates" className="block">
+                <div
+                  className={`flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-xs font-semibold ${updateBanner.classOff || updateBanner.urgent ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-primary/20 bg-primary-soft text-primary"}`}
+                >
+                  <BellRing className="size-4 shrink-0" /> {updateBanner.label}
+                </div>
+              </Link>
+            )}
+            {studentProfile && classUpdates.length > 0 && (
+              <Link to="/updates" className="animate-rise block">
+                <section className="rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex items-center gap-1.5 text-sm font-semibold">
+                      <BellRing className="size-4 text-primary" /> Class Updates / ক্লাস আপডেট
+                    </p>
+                    {unreadCount > 0 && (
+                      <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-destructive-foreground">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  <ul className="mt-2 space-y-1.5">
+                    {classUpdates.slice(0, 3).map((u) => (
+                      <li key={u.id} className="flex items-start gap-2 text-xs">
+                        <span
+                          className={`mt-0.5 size-2 shrink-0 rounded-full ${u.urgent ? "bg-destructive" : "bg-primary"}`}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{u.title}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {UPDATE_TYPES.find((t) => t.id === u.type)?.label.split(" / ")[0]} ·{" "}
+                            {dateLabel(u.eventDate)}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] font-semibold text-primary">See all / সব দেখুন →</p>
+                </section>
+              </Link>
+            )}
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {/* Right now — details live on their own page */}
               <Link to="/right-now" className="animate-rise block">

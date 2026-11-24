@@ -88,6 +88,12 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Class Representatives (CR)
+
+- Migration `20261124000001_cr.sql`: `class_representatives` (super-admin only) + `class_updates` (CR/student/admin reads by class). RLS + SECURITY DEFINER helpers `current_verified_email`, `is_cr_of`, `is_student_of`, `my_cr_assignments`.
+- Super admin assigns CRs by email in Admin Panel → CRs. Only verified emails count. Client keeps an offline cache at `class-updates-v1:*`; posting requires network.
+- Student side: home "Class Updates" card, `/updates`, seen marker `class-updates-seen-v1`. CR side: `/cr`.
+
 ## Teacher accounts
 
 - Admin Panel → Teacher Accounts creates auth users for routine teachers via `create-teacher-account` Edge Function (admin JWT + `institute_admins` check, service key only in Edge secrets). Temporary password is returned once to the admin.

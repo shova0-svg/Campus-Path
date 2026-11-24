@@ -1,10 +1,12 @@
 /* Campus Path service worker — offline-first app shell + data cache. */
-const CACHE = "campus-path-v3";
+const CACHE = "campus-path-v4";
 const CORE = [
   "/",
   "/auth",
   "/student",
   "/teachers",
+  "/cr",
+  "/updates",
   "/right-now",
   "/manifest.webmanifest",
   "/icons/icon-192.png",

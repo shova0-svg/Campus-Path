@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Bell, Flag, LogOut, MessageSquare } from "lucide-react";
+import { ArrowLeft, Bell, ClipboardCheck, Flag, LogOut, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JourneyCard } from "@/components/sohoj/JourneyCard";
 import { StudentSetup } from "@/components/sohoj/StudentSetup";
@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { openFeedback } from "@/lib/feedback";
 import { logEvent } from "@/lib/analytics";
 import { InstallHint } from "@/components/sohoj/Onboarding";
+import { useCrRole } from "@/hooks/use-cr-role";
 import { Logo } from "@/components/brand/Logo";
 
 export const Route = createFileRoute("/student")({
@@ -77,6 +78,7 @@ function StudentPage() {
     return scheduleJourneyReminders(journey);
   }, [journey]);
 
+  const { isCr: isCrUser } = useCrRole();
   const [remindersOn, setRemindersOn] = useState(false);
   useEffect(() => setRemindersOn(notificationsEnabled()), []);
   const iosHint = needsHomeScreenHint();
@@ -122,6 +124,13 @@ function StudentPage() {
           </Link>
           <div className="flex items-center gap-1">
             <Logo variant="icon" size={24} />
+            {isCrUser && (
+              <Button variant="ghost" size="sm" asChild aria-label="CR section">
+                <Link to="/cr">
+                  <ClipboardCheck /> CR
+                </Link>
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => openFeedback({ page: "student" })}>
               <MessageSquare /> Feedback
             </Button>
