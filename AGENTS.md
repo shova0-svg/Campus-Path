@@ -108,7 +108,7 @@ use the editor.
 
 ## Class Representatives (CR)
 
-- Migration `20261124000001_cr.sql`: `class_representatives` (super-admin only) + `class_updates` (CR/student/admin reads by class). RLS + SECURITY DEFINER helpers `current_verified_email`, `is_cr_of`, `is_student_of`, `my_cr_assignments`.
+- Migration `20261124000001_cr.sql`: `class_representatives` (super admin + own-institute admin after the role migration) + `class_updates` (CR/student/admin reads by class). RLS + SECURITY DEFINER helpers `current_verified_email`, `is_cr_of`, `is_student_of`, `my_cr_assignments`.
 - Super admin assigns CRs by email in Admin Panel → CRs. Only verified emails count. Client keeps an offline cache at `class-updates-v1:*`; posting requires network.
 - Student side: home "Class Updates" card, `/updates`, seen marker `class-updates-seen-v1`. CR side: `/cr`.
 
