@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildRoute, INSTITUTES, MAIN_GATE, type CampusLocation } from "@/lib/campus-data";
 import {
   MAX_ADMINS_PER_INSTITUTE,
+  isSubAdminAccount,
+  subAdminSlotsUsed,
   type LocationStore,
   addInstituteAdmin,
   adminProfile,
@@ -76,14 +78,16 @@ describe("Per-institute admins", () => {
     );
   });
 
-  it("allows at most five admins per institute and can remove them", () => {
+  it("allows at most two admins per institute and can remove them", () => {
     let accounts = defaultAdmins();
     for (let i = 1; i <= MAX_ADMINS_PER_INSTITUTE; i++) {
       const r = addInstituteAdmin(accounts, `admin${i}@rpi.edu`, "rpi", "shovaslks@gmail.com");
       if (r.ok) accounts = r.accounts;
     }
     expect(accounts.filter((a) => a.instituteId === "rpi")).toHaveLength(MAX_ADMINS_PER_INSTITUTE);
-    expect(addInstituteAdmin(accounts, "six@rpi.edu", "rpi", "shovaslks@gmail.com")).toMatchObject({
+    expect(
+      addInstituteAdmin(accounts, "third@rpi.edu", "rpi", "shovaslks@gmail.com"),
+    ).toMatchObject({
       ok: false,
     });
     accounts = removeInstituteAdmin(accounts, "admin1@rpi.edu");
@@ -181,6 +185,19 @@ describe("Admin-managed buildings", () => {
     expect(parseBuildingStore(saved)["rpi"]?.some((b) => b.name === "Workshop Building")).toBe(
       true,
     );
+  });
+
+  it("counts sub-admin slots and distinguishes super admins", () => {
+    const accounts = defaultAdmins();
+    const first = addInstituteAdmin(accounts, "a@rpi.edu", "rpi", "shovaslks@gmail.com");
+    const withTwo = first.ok ? first.accounts : accounts;
+    const second = addInstituteAdmin(withTwo, "b@rpi.edu", "rpi", "shovaslks@gmail.com");
+    const full = second.ok ? second.accounts : withTwo;
+    expect(MAX_ADMINS_PER_INSTITUTE).toBe(2);
+    expect(subAdminSlotsUsed(full, "rpi")).toBe(2);
+    expect(subAdminSlotsUsed(full, "bpi")).toBe(0);
+    expect(isSubAdminAccount(adminProfile("a@rpi.edu", full))).toBe(true);
+    expect(isSubAdminAccount(adminProfile("shovaslks@gmail.com", full))).toBe(false);
   });
 
   it("adds newly shipped buildings to an older saved list", () => {

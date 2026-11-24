@@ -88,6 +88,13 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Admin roles (Phase 1 — backend)
+
+- Migrations `20261126000001_admin_roles.sql` + `20261126000002_sub_admin_check_order.sql`: `institute_admins` now uses `super_admin` / `sub_admin` with `assigned_by` / `assigned_at`; legacy global admins stay super admins and at least one super admin is guaranteed. New `admin_audit_log` + triggers for admin changes, product removals, bans and CR changes.
+- DB-side rules: `add_sub_admin` / `remove_sub_admin` RPCs check `is_super_admin()` on every call, enforce max 2 sub admins per institute with an advisory xact lock, one institute per user, target institute membership, and a last-super-admin guard. `my_admin_role()` / `list_admin_assignments()` expose role data to the UI. CR RLS now allows institute admins in their own institute.
+- Client: `MAX_SUB_ADMINS_PER_INSTITUTE = 2` (mirrors DB), repo helpers in `src/lib/repo/admins.ts`. Live verification with 5 test users: 15/15 checks passed; all test data cleaned.
+- Manage Admins UI and sub-admin scoped panel are later phases.
+
 ## Campus Shop
 
 - Migrations `20261125000001_shop.sql` (schema/RLS/bucket), `...02_shop_image_cleanup.sql` (delete images with product), `...03_shop_rls_fixes.sql` (banned check via `shop_is_banned()` SECURITY DEFINER, `reporter_id default auth.uid()`, storage delete guard), `...04_shop_seller.sql` (`shop_seller_name()` RPC). RLS enforces institute scoping, seller-only writes, 10 active listings/user, one report/user/product, banned-user block, hides sold/removed from buyers; admin moderates via `is_institute_admin`/`is_super_admin`.

@@ -3,6 +3,16 @@ import { INSTITUTES, type Building, type CampusLocation } from "@/lib/campus-dat
 /** The super admin can manage every institute and every admin account. */
 export const ADMIN_EMAIL = "Shovaslks@gmail.com";
 
+/** True for a scoped institute admin (as opposed to a super admin). */
+export function isSubAdminAccount(account: AdminAccount | null | undefined): boolean {
+  return account?.role === "institute";
+}
+
+/** How many of the 2 sub-admin slots an institute has used. */
+export function subAdminSlotsUsed(accounts: AdminAccount[], instituteId: string): number {
+  return accounts.filter((a) => a.role === "institute" && a.instituteId === instituteId).length;
+}
+
 /** Email addresses are case-insensitive, so compare after trimming and lowercasing. */
 export function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -11,7 +21,9 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 
 /* ---------------- Admin accounts (super + per-institute) ---------------- */
 
-export const MAX_ADMINS_PER_INSTITUTE = 5;
+/** Hard cap of sub admins per polytechnic, mirrored by the DB trigger. */
+export const MAX_SUB_ADMINS_PER_INSTITUTE = 2;
+export const MAX_ADMINS_PER_INSTITUTE = MAX_SUB_ADMINS_PER_INSTITUTE;
 export const ADMINS_STORE_KEY = "sohoj-rasta-admins-v1";
 
 export interface AdminAccount {

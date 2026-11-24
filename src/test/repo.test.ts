@@ -95,13 +95,12 @@ describe("Supabase repo layer", () => {
 
   it("adds and removes admins through the RPC / table", async () => {
     await addAdminByEmail("admin@example.com", "rpi");
-    expect(rpcMock).toHaveBeenCalledWith("add_institute_admin_by_email", {
+    expect(rpcMock).toHaveBeenCalledWith("add_sub_admin", {
       p_email: "admin@example.com",
       p_institute_id: "rpi",
     });
     await removeAdminRow("user-1");
-    expect(fromMock).toHaveBeenCalledWith("institute_admins");
-    expect(deleteMock).toHaveBeenCalledWith("user_id", "user-1");
+    expect(rpcMock).toHaveBeenCalledWith("remove_sub_admin", { p_user_id: "user-1" });
   });
 
   it("saves a student profile keyed by auth user id", async () => {
