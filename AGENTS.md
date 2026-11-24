@@ -104,6 +104,8 @@ use the editor.
 - Bottom bar has a **Campus Shop** tab in the middle (route-aware active state). Any signed-in user can post via `/shop/new` (image picker + canvas compression + validation); reachable from the Sell button on `/shop` and the empty state.
 - Assumption: images are in a public bucket (only contact numbers must be logged-in-only; enforced by table RLS). No in-app payments.
 
+- CR offline banner is an in-flow status element (not a toast), driven by shared `useConnectivity()` (real Supabase reachability probe + online/offline/focus/visibility re-check + one retry). A failed post shows the actual error instead of blaming the network. Message field auto-grows; semester labels use `ordinal()`.
+
 ## Class Representatives (CR)
 
 - Migration `20261124000001_cr.sql`: `class_representatives` (super-admin only) + `class_updates` (CR/student/admin reads by class). RLS + SECURITY DEFINER helpers `current_verified_email`, `is_cr_of`, `is_student_of`, `my_cr_assignments`.
