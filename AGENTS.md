@@ -88,6 +88,12 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Campus Shop (Phase 1 — backend)
+
+- Migration `20261125000001_shop.sql`: `shop_products`, `shop_reports`, `shop_bans` + `shop-images` storage bucket. RLS enforces institute scoping, seller-only writes, 10 active listings/user, one report/user/product, banned-user block, and hides sold/removed from buyers. Admin moderates via `is_institute_admin`/`is_super_admin`.
+- Pure helpers `src/lib/shop.ts` (validation mirrors DB CHECKs, filters/sort/price/WhatsApp) and repo `src/lib/repo/shop.ts` (pagination, CRUD, reports, bans, canvas image compression + bucket upload). No new dependencies.
+- Assumption: images are in a public bucket (only contact numbers must be logged-in-only; enforced by table RLS). No in-app payments.
+
 ## Class Representatives (CR)
 
 - Migration `20261124000001_cr.sql`: `class_representatives` (super-admin only) + `class_updates` (CR/student/admin reads by class). RLS + SECURITY DEFINER helpers `current_verified_email`, `is_cr_of`, `is_student_of`, `my_cr_assignments`.
