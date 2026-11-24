@@ -109,6 +109,7 @@ use the editor.
 - Bottom bar has a **Campus Shop** tab in the middle (route-aware active state). Any signed-in user can post via `/shop/new` (image picker + canvas compression + validation); reachable from the Sell button on `/shop` and the empty state.
 - Assumption: images are in a public bucket (only contact numbers must be logged-in-only; enforced by table RLS). No in-app payments.
 
+- CR posting fix: `my_cr_assignments()` returns snake_case columns, so `src/lib/repo/crs.ts` must map them via `fromRow` before the client uses `instituteId` (otherwise the insert violates RLS with 403 `42501`). Posts use `withNetworkRetry` (network only, once), `saveThenNotify` (push failure never rolls back the save), and specific bilingual errors via `postErrorMessage`. Toasts render above the bottom tab bar with auto-dismiss + close button.
 - CR offline banner is an in-flow status element (not a toast), driven by shared `useConnectivity()` (real Supabase reachability probe + online/offline/focus/visibility re-check + one retry). A failed post shows the actual error instead of blaming the network. Message field auto-grows; semester labels use `ordinal()`.
 
 ## Class Representatives (CR)
