@@ -159,11 +159,11 @@ export function dueReminders(
   const entries = routine.entries.filter((e) => e.day === day).sort((a, b) => a.period - b.period);
   const out: DueReminder[] = [];
   const seen = new Set<string>();
-  const semester = `Semester ${routine.semester}`;
+  const semester = routine.semester > 0 ? `Semester ${routine.semester} · ` : "";
   const shift = shiftLabel(routine.shift);
 
   const detail = (e: ReminderEntry, start: [number, number], end: [number, number]) =>
-    `${e.subject} (${e.code}) · ${e.teacher}${e.acronym ? ` [${e.acronym}]` : ""} · Room ${e.room} · ${semester} · ${shift} · ${label(start[0])}-${label(end[1])}`;
+    `${e.subject} (${e.code}) · ${e.teacher}${e.acronym ? ` [${e.acronym}]` : ""} · Room ${e.room} · ${semester}${shift} · ${label(start[0])}-${label(end[1])}`;
 
   const add = (r: DueReminder) => {
     const key = `${r.kind}-${r.classKey}`;

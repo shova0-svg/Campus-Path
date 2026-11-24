@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Teacher accounts
+
+- Admin Panel → Teacher Accounts creates auth users for routine teachers via `create-teacher-account` Edge Function (admin JWT + `institute_admins` check, service key only in Edge secrets). Temporary password is returned once to the admin.
+- `teacher_profiles` links `user_id` → routine teacher name; `send-class-reminders` builds a per-teacher pseudo routine from all 8 routines and sends class reminders for their own classes.
+
 ## Notices
 
 - `public.notices` (pending/approved/rejected) + `public.notice_sources`: synced by `sync-notices` Edge Function every 10 minutes (`campus-path-notice-sync` cron).
