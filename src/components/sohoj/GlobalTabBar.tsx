@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdminRole } from "@/hooks/use-admin-role";
@@ -13,8 +14,13 @@ export function GlobalTabBar() {
   const { user } = useAuth();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { isAdmin } = useAdminRole();
-  const { isCr } = useCrRole();
+  const adminRole = useAdminRole();
+  const crRole = useCrRole();
+  // Role data comes from local caches; keep the first render identical to SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isAdmin = mounted && adminRole.isAdmin;
+  const isCr = mounted && crRole.isCr;
 
   if (!user || pathname === "/auth" || pathname === "/reset-password") return null;
 
