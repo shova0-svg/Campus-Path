@@ -93,8 +93,8 @@ use the editor.
 - Migrations `20261125000001_shop.sql` (schema/RLS/bucket), `...02_shop_image_cleanup.sql` (delete images with product), `...03_shop_rls_fixes.sql` (banned check via `shop_is_banned()` SECURITY DEFINER, `reporter_id default auth.uid()`, storage delete guard), `...04_shop_seller.sql` (`shop_seller_name()` RPC). RLS enforces institute scoping, seller-only writes, 10 active listings/user, one report/user/product, banned-user block, hides sold/removed from buyers; admin moderates via `is_institute_admin`/`is_super_admin`.
 - Live RLS verification (4 test users, all cleaned up): 11/11 checks passed — anon isolation, cross-user writes, immutable fields, 11th listing, ban, duplicate report, sold/removed visibility, storage isolation/type/size, image cleanup, cross-institute admin.
 - Pure helpers `src/lib/shop.ts`, repo `src/lib/repo/shop.ts` (pagination, CRUD, reports, bans, canvas image compression + bucket upload), scope helper `src/lib/shop-scope.ts`. No new dependencies.
-- Phase 2 screens: `/shop` (feed/search/chips/sort/condition+price filters/pull-to-refresh/pagination), `/shop/$productId` (carousel, contact, report), home **Campus Shop** card.
-- Bottom bar has a **Campus Shop** tab in the middle (route-aware active state). Any signed-in user can post via `/shop/new` (image picker + canvas compression + validation); reachable from the Sell button on `/shop` and the empty state. No new bottom tabs beyond Shop.
+- Phase 2 screens: `/shop` (feed/search/chips/sort/condition+price filters/pull-to-refresh/pagination), `/shop/$productId` (carousel, contact, report). No home card — Shop is reached only from the bottom bar.
+- Bottom bar has a **Campus Shop** tab in the middle (route-aware active state). Any signed-in user can post via `/shop/new` (image picker + canvas compression + validation); reachable from the Sell button on `/shop` and the empty state.
 - Assumption: images are in a public bucket (only contact numbers must be logged-in-only; enforced by table RLS). No in-app payments.
 
 ## Class Representatives (CR)
