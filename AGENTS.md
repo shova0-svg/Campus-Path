@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## PWA notifications (Phase 1)
+
+- Custom in-app sound `public/sounds/notify.mp3` (user-supplied MP3, ~4.4s, copied unchanged). `src/lib/notify-sound.ts` + `PushSoundHost` play it on `PUSH_RECEIVED` from the SW; audio unlocked on first tap/key and failures are silent. Settings route `/settings` has the sound toggle (default on) and shows last push time.
+- `public/sw.js` (cache v5) broadcasts every push to open clients, uses unique tags, vibrate, `requireInteraction` for urgent, and `renotify` only when requested. Edge functions `send-class-reminders` / `sync-notices` send `Urgency: high/normal`, `TTL: 86400`, typed payload with `id`/`type`/`urgent`, delete 404/410 subscriptions and log other failures. No `topic` (distinct posts). Inbox/health screen are Phase 2.
+
 ## Admin roles (Phase 1 — backend)
 
 - Migrations `20261126000001_admin_roles.sql` + `20261126000002_sub_admin_check_order.sql`: `institute_admins` now uses `super_admin` / `sub_admin` with `assigned_by` / `assigned_at`; legacy global admins stay super admins and at least one super admin is guaranteed. New `admin_audit_log` + triggers for admin changes, product removals, bans and CR changes.
