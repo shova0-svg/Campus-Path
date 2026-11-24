@@ -1,6 +1,7 @@
 import type { Journey } from "@/lib/student";
 import { removePushSubscription, savePushSubscription, subscriptionToRow } from "@/lib/repo/push";
 import { supabase } from "@/integrations/supabase/client";
+import { playNotifySound } from "@/lib/notify-sound";
 
 const KEY = "sohoj-rasta-notify-enabled";
 

@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CrRouteImport } from './routes/cr'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RightNowRouteImport } from './routes/right-now'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StudentRouteImport } from './routes/student'
 import { Route as TeachersRouteImport } from './routes/teachers'
@@ -45,6 +46,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const RightNowRoute = RightNowRouteImport.update({
   id: '/right-now',
   path: '/right-now',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopRoute = ShopRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
+  '/settings': typeof SettingsRoute
   '/shop': typeof ShopRouteWithChildren
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
+  '/settings': typeof SettingsRoute
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
+  '/settings': typeof SettingsRoute
   '/shop': typeof ShopRouteWithChildren
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/cr'
     | '/reset-password'
     | '/right-now'
+    | '/settings'
     | '/shop'
     | '/student'
     | '/teachers'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/cr'
     | '/reset-password'
     | '/right-now'
+    | '/settings'
     | '/student'
     | '/teachers'
     | '/updates'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/cr'
     | '/reset-password'
     | '/right-now'
+    | '/settings'
     | '/shop'
     | '/student'
     | '/teachers'
@@ -175,6 +187,7 @@ export interface RootRouteChildren {
   CrRoute: typeof CrRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RightNowRoute: typeof RightNowRoute
+  SettingsRoute: typeof SettingsRoute
   ShopRoute: typeof ShopRouteWithChildren
   StudentRoute: typeof StudentRoute
   TeachersRoute: typeof TeachersRoute
@@ -216,6 +229,13 @@ declare module '@tanstack/react-router' {
       path: '/right-now'
       fullPath: '/right-now'
       preLoaderRoute: typeof RightNowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop': {
@@ -290,6 +310,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrRoute: CrRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RightNowRoute: RightNowRoute,
+  SettingsRoute: SettingsRoute,
   ShopRoute: ShopRouteWithChildren,
   StudentRoute: StudentRoute,
   TeachersRoute: TeachersRoute,

@@ -126,14 +126,26 @@ Deno.serve(async (req) => {
                 title: "New notice / নতুন নোটিশ",
                 body: `${n.title}${n.published_date ? ` · ${n.published_date}` : ""}`,
                 url: n.url || "/student",
+                id: `notice:${n.id}`,
+                type: "notice",
+                urgent: false,
                 tag: `new-notice-${n.id}`,
+                renotify: false,
               }),
+              {
+                TTL: 86400,
+                headers: { Urgency: "normal" },
+                // No `topic`: each notice is a distinct post.
+              },
             );
             sent++;
           } catch (e) {
             const status = (e as { statusCode?: number }).statusCode;
-            if (status === 404 || status === 410)
+            if (status === 404 || status === 410) {
               await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+            } else {
+              console.error("notice push failed", status, e);
+            }
           }
         }
       }

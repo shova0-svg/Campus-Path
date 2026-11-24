@@ -1,5 +1,5 @@
 /* Campus Path service worker — offline-first app shell + data cache. */
-const CACHE = "campus-path-v4";
+const CACHE = "campus-path-v5";
 const CORE = [
   "/",
   "/auth",
@@ -7,6 +7,7 @@ const CORE = [
   "/teachers",
   "/cr",
   "/updates",
+  "/settings",
   "/right-now",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -16,14 +17,32 @@ const CORE = [
   "/rpi-campus-3d.jpg",
 ];
 
+function notificationOptions(payload) {
+  const urgent = payload.urgent === true;
+  const tag = payload.tag || payload.id || `campus-path-${Date.now()}`;
+  return {
+    body: payload.body || "",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag,
+    renotify: payload.renotify === true && Boolean(payload.tag),
+    requireInteraction: urgent,
+    vibrate: urgent ? [250, 120, 250, 120, 250] : [120, 60, 120],
+    data: {
+      url: payload.url || "/student",
+      id: payload.id || "",
+      type: payload.type || "",
+      receivedAt: Date.now(),
+    },
+  };
+}
+
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SHOW_NOTIFICATION") {
-    self.registration.showNotification(event.data.title || "Campus Path", {
-      body: event.data.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url: event.data.url || "/student" },
-    });
+    self.registration.showNotification(
+      event.data.title || "Campus Path",
+      notificationOptions(event.data),
+    );
   }
   if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
   if (event.data?.type === "CLEAR_CACHE") {
@@ -39,14 +58,19 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data?.text() || "" };
   }
   const title = payload.title || "Campus Path";
-  const options = {
-    body: payload.body || "",
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
-    tag: payload.tag || "campus-path-class",
-    data: { url: payload.url || "/student" },
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
+  // Tell open tabs so they can play the custom sound (background sound can't be changed).
+  const broadcast = self.clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((clients) => {
+      for (const client of clients) client.postMessage({ type: "PUSH_RECEIVED", payload });
+    })
+    .catch(() => {});
+  event.waitUntil(
+    Promise.all([
+      broadcast,
+      self.registration.showNotification(title, notificationOptions(payload)),
+    ]),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

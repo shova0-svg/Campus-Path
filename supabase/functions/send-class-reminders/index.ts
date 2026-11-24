@@ -160,6 +160,8 @@ Deno.serve(async (req) => {
         });
         if (logError) continue; // duplicate — never send twice
 
+        const urgent = reminder.kind.includes("soon");
+        const tag = `${dayKey}:${reminder.kind}:${reminder.classKey}`;
         for (const sub of mine) {
           const s = sub as Record<string, unknown>;
           try {
@@ -172,14 +174,26 @@ Deno.serve(async (req) => {
                 title: reminder.title,
                 body: reminder.body,
                 url: reminder.url,
-                tag: `${reminder.kind}-${reminder.classKey}`,
+                id: `${dayKey}:${reminder.classKey}:${reminder.kind}`,
+                type: reminder.kind,
+                urgent,
+                tag, // unique per distinct class/day/kind — never reused
+                renotify: false,
               }),
+              {
+                TTL: 86400, // 24h, never 0
+                headers: { Urgency: urgent ? "high" : "normal" },
+                // No `topic`: every reminder here is a distinct post.
+              },
             );
             sent++;
           } catch (e) {
             const status = (e as { statusCode?: number }).statusCode;
-            if (status === 404 || status === 410)
+            if (status === 404 || status === 410) {
               await db.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+            } else {
+              console.error("class reminder push failed", status, e);
+            }
           }
         }
       }

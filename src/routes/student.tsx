@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Bell, ClipboardCheck, Flag, LogOut, MessageSquare } from "lucide-react";
+import {
+  ArrowLeft,
+  Bell,
+  ClipboardCheck,
+  Flag,
+  LogOut,
+  MessageSquare,
+  Settings,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JourneyCard } from "@/components/sohoj/JourneyCard";
 import { StudentSetup } from "@/components/sohoj/StudentSetup";
@@ -131,6 +139,11 @@ function StudentPage() {
                 </Link>
               </Button>
             )}
+            <Button variant="ghost" size="sm" asChild aria-label="Settings">
+              <Link to="/settings">
+                <Settings /> <span className="hidden sm:inline">Settings</span>
+              </Link>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
