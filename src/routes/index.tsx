@@ -59,7 +59,6 @@ import {
 import { useAdminRole } from "@/hooks/use-admin-role";
 import { useNotices } from "@/hooks/use-notices";
 import { NoticeView } from "@/components/sohoj/NoticeView";
-import { useCrRole } from "@/hooks/use-cr-role";
 import { useClassUpdates } from "@/hooks/use-class-updates";
 import { summarizeForBanner, dateLabel, UPDATE_TYPES } from "@/lib/class-updates";
 import { LandingPage } from "@/components/sohoj/LandingPage";
@@ -118,7 +117,7 @@ import { cn } from "@/lib/utils";
 import { openFeedback } from "@/lib/feedback";
 import { logEvent } from "@/lib/analytics";
 import { Onboarding, InstallHint } from "@/components/sohoj/Onboarding";
-import { BottomTabBar, type BottomTabId } from "@/components/sohoj/BottomTabBar";
+import { OPEN_ADMIN_EVENT } from "@/components/sohoj/GlobalTabBar";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -165,7 +164,7 @@ function Index() {
   const [lastSynced, setLastSynced] = useState(() => new Date(0));
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
-  const { user, displayName, signOut, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   // Admin mode follows the real signed-in account's email.
   const adminEmail = user?.email ?? null;
   const [panelOpen, setPanelOpen] = useState(false);
@@ -207,7 +206,6 @@ function Index() {
     return () => events.forEach((e) => window.removeEventListener(e, updated));
   }, []);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
-  const { isCr: isCrUser } = useCrRole();
   const { updates: classUpdates, unreadCount } = useClassUpdates(studentProfile);
   const updateBanner = summarizeForBanner(classUpdates);
 
@@ -448,52 +446,18 @@ function Index() {
     }
   }, [profile?.instituteId]);
 
-  function openAdmin() {
-    if (!user) {
-      toast("Sign in first", { description: "Admin account diye sign in korun." });
-      navigate({ to: "/auth" });
-      return;
-    }
-    if (isAdmin) setPanelOpen(true);
-    else
-      toast.error("Access Denied: Unauthorized Email", {
-        description: `${user.email ?? ""} is not allowed to manage Campus Path.`,
-      });
-  }
-
   async function handleLogout() {
     setPanelOpen(false);
     await signOut();
     toast("Signed out");
   }
 
-  /** Bottom tab actions reuse the existing screens, dialog and role logic. */
-  function selectBottomTab(id: BottomTabId) {
-    switch (id) {
-      case "home":
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        break;
-      case "feedback":
-        openFeedback({ page: "home" });
-        break;
-      case "cr":
-        void navigate({ to: "/cr" });
-        break;
-      case "profile":
-        if (!user) {
-          void navigate({ to: "/auth" });
-        } else {
-          toast(`Signed in as ${displayName ?? user.email ?? ""}`, {
-            description: user.email ?? undefined,
-            action: { label: "Sign out", onClick: () => void handleLogout() },
-          });
-        }
-        break;
-      case "admin":
-        openAdmin();
-        break;
-    }
-  }
+  // The global tab bar opens the admin drawer through this event.
+  useEffect(() => {
+    const open = () => setPanelOpen(true);
+    window.addEventListener(OPEN_ADMIN_EVENT, open);
+    return () => window.removeEventListener(OPEN_ADMIN_EVENT, open);
+  }, []);
 
   function openAddForm(targetInstituteId: string) {
     setEditing(null);
@@ -1157,13 +1121,6 @@ function Index() {
               students
             </p>
           </div>
-
-          <BottomTabBar
-            active={panelOpen ? "admin" : "home"}
-            isAdmin={isAdmin}
-            isCr={isCrUser}
-            onSelect={selectBottomTab}
-          />
         </main>
 
         <QrScannerDialog open={qrOpen} onOpenChange={setQrOpen} onDetected={handleQrDetected} />

@@ -13,6 +13,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { FeedbackHost } from "@/components/sohoj/FeedbackDialog";
+import { GlobalTabBar } from "@/components/sohoj/GlobalTabBar";
 import { openFeedback } from "@/lib/feedback";
 
 import appCss from "../styles.css?url";
@@ -174,6 +175,7 @@ function RootComponent() {
       <ErrorBoundary>
         <AuthProvider>
           <Outlet />
+          <GlobalTabBar />
         </AuthProvider>
       </ErrorBoundary>
       <FeedbackHost />

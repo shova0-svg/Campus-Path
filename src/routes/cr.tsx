@@ -172,7 +172,7 @@ function CrPage() {
 
   if (!isCr || !assignment) {
     return (
-      <div className="bg-desk min-h-dvh px-4 py-6">
+      <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
         <main className="mx-auto w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-[var(--shadow-card)]">
           <p className="text-3xl">📋</p>
           <h1 className="mt-3 font-display text-xl font-semibold">আপনি CR নন</h1>
@@ -195,7 +195,7 @@ function CrPage() {
   );
 
   return (
-    <div className="bg-desk min-h-dvh px-4 py-6">
+    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
       <main className="mx-auto w-full max-w-md space-y-4">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">

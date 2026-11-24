@@ -114,29 +114,34 @@ function StudentPage() {
   }
 
   return (
-    <div className="bg-desk min-h-dvh px-4 py-6 lg:flex lg:justify-center">
+    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6 lg:flex lg:justify-center">
       <main className="w-full max-w-md space-y-4 md:max-w-2xl lg:max-w-4xl">
         <div className="flex items-center justify-between gap-3">
-          <Link to="/">
+          <Link to="/" aria-label="Back to home">
             <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
-              <ArrowLeft /> Back to home
+              <ArrowLeft /> <span className="hidden sm:inline">Back to home</span>
             </Button>
           </Link>
-          <div className="flex items-center gap-1">
+          <div className="flex min-w-0 items-center gap-0.5 sm:gap-1">
             <Logo variant="icon" size={24} />
             {isCrUser && (
               <Button variant="ghost" size="sm" asChild aria-label="CR section">
                 <Link to="/cr">
-                  <ClipboardCheck /> CR
+                  <ClipboardCheck /> <span className="hidden sm:inline">CR</span>
                 </Link>
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => openFeedback({ page: "student" })}>
-              <MessageSquare /> Feedback
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Send feedback"
+              onClick={() => openFeedback({ page: "student" })}
+            >
+              <MessageSquare /> <span className="hidden sm:inline">Feedback</span>
             </Button>
             {profile && (
-              <Button variant="ghost" size="sm" onClick={logout}>
-                <LogOut /> Logout
+              <Button variant="ghost" size="sm" aria-label="Log out" onClick={logout}>
+                <LogOut /> <span className="hidden sm:inline">Logout</span>
               </Button>
             )}
           </div>

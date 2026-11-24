@@ -37,7 +37,7 @@ function UpdatesPage() {
   }, [updates]);
 
   return (
-    <div className="bg-desk min-h-dvh px-4 py-6">
+    <div className="bg-desk min-h-dvh px-4 pb-28 pt-6">
       <main className="mx-auto w-full max-w-md space-y-4">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="-ml-2 text-muted-foreground">
