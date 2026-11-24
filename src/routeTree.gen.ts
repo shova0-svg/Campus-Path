@@ -14,9 +14,11 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CrRouteImport } from './routes/cr'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RightNowRouteImport } from './routes/right-now'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as StudentRouteImport } from './routes/student'
 import { Route as TeachersRouteImport } from './routes/teachers'
 import { Route as UpdatesRouteImport } from './routes/updates'
+import { Route as ShopProductIdRouteImport } from './routes/shop.$productId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -43,6 +45,11 @@ const RightNowRoute = RightNowRouteImport.update({
   path: '/right-now',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentRoute = StudentRouteImport.update({
   id: '/student',
   path: '/student',
@@ -58,6 +65,11 @@ const UpdatesRoute = UpdatesRouteImport.update({
   path: '/updates',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShopProductIdRoute = ShopProductIdRouteImport.update({
+  id: '/$productId',
+  path: '/$productId',
+  getParentRoute: () => ShopRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -65,9 +77,11 @@ export interface FileRoutesByFullPath {
   '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
+  '/shop': typeof ShopRouteWithChildren
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
+  '/shop/$productId': typeof ShopProductIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,9 +89,11 @@ export interface FileRoutesByTo {
   '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
+  '/shop': typeof ShopRouteWithChildren
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
+  '/shop/$productId': typeof ShopProductIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,9 +102,11 @@ export interface FileRoutesById {
   '/cr': typeof CrRoute
   '/reset-password': typeof ResetPasswordRoute
   '/right-now': typeof RightNowRoute
+  '/shop': typeof ShopRouteWithChildren
   '/student': typeof StudentRoute
   '/teachers': typeof TeachersRoute
   '/updates': typeof UpdatesRoute
+  '/shop/$productId': typeof ShopProductIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,9 +116,11 @@ export interface FileRouteTypes {
     | '/cr'
     | '/reset-password'
     | '/right-now'
+    | '/shop'
     | '/student'
     | '/teachers'
     | '/updates'
+    | '/shop/$productId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -108,9 +128,11 @@ export interface FileRouteTypes {
     | '/cr'
     | '/reset-password'
     | '/right-now'
+    | '/shop'
     | '/student'
     | '/teachers'
     | '/updates'
+    | '/shop/$productId'
   id:
     | '__root__'
     | '/'
@@ -118,9 +140,11 @@ export interface FileRouteTypes {
     | '/cr'
     | '/reset-password'
     | '/right-now'
+    | '/shop'
     | '/student'
     | '/teachers'
     | '/updates'
+    | '/shop/$productId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -129,6 +153,7 @@ export interface RootRouteChildren {
   CrRoute: typeof CrRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   RightNowRoute: typeof RightNowRoute
+  ShopRoute: typeof ShopRouteWithChildren
   StudentRoute: typeof StudentRoute
   TeachersRoute: typeof TeachersRoute
   UpdatesRoute: typeof UpdatesRoute
@@ -171,6 +196,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RightNowRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/student': {
       id: '/student'
       path: '/student'
@@ -192,8 +224,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UpdatesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shop/$productId': {
+      id: '/shop/$productId'
+      path: '/$productId'
+      fullPath: '/shop/$productId'
+      preLoaderRoute: typeof ShopProductIdRouteImport
+      parentRoute: typeof ShopRoute
+    }
   }
 }
+
+interface ShopRouteChildren {
+  ShopProductIdRoute: typeof ShopProductIdRoute
+}
+
+const ShopRouteChildren: ShopRouteChildren = {
+  ShopProductIdRoute: ShopProductIdRoute,
+}
+
+const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -201,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrRoute: CrRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   RightNowRoute: RightNowRoute,
+  ShopRoute: ShopRouteWithChildren,
   StudentRoute: StudentRoute,
   TeachersRoute: TeachersRoute,
   UpdatesRoute: UpdatesRoute,

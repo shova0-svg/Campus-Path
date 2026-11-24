@@ -19,6 +19,7 @@ import {
   SearchX,
   ShieldCheck,
   Sparkles,
+  Store,
   UserRound,
   WifiOff,
 } from "lucide-react";
@@ -666,6 +667,23 @@ function Index() {
             )}
             <div className="grid-cols-1 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {/* Right now — details live on their own page */}
+              <Link to="/shop" className="animate-rise block">
+                <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
+                  <div className="flex items-center gap-3 p-4">
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
+                      <Store className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">Campus Shop</span>
+                      <span className="font-bangla mt-0.5 block truncate text-xs text-muted-foreground">
+                        ক্যাম্পাস শপ — বই, যন্ত্র, ইলেকট্রনিক্স
+                      </span>
+                    </span>
+                    <ChevronRight className="size-5 shrink-0 text-muted-foreground" />
+                  </div>
+                </section>
+              </Link>
+
               <Link to="/right-now" className="animate-rise block">
                 <section className="overflow-hidden rounded-3xl border border-primary/10 bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-0.5 hover:border-primary/30">
                   <div className="flex items-center gap-3 p-4">

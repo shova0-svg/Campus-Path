@@ -197,6 +197,16 @@ export async function deleteProduct(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function getSellerName(sellerId: string): Promise<string> {
+  try {
+    const { data, error } = await db.rpc("shop_seller_name", { _seller: sellerId });
+    if (error) return "Student";
+    return String(data ?? "Student");
+  } catch {
+    return "Student";
+  }
+}
+
 export async function reportProduct(productId: string, reason: string): Promise<void> {
   const { error } = await db
     .from("shop_reports")

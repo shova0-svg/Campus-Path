@@ -88,10 +88,12 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
-## Campus Shop (Phase 1 — backend)
+## Campus Shop
 
-- Migration `20261125000001_shop.sql`: `shop_products`, `shop_reports`, `shop_bans` + `shop-images` storage bucket. RLS enforces institute scoping, seller-only writes, 10 active listings/user, one report/user/product, banned-user block, and hides sold/removed from buyers. Admin moderates via `is_institute_admin`/`is_super_admin`.
-- Pure helpers `src/lib/shop.ts` (validation mirrors DB CHECKs, filters/sort/price/WhatsApp) and repo `src/lib/repo/shop.ts` (pagination, CRUD, reports, bans, canvas image compression + bucket upload). No new dependencies.
+- Migrations `20261125000001_shop.sql` (schema/RLS/bucket), `...02_shop_image_cleanup.sql` (delete images with product), `...03_shop_rls_fixes.sql` (banned check via `shop_is_banned()` SECURITY DEFINER, `reporter_id default auth.uid()`, storage delete guard), `...04_shop_seller.sql` (`shop_seller_name()` RPC). RLS enforces institute scoping, seller-only writes, 10 active listings/user, one report/user/product, banned-user block, hides sold/removed from buyers; admin moderates via `is_institute_admin`/`is_super_admin`.
+- Live RLS verification (4 test users, all cleaned up): 11/11 checks passed — anon isolation, cross-user writes, immutable fields, 11th listing, ban, duplicate report, sold/removed visibility, storage isolation/type/size, image cleanup, cross-institute admin.
+- Pure helpers `src/lib/shop.ts`, repo `src/lib/repo/shop.ts` (pagination, CRUD, reports, bans, canvas image compression + bucket upload), scope helper `src/lib/shop-scope.ts`. No new dependencies.
+- Phase 2 screens: `/shop` (feed/search/chips/sort/condition+price filters/pull-to-refresh/pagination), `/shop/$productId` (carousel, contact, report), home **Campus Shop** card. No bottom tab.
 - Assumption: images are in a public bucket (only contact numbers must be logged-in-only; enforced by table RLS). No in-app payments.
 
 ## Class Representatives (CR)
