@@ -181,7 +181,14 @@ function RootComponent() {
       </ErrorBoundary>
       <FeedbackHost />
       <PushSoundHost />
-      <Toaster position="top-center" richColors />
+      {/* Toasts sit just above the bottom tab bar, never over the header. */}
+      <Toaster
+        position="bottom-center"
+        richColors
+        closeButton
+        duration={5000}
+        className="!bottom-[calc(5.5rem+env(safe-area-inset-bottom))]"
+      />
     </QueryClientProvider>
   );
 }

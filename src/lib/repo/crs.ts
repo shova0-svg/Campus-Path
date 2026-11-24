@@ -57,5 +57,6 @@ export async function removeCr(id: string): Promise<void> {
 export async function myCrAssignments(): Promise<CrRow[]> {
   const { data, error } = await db.rpc("my_cr_assignments");
   if (error) throw error;
-  return (data ?? []) as CrRow[];
+  // The RPC returns snake_case columns; map them to the client model.
+  return (data ?? []).map((row: Row) => fromRow(row));
 }

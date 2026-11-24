@@ -161,3 +161,50 @@ export function crErrorMessage(error: unknown): string {
   if (/max 2/i.test(message)) return "এই ক্লাসে সর্বোচ্চ ২ জন CR / Max 2 CRs per class";
   return "CR যোগ করা যায় ni / Could not add CR";
 }
+
+/** Retry only transport failures; never retry a 4xx / validation error. */
+export function isNetworkError(error: unknown): boolean {
+  const code = (error as { code?: string })?.code ?? "";
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return code === "FETCH_ERROR" || /failed to fetch|network|timeout|load failed/i.test(message);
+}
+
+export async function withNetworkRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (!isNetworkError(error)) throw error;
+    return fn(); // exactly one retry
+  }
+}
+
+/** Bilingual, specific messages for a failed class-update post. */
+export function postErrorMessage(error: unknown): string {
+  const code = String((error as { code?: string })?.code ?? "");
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  if (isNetworkError(error))
+    return "ইন্টারনেট সংযোগ নেই — আবার চেষ্টা করুন / Network problem — check connection and retry";
+  if (/JWT|session|expired|401/i.test(message) || code === "PGRST301")
+    return "সেশন শেষ হয়েছে — আবার লগইন করুন / Session expired — please sign in again";
+  if (code === "42501" || /row-level security|permission denied/i.test(message))
+    return "অনুমতি নেই — আপনি এই ক্লাসের CR নন / Not allowed — you are not a CR for this class";
+  if (code === "23514" || code === "23502" || /check constraint|not-null/i.test(message))
+    return "ইনপুট ঠিক নেই — ঘরন, তারিখ বা বার্তা যাচাই করুন / Invalid input — check type, date and message";
+  if (code.startsWith("5") || /internal server error/i.test(message))
+    return "সার্ভার সমস্যা — একটু পরে চেষ্টা করুন / Server error — try again later";
+  return `পোস্ট ব্যর্থ / Could not post: ${message.slice(0, 140)}`;
+}
+
+/** Persist first; notification failures are logged but never undo the save. */
+export async function saveThenNotify<T>(
+  save: () => Promise<T>,
+  notify: (saved: T) => void,
+): Promise<T> {
+  const saved = await save();
+  try {
+    notify(saved);
+  } catch (error) {
+    console.warn("class update push failed", error);
+  }
+  return saved;
+}

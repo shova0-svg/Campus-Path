@@ -28,7 +28,10 @@ import {
   dateLabel,
   dhakaDate,
   isActive,
+  postErrorMessage,
+  saveThenNotify,
   sortUpdates,
+  withNetworkRetry,
   UPDATE_TYPES,
   validateUpdate,
   type ClassKey,
@@ -43,6 +46,7 @@ import {
 } from "@/lib/repo/classUpdates";
 import { ROUTINES } from "@/lib/routine";
 import { toast } from "sonner";
+import { notifyClassUpdate } from "@/lib/notify";
 
 export const Route = createFileRoute("/cr")({
   head: () => ({
@@ -137,48 +141,48 @@ function CrPage() {
     setNotice("");
     try {
       if (editing) {
-        await updateUpdate(editing.id, {
-          type: type as UpdateType,
-          subjectCode,
-          eventDate,
-          eventTime,
-          title,
-          body,
-          urgent,
-        });
-        toast.success("Update edited");
+        await withNetworkRetry(() =>
+          updateUpdate(editing.id, {
+            type: type as UpdateType,
+            subjectCode,
+            eventDate,
+            eventTime,
+            title,
+            body,
+            urgent,
+          }),
+        );
+        toast.success("Update edited / আপডেট সম্পাদনা হয়েছে");
       } else {
-        await createUpdate({
-          ...classKey,
-          type: type as UpdateType,
-          ...(subjectCode ? { subjectCode } : {}),
-          eventDate,
-          ...(eventTime ? { eventTime } : {}),
-          title,
-          ...(body ? { body } : {}),
-          urgent,
-        });
-        toast.success("Update posted");
+        await saveThenNotify(
+          () =>
+            withNetworkRetry(() =>
+              createUpdate({
+                ...classKey,
+                type: type as UpdateType,
+                ...(subjectCode ? { subjectCode } : {}),
+                eventDate,
+                ...(eventTime ? { eventTime } : {}),
+                title,
+                ...(body ? { body } : {}),
+                urgent,
+              }),
+            ),
+          (saved) => notifyClassUpdate(saved.title),
+        );
+        toast.success("Update posted / আপডেট পোস্ট হয়েছে");
       }
       setTitle("");
       setBody("");
       setType("");
       setEditing(null);
-      await resource.refresh();
+      await resource.refresh().catch(() => {});
     } catch (e) {
-      const reachable = await checkConnectivity();
-      const detail = e instanceof Error ? e.message : "";
-      if (!reachable) {
-        toast.error("Internet দরকার / Internet needed to post");
-      } else if (/row-level security|permission denied/i.test(detail)) {
-        toast.error("আপনার CR একাউন্ট যাচাইকৃত নয় / CR account not verified — contact admin");
-      } else {
-        toast.error(
-          detail
-            ? `পোস্ট ব্যর্থ / Could not post: ${detail.slice(0, 120)}`
-            : "পোস্ট ব্যর্থ / Could not post",
-        );
-      }
+      const message = postErrorMessage(e);
+      setNotice(message);
+      toast.error(message);
+      // Keep the typed title/message/date so the user can retry.
+      void checkConnectivity();
     } finally {
       setBusy(false);
     }
@@ -354,7 +358,14 @@ function CrPage() {
             <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
             <Zap className="size-3.5 text-amber-500" /> Urgent / জরুরি
           </label>
-          {notice && <p className="text-[11px] text-destructive">{notice}</p>}
+          {notice && (
+            <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-2.5 text-[11px] text-destructive">
+              <span className="flex-1">{notice}</span>
+              <button type="button" aria-label="Dismiss error" onClick={() => setNotice("")}>
+                ✕
+              </button>
+            </div>
+          )}
           <Button variant="emerald" className="w-full" onClick={post} disabled={busy}>
             <Send className="size-4" />{" "}
             {busy ? "Posting…" : editing ? "Save changes" : "Post update"}

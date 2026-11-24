@@ -105,6 +105,15 @@ export function showNoticeNotification(title: string, noticeTitle: string, url: 
   fire(title, noticeTitle.slice(0, 140), url);
 }
 
+/** Best-effort in-app notice after a class update is saved; never blocks the post. */
+export function notifyClassUpdate(title: string): void {
+  try {
+    showNoticeNotification("Class update / ক্লাস আপডেট", title, "/updates");
+  } catch (error) {
+    console.warn("class update notification skipped", error);
+  }
+}
+
 /** Schedules class reminders while the app is open (no Firebase needed). */
 export function scheduleJourneyReminders(journey: Journey): () => void {
   if (!notificationsEnabled() || typeof window === "undefined") return () => {};
