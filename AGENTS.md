@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Shop images
+
+- `src/lib/shop-image.ts` is the single URL helper: accepts storage paths, `/shop-images/...` prefixes and legacy full URLs without double-prefixing. `imageUrl()` in repo delegates to it. `ShopImage` reserves aspect ratio, shows skeleton while loading and an icon placeholder on error; used on cards, detail carousel, My Shop and seller page.
+- Upload validates blob size/MIME and uploads with the real type (webp/png/jpg) instead of always labeling webp; a failed upload aborts the product save with a bilingual error and keeps form data. Migration `20261126000014_shop_image_paths_repair.sql` normalizes legacy full-URL values (dry run: 0 rows). Storage RLS unchanged.
+
 ## Campus Shop storefront (Phase 4)
 
 - Migrations `20261126000012_shop_wishlist.sql` + `...13_shop_wishlist_default.sql`: per-user wishlist with `user_id DEFAULT auth.uid()`, RLS owner-only. No other RLS/request rules changed in this phase.
