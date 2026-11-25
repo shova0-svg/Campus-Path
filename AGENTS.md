@@ -90,9 +90,9 @@ use the editor.
 
 ## Campus AI (Phase 1 — read-only)
 
-- Edge Function `campus-ai/` verifies the caller JWT, builds a **user-JWT** Supabase client (never service role), checks bans, increments `ai_usage` (atomic RPC, 20/day via `AI_DAILY_LIMIT`), and calls Lovable AI gateway (`LOVABLE_API_KEY`, `AI_MODEL` default `google/gemini-2.5-flash`). Kill switch `AI_ENABLED=false`.
+- Edge Function `campus-ai/` verifies the caller JWT, builds a **user-JWT** Supabase client (never service role), checks bans, increments `ai_usage` (atomic RPC, 20/day via `AI_DAILY_LIMIT`) and **refunds** it on provider-side failures (`ai_usage_refund`). Kill switch `AI_ENABLED=false`. Provider wrapper `campus-ai/provider.ts` calls **Google Gemini API** (`GEMINI_API_KEY`, `AI_MODEL` — both required, no default model); provider 429 returns a bilingual busy answer and refunds the question. Key is sent in `x-goog-api-key`, never logged.
 - Fixed tools only: `get_my_routine`, `get_class_updates`, `find_teacher`, `find_room_or_location`, `get_notices`, `search_shop`, `get_my_notifications`. Institute/class scope comes from `student_profiles` in the function; tools with `using(true)` RLS are filtered server-side. Max 4 tool calls, 700 max_tokens, 18s timeout, last 6 messages, deep-link whitelist in `campus-ai/shared.ts`. No phone numbers / personal data; shop returns product links only.
-- Required secrets (names only): `LOVABLE_API_KEY` (NOT set in this project yet — function returns 503 until added), optional `AI_MODEL`, `AI_DAILY_LIMIT`, `AI_ENABLED`. Response: `{answer, sources[], deepLink?}`.
+- Required secrets (names only): `GEMINI_API_KEY` and `AI_MODEL` (NOT set yet — function returns the existing 503 until both are added). Optional: `AI_DAILY_LIMIT`, `AI_ENABLED`. Response: `{answer, sources[], deepLink?}`. Verified: missing key increments nothing (usage 0); increment→refund restores 1→0.
 - Live checks (6/6): cross-institute scope, injection-as-data, unauth 401, banned 403, rate limit 429 on 21st question. 15 real Bangla/Banglish answers pending the AI key.
 
 ## Shop images

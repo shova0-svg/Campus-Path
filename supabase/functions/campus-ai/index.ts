@@ -1,5 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeDeepLink } from "./shared.ts";
+import {
+  AI_BUSY_MESSAGE,
+  ProviderBusyError,
+  ProviderError,
+  callProvider,
+  type ChatMessage,
+  type ToolDef,
+  type ToolCall,
+} from "./provider.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +25,81 @@ const json = (body: unknown, status = 200) =>
 const NOT_FOUND = "I couldn't find this in Campus Path / আমি এটি Campus Path-এ খুঁজে পাইনি।";
 const DAILY_LIMIT =
   "দৈনিক প্রশ্নের সীমা শেষ — কাল আবার চেষ্টা করুন / Daily question limit reached — try again tomorrow.";
+
+const TOOLS: ToolDef[] = [
+  {
+    type: "function",
+    function: {
+      name: "get_my_routine",
+      description: "My own class routine for my institute, semester and shift.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_class_updates",
+      description: "Active class updates posted for my own class only.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_teacher",
+      description: "Find teachers by name or designation in my institute.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string", description: "Name or designation" } },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_room_or_location",
+      description: "Find a room/location by name or room number in my institute.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_notices",
+      description: "Approved notices for my institute.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_shop",
+      description:
+        "Search available Campus Shop products in my institute. Returns product links only.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" }, category: { type: "string" } },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_my_notifications",
+      description: "My own notification inbox messages only.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
+];
 
 const SYSTEM = `You are Campus Path Assistant, a read-only helper for the Campus Path app.
 RULES:
@@ -35,7 +119,10 @@ const shiftNumber = (value: unknown): number => {
   return s === "2" || s === "2nd" || s === "second" || s === "evening" ? 2 : 1;
 };
 const latest = (rows: Record<string, unknown>[]): string | null => {
-  const times = rows.map((r) => String(r["updated_at"] ?? r["created_at"] ?? "")).filter(Boolean).sort();
+  const times = rows
+    .map((r) => String(r["updated_at"] ?? r["created_at"] ?? ""))
+    .filter(Boolean)
+    .sort();
   return times.length ? times[times.length - 1]! : null;
 };
 
@@ -43,7 +130,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     if ((Deno.env.get("AI_ENABLED") ?? "true").toLowerCase() === "false")
-      return json({ answer: "AI সেবা এখন বন্ধ আছে / AI is temporarily disabled.", sources: [] }, 503);
+      return json(
+        { answer: "AI সেবা এখন বন্ধ আছে / AI is temporarily disabled.", sources: [] },
+        503,
+      );
 
     const authHeader = req.headers.get("authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
@@ -60,10 +150,29 @@ Deno.serve(async (req) => {
 
     const banned = await db.rpc("shop_is_banned");
     if (banned.data === true)
-      return json({ answer: "আপনার একাউন্টে এই সেবা বর্তমানে উপলব্ধ নয় / This service is unavailable for your account.", sources: [] }, 403);
+      return json(
+        {
+          answer:
+            "আপনার একাউন্টে এই সেবা বর্তমানে উপলব্ধ নয় / This service is unavailable for your account.",
+          sources: [],
+        },
+        403,
+      );
+
+    // Check configuration before spending a user's daily question.
+    const aiKey = Deno.env.get("GEMINI_API_KEY");
+    const model = Deno.env.get("AI_MODEL");
+    if (!aiKey || !model)
+      return json({ answer: "AI key not configured / AI key সেট করা নেই।", sources: [] }, 503);
+
+    const refund = async () => {
+      await db.rpc("ai_usage_refund");
+    };
 
     const limit = Number(Deno.env.get("AI_DAILY_LIMIT") ?? "20") || 20;
-    const { data: used, error: usageError } = await db.rpc("ai_usage_increment", { p_limit: limit });
+    const { data: used, error: usageError } = await db.rpc("ai_usage_increment", {
+      p_limit: limit,
+    });
     if (usageError) throw usageError;
     if (used === -1) return json({ answer: DAILY_LIMIT, sources: [] }, 429);
 
@@ -75,11 +184,6 @@ Deno.serve(async (req) => {
       content: String(m.content ?? "").slice(0, 4000),
     }));
 
-    const aiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!aiKey)
-      return json({ answer: "AI key not configured / AI key সেট করা নেই।", sources: [] }, 503);
-    const model = Deno.env.get("AI_MODEL") ?? "google/gemini-2.5-flash";
-
     const { data: profile } = await db
       .from("student_profiles")
       .select("institute_id, department, semester, shift")
@@ -88,139 +192,222 @@ Deno.serve(async (req) => {
     const scope = profile ?? {};
 
     async function runTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
-      const q = String(args["query"] ?? "").trim().slice(0, 80);
-      const empty = (screen: string): ToolResult => ({ data: [], sources: [{ screen, lastUpdated: null }] });
+      const q = String(args["query"] ?? "")
+        .trim()
+        .slice(0, 80);
+      const empty = (screen: string): ToolResult => ({
+        data: [],
+        sources: [{ screen, lastUpdated: null }],
+      });
       const institute = String(scope["institute_id"] ?? "");
       if (!institute) return empty("Profile");
 
       if (name === "get_my_routine") {
-        const { data } = await db.from("routines").select("semester,shift,data,updated_at").eq("institute_id", institute).limit(8);
-        const rows = (data ?? []).filter((r) =>
-          Number(r["semester"]) === Number(scope["semester"]) &&
-          shiftNumber(r["shift"]) === shiftNumber(scope["shift"]),
+        const { data } = await db
+          .from("routines")
+          .select("semester,shift,data,updated_at")
+          .eq("institute_id", institute)
+          .limit(8);
+        const rows = (data ?? []).filter(
+          (r) =>
+            Number(r["semester"]) === Number(scope["semester"]) &&
+            shiftNumber(r["shift"]) === shiftNumber(scope["shift"]),
         ) as Record<string, unknown>[];
-        const entries = rows.flatMap((r) => {
-          const d = (r["data"] ?? {}) as Record<string, unknown>;
-          const list = Array.isArray(d["entries"]) ? d["entries"] as Record<string, unknown>[] : [];
-          return list.map((e) => ({
-            day: e["day"], subject: e["subject"], code: e["code"],
-            teacher: e["teacher"], room: e["room"], time: e["time"],
-          }));
-        }).slice(0, 24);
+        const entries = rows
+          .flatMap((r) => {
+            const d = (r["data"] ?? {}) as Record<string, unknown>;
+            const list = Array.isArray(d["entries"])
+              ? (d["entries"] as Record<string, unknown>[])
+              : [];
+            return list.map((e) => ({
+              day: e["day"],
+              subject: e["subject"],
+              code: e["code"],
+              teacher: e["teacher"],
+              room: e["room"],
+              time: e["time"],
+            }));
+          })
+          .slice(0, 24);
         return { data: entries, sources: [{ screen: "Class Routine", lastUpdated: latest(rows) }] };
       }
 
       if (name === "get_class_updates") {
-        let query = db.from("class_updates").select("type,title,body,event_date,event_time,urgent,created_at,updated_at")
-          .eq("institute_id", institute).is("deleted_at", null).gt("expires_at", new Date().toISOString());
+        let query = db
+          .from("class_updates")
+          .select("type,title,body,event_date,event_time,urgent,created_at,updated_at")
+          .eq("institute_id", institute)
+          .is("deleted_at", null)
+          .gt("expires_at", new Date().toISOString());
         if (scope["department"]) query = query.eq("department", scope["department"]);
         if (scope["semester"] != null) query = query.eq("semester", scope["semester"]);
         query = query.eq("shift", shiftNumber(scope["shift"]));
         const { data } = await query.order("created_at", { ascending: false }).limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
-        return { data: rows.map((r) => ({ type: r["type"], title: r["title"], body: String(r["body"] ?? "").slice(0, 300), eventDate: r["event_date"], eventTime: r["event_time"], urgent: r["urgent"] })), sources: [{ screen: "Class Updates", lastUpdated: latest(rows) }] };
+        return {
+          data: rows.map((r) => ({
+            type: r["type"],
+            title: r["title"],
+            body: String(r["body"] ?? "").slice(0, 300),
+            eventDate: r["event_date"],
+            eventTime: r["event_time"],
+            urgent: r["urgent"],
+          })),
+          sources: [{ screen: "Class Updates", lastUpdated: latest(rows) }],
+        };
       }
 
       if (name === "find_teacher") {
         if (!q) return empty("Faculty Directory");
-        const { data } = await db.from("teachers").select("name,designation,department,room_no,updated_at")
-          .eq("institute_id", institute).or(`name.ilike.%${q}%,designation.ilike.%${q}%,department.ilike.%${q}%`).limit(8);
+        const { data } = await db
+          .from("teachers")
+          .select("name,designation,department,room_no,updated_at")
+          .eq("institute_id", institute)
+          .or(`name.ilike.%${q}%,designation.ilike.%${q}%,department.ilike.%${q}%`)
+          .limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
-        return { data: rows.map((r) => ({ name: r["name"], designation: r["designation"], department: r["department"], room: r["room_no"] })), sources: [{ screen: "Faculty Directory", lastUpdated: latest(rows) }] };
+        return {
+          data: rows.map((r) => ({
+            name: r["name"],
+            designation: r["designation"],
+            department: r["department"],
+            room: r["room_no"],
+          })),
+          sources: [{ screen: "Faculty Directory", lastUpdated: latest(rows) }],
+        };
       }
 
       if (name === "find_room_or_location") {
         if (!q) return empty("Campus Map");
-        const { data } = await db.from("rooms").select("name,room_no,type,floor,building_id,updated_at")
-          .eq("institute_id", institute).or(`name.ilike.%${q}%,room_no.ilike.%${q}%`).limit(8);
+        const { data } = await db
+          .from("rooms")
+          .select("name,room_no,type,floor,building_id,updated_at")
+          .eq("institute_id", institute)
+          .or(`name.ilike.%${q}%,room_no.ilike.%${q}%`)
+          .limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
-        return { data: rows.map((r) => ({ name: r["name"], room: r["room_no"], type: r["type"], floor: r["floor"], building: r["building_id"] })), sources: [{ screen: "Campus Map", lastUpdated: latest(rows) }] };
+        return {
+          data: rows.map((r) => ({
+            name: r["name"],
+            room: r["room_no"],
+            type: r["type"],
+            floor: r["floor"],
+            building: r["building_id"],
+          })),
+          sources: [{ screen: "Campus Map", lastUpdated: latest(rows) }],
+        };
       }
 
       if (name === "get_notices") {
-        const { data } = await db.from("notices").select("title,published_date,url,updated_at")
-          .eq("institute_id", institute).eq("status", "approved").order("published_date", { ascending: false }).limit(8);
+        const { data } = await db
+          .from("notices")
+          .select("title,published_date,url,updated_at")
+          .eq("institute_id", institute)
+          .eq("status", "approved")
+          .order("published_date", { ascending: false })
+          .limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
-        return { data: rows.map((r) => ({ title: r["title"], date: r["published_date"], url: r["url"] })), sources: [{ screen: "Notice Board", lastUpdated: latest(rows) }] };
+        return {
+          data: rows.map((r) => ({ title: r["title"], date: r["published_date"], url: r["url"] })),
+          sources: [{ screen: "Notice Board", lastUpdated: latest(rows) }],
+        };
       }
 
       if (name === "search_shop") {
-        let query = db.from("shop_products").select("id,title,price,item_condition,category,updated_at")
-          .eq("institute_id", institute).in("status", ["available", "reserved"]);
+        let query = db
+          .from("shop_products")
+          .select("id,title,price,item_condition,category,updated_at")
+          .eq("institute_id", institute)
+          .in("status", ["available", "reserved"]);
         if (q) query = query.ilike("title", `%${q}%`);
         if (typeof args["category"] === "string" && args["category"])
           query = query.eq("category", String(args["category"]));
         const { data } = await query.limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
         return {
-          data: rows.map((r) => ({ title: r["title"], price: r["price"], condition: r["item_condition"], category: r["category"], link: `/shop/${r["id"]}` })),
+          data: rows.map((r) => ({
+            title: r["title"],
+            price: r["price"],
+            condition: r["item_condition"],
+            category: r["category"],
+            link: `/shop/${r["id"]}`,
+          })),
           sources: [{ screen: "Campus Shop", lastUpdated: latest(rows) }],
         };
       }
 
       if (name === "get_my_notifications") {
-        const { data } = await db.from("notifications").select("type,title,body,created_at,read_at")
-          .eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
+        const { data } = await db
+          .from("notifications")
+          .select("type,title,body,created_at,read_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10);
         const rows = (data ?? []) as Record<string, unknown>[];
-        return { data: rows.map((r) => ({ type: r["type"], title: r["title"], body: String(r["body"] ?? "").slice(0, 200), createdAt: r["created_at"] })), sources: [{ screen: "Notifications", lastUpdated: latest(rows) }] };
+        return {
+          data: rows.map((r) => ({
+            type: r["type"],
+            title: r["title"],
+            body: String(r["body"] ?? "").slice(0, 200),
+            createdAt: r["created_at"],
+          })),
+          sources: [{ screen: "Notifications", lastUpdated: latest(rows) }],
+        };
       }
 
       return { data: [], sources: [] };
     }
 
-    const convo: Record<string, unknown>[] = [{ role: "system", content: SYSTEM }, ...messages];
+    const convo: ChatMessage[] = messages.map((m) => ({
+      role: m.role as ChatMessage["role"],
+      content: m.content,
+    }));
     const sources: Source[] = [];
     let calls = 0;
     let answer = NOT_FOUND;
 
     for (let round = 0; round < 4; round++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 18000);
-      let aiRes: Response;
+      let result;
       try {
-        aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          signal: controller.signal,
-          headers: { Authorization: `Bearer ${aiKey}`, "content-type": "application/json" },
-          body: JSON.stringify({
-            model, messages: convo, tools: TOOLS, tool_choice: "auto",
-            max_tokens: 700, temperature: 0.2,
-          }),
+        result = await callProvider({
+          key: aiKey,
+          model,
+          system: SYSTEM,
+          messages: convo,
+          tools: TOOLS,
+          maxTokens: 700,
+          timeoutMs: 18000,
         });
-      } finally {
-        clearTimeout(timer);
+      } catch (error) {
+        await refund(); // provider-side failure must not spend the user's question
+        if (error instanceof ProviderBusyError)
+          return json({ answer: AI_BUSY_MESSAGE, sources: [] });
+        if (error instanceof ProviderError)
+          console.error("campus-ai provider status", error.status);
+        return json(
+          { answer: "AI সেবা এখন উপলব্ধ নয় / AI service is unavailable right now.", sources: [] },
+          502,
+        );
       }
-      if (!aiRes.ok) {
-        console.error("campus-ai gateway error", aiRes.status);
-        return json({ answer: "AI সেবা এখন উপলব্ধ নয় / AI service is unavailable right now.", sources: [] }, 502);
-      }
-      const completion = await aiRes.json();
-      const choice = (completion?.choices ?? [])[0] ?? {};
-      const message = choice["message"] ?? {};
-      const toolCalls = Array.isArray(message["tool_calls"]) ? message["tool_calls"] : [];
 
+      const toolCalls: ToolCall[] = result.toolCalls;
       if (toolCalls.length === 0) {
-        answer = String(message["content"] ?? "").trim() || NOT_FOUND;
+        answer = result.content || NOT_FOUND;
         break;
       }
-      convo.push(message);
       for (const call of toolCalls) {
         if (calls >= 4) break;
         calls++;
-        const fn = call["function"] ?? {};
-        const args = typeof fn["arguments"] === "string"
-          ? JSON.parse(fn["arguments"] || "{}")
-          : (fn["arguments"] ?? {});
-        const result = await runTool(String(fn["name"] ?? ""), args as Record<string, unknown>);
-        sources.push(...result.sources);
+        const outcome = await runTool(call.name, call.args);
+        sources.push(...outcome.sources);
         convo.push({
           role: "tool",
-          tool_call_id: call["id"],
-          content: JSON.stringify(result.data).slice(0, 6000),
+          name: call.name,
+          content: JSON.stringify(outcome.data).slice(0, 6000),
         });
       }
       if (calls >= 4) {
-        answer = String(message["content"] ?? "").trim() || NOT_FOUND;
+        answer = result.content || NOT_FOUND;
         break;
       }
     }
@@ -233,6 +420,12 @@ Deno.serve(async (req) => {
     return json({ answer, sources, ...(deepLink ? { deepLink } : {}) });
   } catch (e) {
     console.error("campus-ai error", e);
-    return json({ answer: "একটি সমস্যা হয়েছে — আবার চেষ্টা করুন / Something went wrong — please retry.", sources: [] }, 500);
+    return json(
+      {
+        answer: "একটি সমস্যা হয়েছে — আবার চেষ্টা করুন / Something went wrong — please retry.",
+        sources: [],
+      },
+      500,
+    );
   }
 });
