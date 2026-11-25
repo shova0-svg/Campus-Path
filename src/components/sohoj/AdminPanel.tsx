@@ -202,7 +202,7 @@ export function AdminPanel({
     { id: "rooms", label: "Rooms", icon: Pencil },
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "teachers", label: "Teachers", icon: UserRound },
-    { id: "teacherAccounts", label: "Teacher Accounts", icon: UserCog },
+    { id: "teacherAccounts", label: "Accounts", icon: UserCog },
     ...(isSuper ? [{ id: "crs" as Tab, label: "CRs", icon: UserRoundCheck }] : []),
     { id: "qr", label: "QR", icon: QrCode },
     { id: "notices", label: "Notice", icon: BellRing },
@@ -236,26 +236,28 @@ export function AdminPanel({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-primary-foreground/10 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-primary-foreground/10 p-1 [scrollbar-width:none] sm:grid sm:grid-cols-5 sm:overflow-visible [&::-webkit-scrollbar]:hidden">
               {tabs.map((t) => {
                 const Icon = t.icon;
                 return (
                   <button
                     key={t.id}
                     type="button"
+                    title={t.id === "teacherAccounts" ? "Teacher Accounts" : t.label}
                     onClick={() => {
                       setTab(t.id);
                       setEditingBuilding(null);
                       setEditingTeacher(null);
                     }}
                     className={cn(
-                      "flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
+                      "flex min-w-0 shrink-0 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold transition-colors sm:text-xs",
                       tab === t.id
                         ? "bg-primary-foreground text-primary"
                         : "text-primary-foreground/75",
                     )}
                   >
-                    <Icon className="size-3.5" /> {t.label}
+                    <Icon className="size-3.5 shrink-0" />
+                    <span className="truncate">{t.label}</span>
                   </button>
                 );
               })}
