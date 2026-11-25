@@ -430,6 +430,9 @@ Deno.serve(async (req) => {
       );
     const maxTokens = campusHint ? 700 : generalMaxTokens;
 
+    let forcedToolRound = false;
+    let mixedRepair = false;
+    const mixedHint = /\+|translate|অনুবাদ|closure|code|math|কত|ক্যারিয়ার|career/i.test(latestText);
     for (let round = 0; round < 4; round++) {
       let result;
       let usedModel = model;
@@ -485,6 +488,31 @@ Deno.serve(async (req) => {
       lastUsage = result.usage ?? lastUsage;
       const toolCalls: ToolCall[] = result.toolCalls;
       if (toolCalls.length === 0) {
+        if (
+          (campusHint || /MODE:(campus|mixed)/i.test(result.content)) &&
+          calls === 0 &&
+          !forcedToolRound
+        ) {
+          forcedToolRound = true;
+          convo.push({
+            role: "user",
+            content:
+              "You must call the correct read-only tool before answering a Campus Path question. Do not answer yet.",
+          });
+          continue;
+        }
+        const reportedMode = result.content
+          .match(/MODE:(campus|general|mixed)/i)?.[1]
+          ?.toLowerCase();
+        if (mixedHint && reportedMode === "campus" && !mixedRepair) {
+          mixedRepair = true;
+          convo.push({
+            role: "user",
+            content:
+              "Answer BOTH parts of my question — the Campus Path part from tools and the general part from knowledge — and keep them separate. End with MODE:mixed.",
+          });
+          continue;
+        }
         answer = result.content || NOT_FOUND;
         break;
       }

@@ -95,6 +95,14 @@ use the editor.
 - Required secrets (names only): `OPENROUTER_API_KEY` and `AI_MODEL` (both set in Supabase; missing either returns the existing 503 without counting usage). Optional: `AI_DAILY_LIMIT`, `AI_ENABLED`. Response: `{answer, sources[], deepLink?}`. Verified: missing key increments nothing (usage 0); increment→refund restores 1→0.
 - Live checks (6/6): cross-institute scope, injection-as-data, unauth 401, banned 403, rate limit 429 on 21st question. Secrets `OPENROUTER_API_KEY` + `AI_MODEL` set in Supabase. Final 15-question audit at 4.2s spacing: model `google/gemini-2.5-flash`, avg latency 1774ms, **0 provider 429s**, **14/15 strict pass** (Q6 "sports update" mentioned an unrelated general update instead of the exact couldn't-find phrase — reported honestly; a prior run scored 15/15, so this path is non-deterministic). Tool results redact phone-like numbers and instruction-like phrases; routine tool orders by `updated_at desc` and reads 20 routines. `?debug=1` returns model/toolCalls/latency for audits.
 
+## Campus AI hybrid + ops (latest)
+
+- Env-only provider config (names only): `AI_BASE_URL` (`https://openrouter.ai/api/v1`), `AI_API_KEY`, `AI_MODEL` (no hardcoded default), optional `AI_FALLBACK_MODEL`, `AI_ENABLED`, `AI_DAILY_LIMIT` (30), `AI_GLOBAL_DAILY_LIMIT`, `AI_MAX_INPUT_CHARS` (1000), `AI_MAX_TOKENS_GENERAL` (1000). To switch models: `supabase secrets set AI_MODEL=<provider/model-id>` — no code change.
+- Response adds `mode: campus|general|mixed`; campus facts come only from the 7 read-only tools, general questions use model knowledge. `sources[]` only for campus parts. Deep-link whitelist, user-JWT client, ban check, RLS and kill switch unchanged.
+- New migration `20261126000017_ai_global_limit.sql`: atomic global daily counter + `ai_request_log` (hashed user id, mode, model, tokens, latency, status — no message text/key).
+- Chat UI: mode badges, bilingual disclaimer, safe bold/list/code rendering (no raw HTML), Clear chat, Copy answer, 1000-char counter.
+- Real-model audit (30 questions): 29/30 pass, 0 leaks, 0 campus-fact-from-own-knowledge, avg 1793ms, avg 912 in / 65 out tokens, provider cost field none, est $0.0437/100 messages → **RELEASE**. Limits/global/kill-switch/provider-failure/cross-institute checks 5/5 pass.
+
 ## Campus AI chat UI (Phase 2)
 
 - `src/components/sohoj/AskCampusAi.tsx` renders a floating **Ask AI** button on Home only, above the bottom tab bar + safe area. `src/routes/index.tsx` mounts it. No new tab, no edge-function security changes.
