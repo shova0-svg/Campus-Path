@@ -35,6 +35,8 @@ import {
   updateProduct,
 } from "@/lib/repo/shop";
 import { signInWithGoogle } from "@/lib/supabase-auth";
+import { listIncomingRequests, updateRequest, type PurchaseRequest } from "@/lib/repo/shopRequests";
+import { REQUEST_SAFETY_NOTE, requestStatusLabel, type RequestStatus } from "@/lib/shop-requests";
 
 export const Route = createFileRoute("/shop/my")({
   head: () => ({ meta: [{ title: "My Shop — Campus Path" }] }),
@@ -53,10 +55,17 @@ function MyShop() {
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<"products" | "requests">("products");
+  const [requests, setRequests] = useState<PurchaseRequest[]>([]);
+  const [pendingAction, setPendingAction] = useState<{
+    request: PurchaseRequest;
+    status: RequestStatus;
+  } | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
     setProducts(await listMyProducts(user.id));
+    setRequests(await listIncomingRequests());
   }, [user?.id]);
   useEffect(() => {
     void load();
@@ -206,116 +215,218 @@ function MyShop() {
           </Button>
         </section>
 
-        <Button variant="emerald" className="w-full" asChild>
-          <Link to="/shop/new">
-            <Plus /> Add product / নতুন আইটেম
-          </Link>
-        </Button>
-
-        <div className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1 [scrollbar-width:none]">
-          {SHOP_STATUS_TABS.map((t) => (
+        <div className="flex gap-1 rounded-xl bg-muted p-1">
+          {(["products", "requests"] as const).map((v) => (
             <button
-              key={t.id}
+              key={v}
               type="button"
-              onClick={() => setTab(t.id)}
-              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${tab === t.id ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+              onClick={() => setView(v)}
+              className={`flex-1 rounded-lg py-1.5 text-[11px] font-semibold ${view === v ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
             >
-              {t.label.split(" / ")[0]} ({products.filter((p) => p.status === t.id).length})
+              {v === "products"
+                ? "Products / পণ্য"
+                : `Orders / Requests (${requests.filter((r) => r.status === "pending").length})`}
             </button>
           ))}
         </div>
 
-        {shown.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            No products here / এখানে কোনো আইটেম নেই।
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {shown.map((p) => (
-              <li key={p.id} className="rounded-2xl border border-border bg-card p-3">
-                <div className="flex gap-3">
-                  <img
-                    src={imageUrl(p.images[0] ?? "")}
-                    alt=""
-                    className="size-16 shrink-0 rounded-xl object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{p.title}</p>
-                    <p className="text-xs font-bold text-emerald">{formatPrice(p.price)}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Qty {p.quantity} · {p.views} views · {p.status}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditing(p);
-                      setTitle(p.title);
-                      setPrice(String(p.price));
-                      setQuantity(String(p.quantity));
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  {(p.status === "available" || p.status === "reserved") && (
-                    <>
-                      {p.status !== "reserved" && (
+        {view === "products" && (
+          <>
+            <Button variant="emerald" className="w-full" asChild>
+              <Link to="/shop/new">
+                <Plus /> Add product / নতুন আইটেম
+              </Link>
+            </Button>
+
+            <div className="flex gap-1 overflow-x-auto rounded-xl bg-muted p-1 [scrollbar-width:none]">
+              {SHOP_STATUS_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTab(t.id)}
+                  className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${tab === t.id ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+                >
+                  {t.label.split(" / ")[0]} ({products.filter((p) => p.status === t.id).length})
+                </button>
+              ))}
+            </div>
+
+            {shown.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                No products here / এখানে কোনো আইটেম নেই।
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {shown.map((p) => (
+                  <li key={p.id} className="rounded-2xl border border-border bg-card p-3">
+                    <div className="flex gap-3">
+                      <img
+                        src={imageUrl(p.images[0] ?? "")}
+                        alt=""
+                        className="size-16 shrink-0 rounded-xl object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{p.title}</p>
+                        <p className="text-xs font-bold text-emerald">{formatPrice(p.price)}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Qty {p.quantity} · {p.views} views · {p.status}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditing(p);
+                          setTitle(p.title);
+                          setPrice(String(p.price));
+                          setQuantity(String(p.quantity));
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      {(p.status === "available" || p.status === "reserved") && (
+                        <>
+                          {p.status !== "reserved" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => void changeStatus(p, "reserved")}
+                            >
+                              Reserve
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => void markOutOfStock(p)}
+                          >
+                            Out of stock
+                          </Button>
+                        </>
+                      )}
+                      {p.status === "reserved" && (
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={busy}
-                          onClick={() => void changeStatus(p, "reserved")}
+                          onClick={() => void changeStatus(p, "available")}
                         >
-                          Reserve
+                          Available
+                        </Button>
+                      )}
+                      {canRelist(p) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void relist(p)}
+                        >
+                          Relist
                         </Button>
                       )}
                       <Button
                         size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void markOutOfStock(p)}
+                        variant="ghost"
+                        aria-label={`Delete ${p.title}`}
+                        onClick={() => setPendingDelete(p)}
                       >
-                        Out of stock
+                        Delete
                       </Button>
-                    </>
-                  )}
-                  {p.status === "reserved" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void changeStatus(p, "available")}
-                    >
-                      Available
-                    </Button>
-                  )}
-                  {canRelist(p) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void relist(p)}
-                    >
-                      Relist
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`Delete ${p.title}`}
-                    onClick={() => setPendingDelete(p)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
+
+        {view === "requests" &&
+          (requests.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+              No requests yet / এখনো কোনো অনুরোধ নেই।
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {requests.map((r) => (
+                <li key={r.id} className="rounded-2xl border border-border bg-card p-3">
+                  <p className="text-[11px] text-muted-foreground">
+                    Qty {r.quantity} · {requestStatusLabel(r.status as RequestStatus)}
+                  </p>
+                  {r.message && <p className="mt-1 text-xs">{r.message}</p>}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {r.status === "pending" && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPendingAction({ request: r, status: "accepted" })}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setPendingAction({ request: r, status: "rejected" })}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {r.status === "accepted" && (
+                      <Button
+                        size="sm"
+                        variant="emerald"
+                        onClick={() => setPendingAction({ request: r, status: "completed" })}
+                      >
+                        Completed
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ))}
       </main>
+
+      <AlertDialog open={pendingAction !== null} onOpenChange={(o) => !o && setPendingAction(null)}>
+        <AlertDialogContent className="max-w-sm rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction?.status === "accepted"
+                ? "Accept this request?"
+                : pendingAction?.status === "completed"
+                  ? "Mark as completed?"
+                  : "Reject this request?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.status === "accepted"
+                ? REQUEST_SAFETY_NOTE
+                : "This will notify the buyer."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingAction) return;
+                void updateRequest(pendingAction.request.id, { status: pendingAction.status })
+                  .then(() => {
+                    setPendingAction(null);
+                    void load();
+                    toast.success("Request updated");
+                  })
+                  .catch(() => toast.error("Could not update request"));
+              }}
+            >
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="max-w-sm rounded-3xl">

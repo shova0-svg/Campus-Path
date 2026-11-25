@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Copy, Flag, MessageCircle, Phone, ShieldCheck, Store } from "lucide-react";
+import {
+  ArrowLeft,
+  Copy,
+  Flag,
+  MessageCircle,
+  Phone,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +39,8 @@ import {
   imageUrl,
   reportProduct,
 } from "@/lib/repo/shop";
+import { createRequest } from "@/lib/repo/shopRequests";
+import { REQUEST_SAFETY_NOTE, validateRequestInput } from "@/lib/shop-requests";
 
 export const Route = createFileRoute("/shop/$productId")({
   head: () => ({ meta: [{ title: "Item details — Campus Path" }] }),
@@ -45,6 +58,12 @@ function ProductDetail() {
   const counted = useRef(false);
   const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
+  const { user } = useAuth();
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [reqQty, setReqQty] = useState("1");
+  const [reqMsg, setReqMsg] = useState("");
+  const [reqBusy, setReqBusy] = useState(false);
+  const [reqError, setReqError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -65,6 +84,36 @@ function ProductDetail() {
       active = false;
     };
   }, [productId]);
+
+  async function submitRequest() {
+    if (!product) return;
+    const errors = validateRequestInput(Number(reqQty), product.quantity, reqMsg);
+    if (Object.keys(errors).length > 0) {
+      setReqError(Object.values(errors)[0] ?? "");
+      return;
+    }
+    setReqBusy(true);
+    setReqError("");
+    try {
+      await createRequest({ productId: product.id, quantity: Number(reqQty), message: reqMsg });
+      setRequestOpen(false);
+      setReqMsg("");
+      toast.success("Request sent / অনুরোধ পাঠানো হয়েছে");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setReqError(
+        /own product/i.test(msg)
+          ? "নিজের পণ্যের জন্য অনুরোধ করা যাবে না / Cannot request your own product"
+          : /active|one active/i.test(msg)
+            ? "আগের অনুরোধ এখনো চলতি / You already have an active request"
+            : /Max 5 pending/i.test(msg)
+              ? "সর্বোচ্চ ৫টি অপেক্ষমাণ অনুরোধ / Max 5 pending requests"
+              : "অনুরোধ পাঠানো যায় ni / Could not send request",
+      );
+    } finally {
+      setReqBusy(false);
+    }
+  }
 
   async function submitReport() {
     if (reason.trim().length < 5) {
@@ -227,6 +276,24 @@ function ProductDetail() {
           </div>
         </section>
 
+        <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Button
+            variant="emerald"
+            onClick={() => {
+              if (!user) {
+                window.location.assign("/auth");
+                return;
+              }
+              setRequestOpen(true);
+            }}
+          >
+            <ShoppingBag /> {user ? "Request to Buy / কিনতে চাই" : "Sign in to request / লগইন করুন"}
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/shop/requests">My requests / আমার অনুরোধ</Link>
+          </Button>
+        </section>
+
         {contact ? (
           <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
@@ -253,6 +320,44 @@ function ProductDetail() {
           </p>
         )}
       </main>
+
+      <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
+        <DialogContent className="max-w-sm rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Request to buy / কিনতে অনুরোধ</DialogTitle>
+            <DialogDescription>{REQUEST_SAFETY_NOTE}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              type="number"
+              min={1}
+              max={product?.quantity ?? 1}
+              value={reqQty}
+              onChange={(e) => setReqQty(e.target.value)}
+              aria-label="Quantity"
+              placeholder="Quantity / সংখ্যা"
+            />
+            <textarea
+              value={reqMsg}
+              onChange={(e) => setReqMsg(e.target.value)}
+              maxLength={500}
+              rows={3}
+              aria-label="Message"
+              placeholder="Message to seller / বিক্রেতাকে বার্তা"
+              className="w-full rounded-xl border border-input bg-background p-3 text-sm"
+            />
+            {reqError && <p className="text-[11px] text-destructive">{reqError}</p>}
+            <Button
+              variant="emerald"
+              className="w-full"
+              onClick={() => void submitRequest()}
+              disabled={reqBusy}
+            >
+              {reqBusy ? "Sending…" : "Send request / অনুরোধ পাঠান"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>
         <DialogContent className="max-w-sm rounded-3xl">

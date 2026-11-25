@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Campus Shop purchase requests (Phase 3)
+
+- Migrations `20261126000008_shop_requests.sql` (`purchase_requests`, `notifications` inbox, RLS, status guard/effects, 5-pending rate limit, one active request/product), `...09_shop_request_defaults.sql` (`buyer_id default auth.uid()`), `...10_shop_request_notify_buyer.sql` (buyer notification on submit). No payments.
+- Product page has **Request to Buy**; `/shop/requests` is the buyer view (cancel pending); `/shop/my` has an **Orders / Requests** tab (accept, reject, complete + safety note); `/shop/inbox` is the notification inbox. Live RLS check (seller/buyer/other/banned): 10/10 passed.
+
 ## Campus Shop seller dashboard (Phase 2)
 
 - Migrations `20261126000005_shop_seller_dashboard.sql` (`quantity`, `views`, stock→sold trigger, sold counter, view RPC, banned-seller update policy), `...06_shop_counter_fix.sql` (internal counter update allowed), `...07_shop_ban_check.sql` (ban check via `shop_is_banned()`).

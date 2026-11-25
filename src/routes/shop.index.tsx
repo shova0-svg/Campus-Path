@@ -127,6 +127,15 @@ function ShopHome() {
           <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-primary">
             <Store className="size-4" /> Campus Shop
           </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="shrink-0"
+            aria-label="Notifications inbox"
+          >
+            <Link to="/shop/inbox">Inbox</Link>
+          </Button>
           <Button variant="ghost" size="sm" asChild className="shrink-0" aria-label="My Shop">
             <Link to="/shop/my">My Shop</Link>
           </Button>
