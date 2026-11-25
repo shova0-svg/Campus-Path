@@ -1,5 +1,39 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeDeepLink } from "./shared.ts";
+import { nowDhaka, resolveWhen, type Resolved, type When } from "../_shared/dhaka-time.ts";
+
+/** Fixed clock is honoured only for local tests, never in production. */
+function serverNow(): Date {
+  const allow = Deno.env.get("AI_ALLOW_FIXED_NOW") === "true";
+  const fixed = Deno.env.get("AI_FIXED_NOW");
+  if (allow && fixed && !Number.isNaN(Date.parse(fixed))) return new Date(fixed);
+  return new Date();
+}
+
+function parseWhen(value: unknown): When | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const w = value as Record<string, unknown>;
+  if (w["kind"] === "relative") return { kind: "relative", offset: Number(w["offset"]) || 0 };
+  if (w["kind"] === "weekday")
+    return {
+      kind: "weekday",
+      weekday: Number(w["weekday"]) || 0,
+      which: w["which"] === "next" ? "next" : "this",
+    };
+  if (w["kind"] === "date" && typeof w["iso"] === "string") return { kind: "date", iso: w["iso"] };
+  return undefined;
+}
+
+const resolvedFields = (resolved: Resolved) => ({
+  iso: resolved.iso,
+  weekdayEn: resolved.weekdayEn,
+  weekdayBn: resolved.weekdayBn,
+  labelEn: resolved.labelEn,
+  labelBn: resolved.labelBn,
+  relative: resolved.relative,
+  isClassDay: resolved.isClassDay,
+  nextClassDay: resolved.nextClassDay,
+});
 import {
   AI_BUSY_MESSAGE,
   ProviderBusyError,
@@ -27,6 +61,26 @@ const BUSY = "AI আজ ব্যস্ত — কাল আবার চেষ�
 const DAILY_LIMIT =
   "দৈনিক প্রশ্নের সীমা শেষ — কাল আবার চেষ্টা করুন / Daily question limit reached — try again tomorrow.";
 
+const WHEN_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  description:
+    "Server-resolved date phrase. Never pass a model-computed ISO date unless the user gave one.",
+  properties: {
+    kind: { type: "string", enum: ["relative", "weekday", "date"] },
+    offset: {
+      type: "integer",
+      minimum: -2,
+      maximum: 7,
+      description: "relative days: 0=today, 1=tomorrow, -1=yesterday, 2=day after tomorrow",
+    },
+    weekday: { type: "integer", minimum: 0, maximum: 6, description: "0=Sunday … 6=Saturday" },
+    which: { type: "string", enum: ["this", "next"] },
+    iso: { type: "string", description: "YYYY-MM-DD only if the user explicitly gave it" },
+  },
+  required: ["kind"],
+  additionalProperties: false,
+};
+
 const TOOLS: ToolDef[] = [
   {
     type: "function",
@@ -41,7 +95,11 @@ const TOOLS: ToolDef[] = [
     function: {
       name: "get_class_updates",
       description: "Active class updates posted for my own class only.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      parameters: {
+        type: "object",
+        properties: { when: WHEN_SCHEMA },
+        additionalProperties: false,
+      },
     },
   },
   {
@@ -75,7 +133,11 @@ const TOOLS: ToolDef[] = [
     function: {
       name: "get_notices",
       description: "Approved notices for my institute.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      parameters: {
+        type: "object",
+        properties: { when: WHEN_SCHEMA },
+        additionalProperties: false,
+      },
     },
   },
   {
@@ -97,20 +159,23 @@ const TOOLS: ToolDef[] = [
     function: {
       name: "get_my_notifications",
       description: "My own notification inbox messages only.",
-      parameters: { type: "object", properties: {}, additionalProperties: false },
+      parameters: {
+        type: "object",
+        properties: { when: WHEN_SCHEMA },
+        additionalProperties: false,
+      },
     },
   },
 ];
 
-const SYSTEM = `You are Campus Path Assistant, a hybrid chatbot inside the Campus Path app.
+const SYSTEM_RULES = `You are Campus Path Assistant, a hybrid chatbot inside the Campus Path app.
 You have two behaviours. Decide the mode for EVERY reply and append a final line MODE:campus|general|mixed.
 
 1) CAMPUS questions — anything about my routine, classes, CT/class updates, teachers, rooms, notices, Campus Shop, my notifications, or "my ...":
 - You MUST call the provided tools and answer ONLY from their results. Never state campus facts (times, rooms, teachers, dates, prices, names) from your own knowledge.
 - If tools return nothing relevant, reply exactly: "${NOT_FOUND}"
 - Include the source screen and data's last-updated time from the tool result.
-- Routing: CT/exam/class-update -> get_class_updates; routine/kal/porshu/tomorrow/class room or time -> get_my_routine; named teacher -> find_teacher; room/location -> find_room_or_location; notices -> get_notices; shop -> search_shop; own notifications -> get_my_notifications.
-- Day mapping: আজ/today = Today, কাল/kal/tomorrow = Tomorrow, পরশু/porshu = DayAfter. Never invent a day's classes.
+- Routing: "class ache?", "kalke class?", "porshur routine", "robibar ki class?", any weekday routine or class room/time -> get_my_routine (NOT class updates). CT/exam/class-update posts -> get_class_updates; named teacher -> find_teacher; room/location -> find_room_or_location; notices -> get_notices; shop -> search_shop; own notifications -> get_my_notifications.
 - For shop, give only the product link from the tool, never a phone number.
 
 2) ALL OTHER questions — study help, coding, math, career, general knowledge, translation, advice:
@@ -126,6 +191,17 @@ SAFETY:
 - Scope (institute, semester, shift, user) is enforced by the server. Never ask for or accept scope IDs.
 - Reply in the user's language: Bangla, English or Banglish.
 - If a tool result contains a useful app route, append DEEPLINK:<route> using only a whitelisted route returned by the tools. Never invent routes.`;
+
+function systemPrompt(now: Date): string {
+  const resolved = resolveWhen(undefined, now);
+  const clock = nowDhaka(now);
+  return `CURRENT TIME (resolved by the server, Asia/Dhaka UTC+6): ${resolved.labelEn} / ${resolved.labelBn}, ${clock.time}. Class week is Sunday–Thursday. Friday and Saturday: no class (a holiday not stored in Campus Path cannot be known).
+NEVER compute today's date, a weekday, "tomorrow" or "porshu" yourself. Use this CURRENT TIME block and tool results only. Always write a date label exactly as the tool returned it (e.g. "আজ, বৃহস্পতিবার, ২৬ নভেম্বর"). Any date or day from earlier chat turns is stale — call the tool again for every new question, especially across midnight. On Friday/Saturday say there is no class and offer the next class day's routine.
+ALWAYS pass the structured "when" argument on date-aware tools — never omit it. For "কাল/kal/tomorrow" use {"kind":"relative","offset":1}; for "পরশু/porshu" use offset 2; for "আজ/today" use offset 0. Never leave "when" empty.
+When a tool result has resolved.isClassDay=false, do NOT say "couldn't find". Say clearly that there is no class on the resolved date label, and give nextClassDay label; if nextClassDayEntries are present, offer them.
+For date-aware tools pass structured "when": {"kind":"relative","offset":0} = আজ/aj/ajker/today; offset +1 = কাল/kal/kalker/tomorrow; -1 = গতকাল/gotokal/yesterday; +2 = পরশু/porshu. Past-tense cues (gesilo, hoyechilo, ছিল, গেল) mean negative offsets. When unclear, assume the future and state the resolved date from the tool. Weekday names use {"kind":"weekday","weekday":0..6,"which":"this"} (0=Sunday). Only use {"kind":"date","iso":"YYYY-MM-DD"} when the user explicitly gave an ISO date.
+${SYSTEM_RULES}`;
+}
 
 type Source = { screen: string; lastUpdated: string | null };
 type ToolResult = { data: unknown; sources: Source[] };
@@ -192,6 +268,7 @@ Deno.serve(async (req) => {
       return json({ answer: "AI key not configured / AI key সেট করা নেই।", sources: [] }, 503);
     const fallbackModel = Deno.env.get("AI_FALLBACK_MODEL") || undefined;
     const generalMaxTokens = Number(Deno.env.get("AI_MAX_TOKENS_GENERAL") ?? "1000") || 1000;
+    const campusMaxTokens = Number(Deno.env.get("AI_MAX_TOKENS_CAMPUS") ?? "700") || 700;
     const maxInputChars = Number(Deno.env.get("AI_MAX_INPUT_CHARS") ?? "1000") || 1000;
 
     const refund = async () => {
@@ -229,6 +306,17 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const scope = profile ?? {};
 
+    const clockNow = serverNow();
+    const minutes = (value: unknown): number | null => {
+      const match = String(value ?? "").match(/^(\d{1,2}):(\d{2})/);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+    };
+    const range = (entry: Record<string, unknown>): [number | null, number | null] => {
+      const parts = String(entry["time"] ?? "").split(/[-–]/);
+      return [minutes(parts[0]), minutes(parts[1] ?? parts[0])];
+    };
+
+    let lastResolved: unknown = null;
     async function runTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
       const q = String(args["query"] ?? "")
         .trim()
@@ -252,23 +340,83 @@ Deno.serve(async (req) => {
             Number(r["semester"]) === Number(scope["semester"]) &&
             shiftNumber(r["shift"]) === shiftNumber(scope["shift"]),
         ) as Record<string, unknown>[];
-        const entries = rows
-          .flatMap((r) => {
-            const d = (r["data"] ?? {}) as Record<string, unknown>;
-            const list = Array.isArray(d["entries"])
-              ? (d["entries"] as Record<string, unknown>[])
-              : [];
-            return list.map((e) => ({
-              day: e["day"],
-              subject: e["subject"],
-              code: e["code"],
-              teacher: e["teacher"],
-              room: e["room"],
-              time: e["time"],
-            }));
-          })
-          .slice(0, 24);
-        return { data: entries, sources: [{ screen: "Class Routine", lastUpdated: latest(rows) }] };
+        const allEntries = rows.flatMap((r) => {
+          const d = (r["data"] ?? {}) as Record<string, unknown>;
+          const list = Array.isArray(d["entries"])
+            ? (d["entries"] as Record<string, unknown>[])
+            : [];
+          return list.map((e) => ({
+            day: e["day"],
+            subject: e["subject"],
+            code: e["code"],
+            teacher: e["teacher"],
+            room: e["room"],
+            time: e["time"],
+          }));
+        });
+        const source = [{ screen: "Class Routine", lastUpdated: latest(rows) }];
+        const mode = args["mode"] === "now_and_next" ? "now_and_next" : "day";
+
+        if (mode === "now_and_next") {
+          const resolved = resolveWhen(undefined, clockNow);
+          const nowMin = minutes(nowDhaka(clockNow).time);
+          const todayEntries = allEntries
+            .filter((e) => String(e["day"]) === resolved.weekdayEn)
+            .sort((a, b) => (range(a)[0] ?? 0) - (range(b)[0] ?? 0));
+          const current = todayEntries.find((e) => {
+            const [from, to] = range(e);
+            return from != null && to != null && nowMin != null && from <= nowMin && nowMin <= to;
+          });
+          const next = todayEntries.find((e) => {
+            const [from] = range(e);
+            return from != null && nowMin != null && from > nowMin;
+          });
+          let nextDayEntries: Record<string, unknown>[] = [];
+          if (!current && !next) {
+            const nextIso = resolved.nextClassDay.iso;
+            const nextWeekday = resolveWhen({ kind: "date", iso: nextIso }, clockNow).weekdayEn;
+            nextDayEntries = allEntries.filter((e) => String(e["day"]) === nextWeekday);
+          }
+          return {
+            data: {
+              resolved: resolvedFields(resolved),
+              mode: "now_and_next",
+              current: current ?? null,
+              next: next ?? null,
+              nextClassDayEntries: nextDayEntries,
+              note:
+                current || next
+                  ? "Blocks resolved from the server Dhaka clock."
+                  : `No more classes today. Next class day: ${resolved.nextClassDay.labelEn} / ${resolved.nextClassDay.labelBn}.`,
+            },
+            sources: source,
+          };
+        }
+
+        const resolved = resolveWhen(parseWhen(args["when"]), clockNow);
+        lastResolved = resolvedFields(resolved);
+        const entries = allEntries.filter((e) => String(e["day"]) === resolved.weekdayEn);
+        let nextDayEntries: Record<string, unknown>[] = [];
+        if (!resolved.isClassDay) {
+          const nextWeekday = resolveWhen(
+            { kind: "date", iso: resolved.nextClassDay.iso },
+            clockNow,
+          ).weekdayEn;
+          nextDayEntries = allEntries.filter((e) => String(e["day"]) === nextWeekday);
+        }
+        return {
+          data: {
+            resolved: resolvedFields(resolved),
+            entries,
+            ...(resolved.isClassDay
+              ? {}
+              : {
+                  message: `No class on ${resolved.labelEn} / ${resolved.labelBn}. Class week is Sunday–Thursday.`,
+                  nextClassDayEntries: nextDayEntries,
+                }),
+          },
+          sources: source,
+        };
       }
 
       if (name === "get_class_updates") {
@@ -277,21 +425,27 @@ Deno.serve(async (req) => {
           .select("type,title,body,event_date,event_time,urgent,created_at,updated_at")
           .eq("institute_id", institute)
           .is("deleted_at", null)
-          .gt("expires_at", new Date().toISOString());
+          .gt("expires_at", clockNow.toISOString());
         if (scope["department"]) query = query.eq("department", scope["department"]);
         if (scope["semester"] != null) query = query.eq("semester", scope["semester"]);
         query = query.eq("shift", shiftNumber(scope["shift"]));
+        const resolved = resolveWhen(parseWhen(args["when"]), clockNow);
+        lastResolved = resolvedFields(resolved);
+        query = query.eq("event_date", resolved.iso);
         const { data } = await query.order("created_at", { ascending: false }).limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
         return {
-          data: rows.map((r) => ({
-            type: r["type"],
-            title: r["title"],
-            body: redact(r["body"]),
-            eventDate: r["event_date"],
-            eventTime: r["event_time"],
-            urgent: r["urgent"],
-          })),
+          data: {
+            resolved: resolvedFields(resolved),
+            updates: rows.map((r) => ({
+              type: r["type"],
+              title: r["title"],
+              body: redact(r["body"]),
+              eventDate: r["event_date"],
+              eventTime: r["event_time"],
+              urgent: r["urgent"],
+            })),
+          },
           sources: [{ screen: "Class Updates", lastUpdated: latest(rows) }],
         };
       }
@@ -353,16 +507,26 @@ Deno.serve(async (req) => {
       }
 
       if (name === "get_notices") {
+        const resolved = resolveWhen(parseWhen(args["when"]), clockNow);
+        lastResolved = resolvedFields(resolved);
         const { data } = await db
           .from("notices")
           .select("title,published_date,url,updated_at")
           .eq("institute_id", institute)
           .eq("status", "approved")
+          .eq("published_date", resolved.iso)
           .order("published_date", { ascending: false })
           .limit(8);
         const rows = (data ?? []) as Record<string, unknown>[];
         return {
-          data: rows.map((r) => ({ title: r["title"], date: r["published_date"], url: r["url"] })),
+          data: {
+            resolved: resolvedFields(resolved),
+            notices: rows.map((r) => ({
+              title: r["title"],
+              date: r["published_date"],
+              url: r["url"],
+            })),
+          },
           sources: [{ screen: "Notice Board", lastUpdated: latest(rows) }],
         };
       }
@@ -391,20 +555,29 @@ Deno.serve(async (req) => {
       }
 
       if (name === "get_my_notifications") {
+        const resolved = resolveWhen(parseWhen(args["when"]), clockNow);
+        lastResolved = resolvedFields(resolved);
+        const end = new Date(`${resolved.iso}T00:00:00Z`);
+        end.setUTCDate(end.getUTCDate() + 1);
         const { data } = await db
           .from("notifications")
           .select("type,title,body,created_at,read_at")
           .eq("user_id", user.id)
+          .gte("created_at", `${resolved.iso}T00:00:00Z`)
+          .lt("created_at", end.toISOString())
           .order("created_at", { ascending: false })
           .limit(10);
         const rows = (data ?? []) as Record<string, unknown>[];
         return {
-          data: rows.map((r) => ({
-            type: r["type"],
-            title: r["title"],
-            body: redact(r["body"]),
-            createdAt: r["created_at"],
-          })),
+          data: {
+            resolved: resolvedFields(resolved),
+            notifications: rows.map((r) => ({
+              type: r["type"],
+              title: r["title"],
+              body: redact(r["body"]),
+              createdAt: r["created_at"],
+            })),
+          },
           sources: [{ screen: "Notifications", lastUpdated: latest(rows) }],
         };
       }
@@ -428,10 +601,11 @@ Deno.serve(async (req) => {
       /routine|class|ct|update|teacher|sir|room|notice|shop|notification|my |রুটিন|ক্লাস|স্যার|রুম|নোটিশ|শপ|নোটিফিকেশন|আমার/i.test(
         latestText,
       );
-    const maxTokens = campusHint ? 700 : generalMaxTokens;
+    const maxTokens = campusHint ? campusMaxTokens : generalMaxTokens;
 
     let forcedToolRound = false;
     let mixedRepair = false;
+    let whenRepair = 0;
     const mixedHint = /\+|translate|অনুবাদ|closure|code|math|কত|ক্যারিয়ার|career/i.test(latestText);
     for (let round = 0; round < 4; round++) {
       let result;
@@ -441,7 +615,7 @@ Deno.serve(async (req) => {
           baseUrl,
           key: aiKey,
           model: usedModel,
-          system: SYSTEM,
+          system: systemPrompt(clockNow),
           messages: convo,
           tools: TOOLS,
           maxTokens,
@@ -459,7 +633,7 @@ Deno.serve(async (req) => {
               baseUrl,
               key: aiKey,
               model: usedModel,
-              system: SYSTEM,
+              system: systemPrompt(clockNow),
               messages: convo,
               tools: TOOLS,
               maxTokens,
@@ -479,6 +653,10 @@ Deno.serve(async (req) => {
             {
               answer: "AI সেবা এখন উপলব্ধ নয় / AI service is unavailable right now.",
               sources: [],
+              detail:
+                failure instanceof ProviderError
+                  ? `${failure.status}: ${failure.detail}`
+                  : "network",
             },
             502,
           );
@@ -516,10 +694,31 @@ Deno.serve(async (req) => {
         answer = result.content || NOT_FOUND;
         break;
       }
+      let repairNeeded = false;
       for (const call of toolCalls) {
+        const toolName = String(call.name ?? "");
+        const dateTool = [
+          "get_my_routine",
+          "get_class_updates",
+          "get_notices",
+          "get_my_notifications",
+        ].includes(toolName);
+        if (dateTool && !call.args["when"] && whenRepair < 2) {
+          whenRepair++;
+          repairNeeded = true;
+          convo.push({
+            role: "user",
+            content: `You omitted the required "when" argument for ${toolName}. Pass it now as {kind:"relative",offset:N} matching the user's phrase (আজ=0, কাল=1, গতকাল=-1, পরশু=2, weekday names={kind:"weekday",weekday:0..6}). Do not answer yet.`,
+          });
+          continue;
+        }
         if (calls >= 4) break;
         calls++;
-        toolTraceRef.push(call.name);
+        toolTraceRef.push(
+          call.name +
+            (call.args["when"] ? ` when=${JSON.stringify(call.args["when"])}` : "") +
+            (call.args["mode"] ? ` mode=${call.args["mode"]}` : ""),
+        );
         const outcome = await runTool(call.name, call.args);
         sources.push(...outcome.sources);
         convo.push({
@@ -529,6 +728,7 @@ Deno.serve(async (req) => {
           content: JSON.stringify(outcome.data).slice(0, 6000),
         });
       }
+      if (repairNeeded) continue;
       if (calls >= 4) {
         answer = result.content || NOT_FOUND;
         break;
@@ -569,6 +769,7 @@ Deno.serve(async (req) => {
             debug: {
               model,
               toolCalls: toolTraceRef,
+              resolved: lastResolved,
               latencyMs: Date.now() - startedAt,
               usage: lastUsage ?? null,
             },

@@ -24,7 +24,10 @@ export const AI_BUSY_MESSAGE =
 
 export class ProviderBusyError extends Error {}
 export class ProviderError extends Error {
-  constructor(public status: number) {
+  constructor(
+    public status: number,
+    public detail = "",
+  ) {
     super(`Provider error ${status}`);
   }
 }
@@ -111,6 +114,9 @@ export async function callProvider(opts: {
     clearTimeout(timer);
   }
   if (response.status === 429) throw new ProviderBusyError();
-  if (!response.ok) throw new ProviderError(response.status);
+  if (!response.ok) {
+    const raw = await response.text().catch(() => "");
+    throw new ProviderError(response.status, raw.replaceAll(opts.key, "[redacted]").slice(0, 240));
+  }
   return parseProviderResponse(await response.json());
 }
