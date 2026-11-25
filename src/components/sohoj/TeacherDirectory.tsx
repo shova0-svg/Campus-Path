@@ -42,13 +42,8 @@ interface Props {
 }
 
 export function TeacherDirectory({ instituteName }: Props) {
-  const [store, setStore] = useState<TeacherStore>(() =>
-    teachersResource.get().reduce<TeacherStore>((acc, t) => {
-      const id = t.instituteId ?? "rpi";
-      (acc[id] ??= []).push(t);
-      return acc;
-    }, {}),
-  );
+  // Start empty so SSR and the first client render match; fill from cache after mount.
+  const [store, setStore] = useState<TeacherStore>({});
   const [query, setQuery] = useState("");
   const [activeDepartment, setActiveDepartment] = useState<string | null>(null);
 
@@ -61,6 +56,7 @@ export function TeacherDirectory({ instituteName }: Props) {
           return acc;
         }, {}),
       );
+    refresh();
     return teachersResource.subscribe(refresh);
   }, []);
 

@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
-  Link,
   createRootRouteWithContext,
   useRouter,
   HeadContent,
@@ -12,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorState } from "@/components/sohoj/ErrorState";
 import { FeedbackHost } from "@/components/sohoj/FeedbackDialog";
 import { PushSoundHost } from "@/components/sohoj/PushSoundHost";
 import { GlobalTabBar } from "@/components/sohoj/GlobalTabBar";
@@ -24,23 +24,17 @@ import { hideLovableBadge } from "../lib/hide-badge";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
-        </div>
-      </div>
-    </div>
+    <ErrorState
+      title="Page not found (404)"
+      description="The page you're looking for doesn't exist or has been moved."
+      onRetry={() => window.location.reload()}
+      onHome={() => {
+        window.location.href = "/";
+      }}
+      onReport={() =>
+        openFeedback({ category: "idea", message: "Page not found link report", page: "404" })
+      }
+    />
   );
 }
 
@@ -52,45 +46,24 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="font-bangla mt-2 text-sm text-muted-foreground">
-          কোনো সমস্যা হয়েছে। আবার চেষ্টা করুন, হোমে যান বা আমাদের জানান।
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Try again
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            Go home
-          </a>
-          <button
-            onClick={() =>
-              openFeedback({
-                category: "bug",
-                message: `Auto error report: ${(error as Error).message.slice(0, 300)}`,
-                page: "route-error",
-              })
-            }
-            className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10"
-          >
-            Report this / জানান
-          </button>
-        </div>
-      </div>
-    </div>
+    <ErrorState
+      title="This page didn't load"
+      description="Something went wrong while opening this page. Try again, go home, or send us a report."
+      onRetry={() => {
+        router.invalidate();
+        reset();
+      }}
+      onHome={() => {
+        window.location.href = "/";
+      }}
+      onReport={() =>
+        openFeedback({
+          category: "bug",
+          message: `Auto error report: ${(error as Error).message.slice(0, 300)}`,
+          page: "route-error",
+        })
+      }
+    />
   );
 }
 

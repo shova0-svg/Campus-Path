@@ -44,7 +44,7 @@ function StudentPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [allBuildings, setAllBuildings] = useState(() => buildingsResource.get());
+  const [allBuildings, setAllBuildings] = useState<ReturnType<typeof buildingsResource.get>>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -65,7 +65,10 @@ function StudentPage() {
     buildingsResource.refresh();
   }, []);
 
-  useEffect(() => buildingsResource.subscribe(setAllBuildings), []);
+  useEffect(() => {
+    setAllBuildings(buildingsResource.get());
+    return buildingsResource.subscribe(setAllBuildings);
+  }, []);
 
   const buildings = useMemo(() => {
     const grouped: Record<string, (typeof allBuildings)[number][]> = {};

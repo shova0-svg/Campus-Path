@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { openFeedback } from "@/lib/feedback";
+import { ErrorState } from "@/components/sohoj/ErrorState";
 
 interface Props {
   children: ReactNode;
@@ -43,56 +44,35 @@ export class ErrorBoundary extends Component<Props, State> {
       (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug"));
 
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
-        <div className="max-w-sm rounded-3xl border border-border bg-card p-6 text-center shadow-[var(--shadow-card)]">
-          <p className="text-3xl">🛠️</p>
-          <h1 className="mt-3 text-lg font-semibold text-foreground">Kichhu ekta bhalo chaleni</h1>
-          <p className="font-bangla mt-1 text-sm text-muted-foreground">
-            কোনো একটি পেজ লোড করতে সমস্যা হয়েছে। আবার চেষ্টা করুন বা আমাদের জানান — ডাটা নিরাপদেই আছে।
-          </p>
-          <div className="mt-5 flex flex-col gap-2">
-            <button
-              onClick={() => window.location.reload()}
-              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              Try again / আবার চেষ্টা
-            </button>
-            <button
-              onClick={() => {
-                window.location.href = "/";
-              }}
-              className="rounded-xl border border-input px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-accent"
-            >
-              Go home / হোমে যান
-            </button>
-            <button
-              onClick={() =>
-                openFeedback({
-                  category: "bug",
-                  message: `Auto error report: ${error.message.slice(0, 300)}`,
-                  page: "error-boundary",
-                })
-              }
-              className="rounded-xl px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/10"
-            >
-              Report this / জানান
-            </button>
-            <button
-              onClick={() => void resetApp()}
-              className="rounded-xl px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted"
-            >
-              Reset app / ক্যাশে মুছুন — reload fresh
-            </button>
-          </div>
-          {showDebug && (
-            <pre className="mt-4 max-h-48 overflow-auto rounded-xl bg-muted p-2 text-left font-mono text-[10px] text-destructive">
-              {error.message}
-              {"\n"}
-              {(error.stack ?? "").split("\n").slice(0, 8).join("\n")}
-            </pre>
-          )}
-        </div>
-      </div>
+      <ErrorState
+        title="Something went wrong"
+        description="This page couldn't be loaded. Your saved data is safe — try again or go back home."
+        onRetry={() => window.location.reload()}
+        onHome={() => {
+          window.location.href = "/";
+        }}
+        onReport={() =>
+          openFeedback({
+            category: "bug",
+            message: `Auto error report: ${error.message.slice(0, 300)}`,
+            page: "error-boundary",
+          })
+        }
+      >
+        <button
+          onClick={() => void resetApp()}
+          className="mt-2 w-full rounded-xl px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted"
+        >
+          Reset app and clear cache
+        </button>
+        {showDebug && (
+          <pre className="mt-3 max-h-48 overflow-auto rounded-xl bg-muted p-2 text-left font-mono text-[10px] text-destructive">
+            {error.message}
+            {"\n"}
+            {(error.stack ?? "").split("\n").slice(0, 8).join("\n")}
+          </pre>
+        )}
+      </ErrorState>
     );
   }
 }

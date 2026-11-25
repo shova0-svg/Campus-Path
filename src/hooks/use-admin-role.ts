@@ -15,9 +15,12 @@ const EMPTY: AdminRole = { isAdmin: false, isSuper: false, allowedInstituteIds: 
 /** UI-level role from institute_admins; RLS remains the real enforcement. */
 export function useAdminRole(): AdminRole {
   const { user } = useAuth();
-  const [admins, setAdmins] = useState<AdminAccount[]>(() => adminsResource.get());
+  const [admins, setAdmins] = useState<AdminAccount[]>([]);
 
-  useEffect(() => adminsResource.subscribe(setAdmins), []);
+  useEffect(() => {
+    setAdmins(adminsResource.get());
+    return adminsResource.subscribe(setAdmins);
+  }, []);
 
   return useMemo(() => {
     const email = (user?.email ?? "").trim().toLowerCase();

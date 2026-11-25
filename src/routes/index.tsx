@@ -160,7 +160,7 @@ function groupByInstitute<T extends { instituteId?: string }>(list: T[]): Record
 
 function Index() {
   const [instituteId, setInstituteId] = useState(INSTITUTES[0].id);
-  const [allRooms, setAllRooms] = useState(() => roomsResource.get());
+  const [allRooms, setAllRooms] = useState<ReturnType<typeof roomsResource.get>>([]);
   const [lastSynced, setLastSynced] = useState(() => new Date(0));
   const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
@@ -179,17 +179,32 @@ function Index() {
   const [formOpen, setFormOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [view, setView] = useState<"list" | "routine" | "map" | "notice">("list");
-  const [allBuildings, setAllBuildings] = useState(() => buildingsResource.get());
-  const [allTeachers, setAllTeachers] = useState(() => teachersResource.get());
-  const [routines, setRoutines] = useState<ClassRoutine[]>(() => routinesResource.get());
-  const [admins, setAdmins] = useState<AdminAccount[]>(() => adminsResource.get());
+  const [allBuildings, setAllBuildings] = useState<ReturnType<typeof buildingsResource.get>>([]);
+  const [allTeachers, setAllTeachers] = useState<ReturnType<typeof teachersResource.get>>([]);
+  const [routines, setRoutines] = useState<ClassRoutine[]>([]);
+  const [admins, setAdmins] = useState<AdminAccount[]>([]);
   const adminRole = useAdminRole();
 
-  useEffect(() => roomsResource.subscribe(setAllRooms), []);
-  useEffect(() => buildingsResource.subscribe(setAllBuildings), []);
-  useEffect(() => teachersResource.subscribe(setAllTeachers), []);
-  useEffect(() => routinesResource.subscribe(setRoutines), []);
-  useEffect(() => adminsResource.subscribe(setAdmins), []);
+  useEffect(() => {
+    setAllRooms(roomsResource.get());
+    return roomsResource.subscribe(setAllRooms);
+  }, []);
+  useEffect(() => {
+    setAllBuildings(buildingsResource.get());
+    return buildingsResource.subscribe(setAllBuildings);
+  }, []);
+  useEffect(() => {
+    setAllTeachers(teachersResource.get());
+    return teachersResource.subscribe(setAllTeachers);
+  }, []);
+  useEffect(() => {
+    setRoutines(routinesResource.get());
+    return routinesResource.subscribe(setRoutines);
+  }, []);
+  useEffect(() => {
+    setAdmins(adminsResource.get());
+    return adminsResource.subscribe(setAdmins);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
