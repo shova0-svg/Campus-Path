@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Campus Shop profiles (Phase 1)
+
+- Migration `20261126000003_shop_profiles.sql` (+ `...04_shop_contact_rule.sql`): `shop_profiles` replaces per-product contact fields (backfilled from first product). Public fields via `shop_public_profile()` RPC; phone via `shop_seller_contact()` (authenticated only). Selling requires a profile; bans still block. Google sign-in reused from `src/lib/supabase-auth.ts` — no second auth system.
+- `/shop` gates signed-out users with "Continue with Google" and first-time sellers with `ShopAccessGate`; `/shop/new` also requires a profile. Live RLS check (seller/buyer/other/banned): 8/8 passed.
+
 ## Admin panel layout
 
 - `src/components/sohoj/AdminPanel.tsx`: full-screen sheet on phones (safe-area insets), centered `sm:max-w-2xl` / `lg:max-w-3xl` dialog on larger screens. Tabs scroll horizontally on phones and become a 5-column, 2-row grid from `sm` up; lists use `min-h-0 flex-1 overflow-y-auto` for proper inner scrolling.
