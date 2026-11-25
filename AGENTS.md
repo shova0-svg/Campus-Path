@@ -88,6 +88,10 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Admin panel layout
+
+- `src/components/sohoj/AdminPanel.tsx`: full-screen sheet on phones (safe-area insets), centered `sm:max-w-2xl` / `lg:max-w-3xl` dialog on larger screens. Tabs scroll horizontally on phones and become a 5-column, 2-row grid from `sm` up; lists use `min-h-0 flex-1 overflow-y-auto` for proper inner scrolling.
+
 ## Error handling
 
 - Shared `src/components/sohoj/ErrorState.tsx` powers the React boundary, TanStack route error and 404 pages — English-only, theme tokens, Try again / Go home / Report. `src/lib/error-page.ts` is the standalone branded server HTML (English).
