@@ -59,6 +59,7 @@ import {
 import { useAdminRole } from "@/hooks/use-admin-role";
 import { useNotices } from "@/hooks/use-notices";
 import { NoticeView } from "@/components/sohoj/NoticeView";
+import { AskCampusAi } from "@/components/sohoj/AskCampusAi";
 import { useClassUpdates } from "@/hooks/use-class-updates";
 import { summarizeForBanner, dateLabel, UPDATE_TYPES } from "@/lib/class-updates";
 import { LandingPage } from "@/components/sohoj/LandingPage";
@@ -1136,6 +1137,7 @@ function Index() {
               students
             </p>
           </div>
+          <AskCampusAi instituteId={institute.id} />
         </main>
 
         <QrScannerDialog open={qrOpen} onOpenChange={setQrOpen} onDetected={handleQrDetected} />
