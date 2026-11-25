@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Error handling
+
+- Shared `src/components/sohoj/ErrorState.tsx` powers the React boundary, TanStack route error and 404 pages — English-only, theme tokens, Try again / Go home / Report. `src/lib/error-page.ts` is the standalone branded server HTML (English).
+- Hydration fix: localStorage-backed resources are read in `useEffect` after mount (TeacherDirectory, home index, `useAdminRole`, Student page), not in initial state — this removes React #418 mismatches online and offline.
+
 ## PWA notifications (Phase 1)
 
 - Custom in-app sound `public/sounds/notify.mp3` (user-supplied MP3, ~4.4s, copied unchanged). `src/lib/notify-sound.ts` + `PushSoundHost` play it on `PUSH_RECEIVED` from the SW; audio unlocked on first tap/key and failures are silent. Settings route `/settings` has the sound toggle (default on) and shows last push time.
