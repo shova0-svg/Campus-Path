@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       );
 
     // Check configuration before spending a user's daily question.
-    const aiKey = Deno.env.get("GEMINI_API_KEY");
+    const aiKey = Deno.env.get("OPENROUTER_API_KEY");
     const model = Deno.env.get("AI_MODEL");
     if (!aiKey || !model)
       return json({ answer: "AI key not configured / AI key সেট করা নেই।", sources: [] }, 503);
@@ -403,6 +403,7 @@ Deno.serve(async (req) => {
         convo.push({
           role: "tool",
           name: call.name,
+          toolCallId: call.id,
           content: JSON.stringify(outcome.data).slice(0, 6000),
         });
       }

@@ -1,9 +1,10 @@
-/** Small swappable provider wrapper: Gemini API behind one call() function. */
+/** Small swappable provider wrapper: OpenRouter behind one call() function. */
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant" | "tool";
   content?: string;
   name?: string;
+  toolCallId?: string;
 };
 
 export type ToolDef = {
@@ -24,74 +25,24 @@ export class ProviderError extends Error {
   }
 }
 
-function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (key === "additionalProperties") continue;
-    if (key === "type" && typeof value === "string") {
-      out[key] = value.toUpperCase();
-    } else if (key === "properties" && value && typeof value === "object") {
-      out[key] = Object.fromEntries(
-        Object.entries(value as Record<string, unknown>).map(([k, v]) => [
-          k,
-          v && typeof v === "object" ? geminiSchema(v as Record<string, unknown>) : v,
-        ]),
-      );
-    } else if (Array.isArray(value)) {
-      out[key] = value.map((v) =>
-        v && typeof v === "object" ? geminiSchema(v as Record<string, unknown>) : v,
-      );
-    } else {
-      out[key] = value;
-    }
-  }
-  return out;
-}
-
-function toContents(messages: ChatMessage[]) {
-  const contents: Record<string, unknown>[] = [];
-  for (const message of messages) {
-    if (message.role === "system") continue;
-    if (message.role === "tool") {
-      contents.push({
-        role: "user",
-        parts: [
-          {
-            functionResponse: {
-              name: message.name ?? "tool",
-              response: { result: message.content ?? "" },
-            },
-          },
-        ],
-      });
-    } else {
-      contents.push({
-        role: message.role === "assistant" ? "model" : "user",
-        parts: [{ text: message.content ?? "" }],
-      });
-    }
-  }
-  return contents;
-}
-
-export function parseGeminiResponse(data: unknown): ProviderResult {
-  const parts = ((data as { candidates?: { content?: { parts?: unknown[] } }[] })?.candidates?.[0]
-    ?.content?.parts ?? []) as {
-    text?: string;
-    functionCall?: { name?: string; args?: Record<string, unknown> };
-  }[];
-  const content = parts
-    .map((p) => p.text ?? "")
-    .join("\n")
-    .trim();
-  const toolCalls: ToolCall[] = parts
-    .filter((p) => p.functionCall?.name)
-    .map((p, i) => ({
-      id: `call_${i}_${p.functionCall!.name}`,
-      name: p.functionCall!.name!,
-      args: p.functionCall!.args ?? {},
-    }));
-  return { content, toolCalls };
+export function parseProviderResponse(data: unknown): ProviderResult {
+  const message = ((data as { choices?: { message?: Record<string, unknown> }[] })?.choices?.[0]
+    ?.message ?? {}) as {
+    content?: string | null;
+    tool_calls?: { id?: string; function?: { name?: string; arguments?: string } }[];
+  };
+  const toolCalls: ToolCall[] = (message.tool_calls ?? [])
+    .filter((call) => call.function?.name)
+    .map((call, i) => {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(call.function?.arguments || "{}") as Record<string, unknown>;
+      } catch {
+        args = {};
+      }
+      return { id: call.id ?? `call_${i}`, name: call.function!.name!, args };
+    });
+  return { content: (message.content ?? "").trim(), toolCalls };
 }
 
 export async function callProvider(opts: {
@@ -107,28 +58,31 @@ export async function callProvider(opts: {
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   let response: Response;
   try {
-    response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.model)}:generateContent`,
-      {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "content-type": "application/json", "x-goog-api-key": opts.key },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: opts.system }] },
-          contents: toContents(opts.messages),
-          tools: [
-            {
-              function_declarations: opts.tools.map((t) => ({
-                name: t.function.name,
-                description: t.function.description,
-                parameters: geminiSchema(t.function.parameters),
-              })),
-            },
-          ],
-          generationConfig: { maxOutputTokens: opts.maxTokens, temperature: 0.2 },
-        }),
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${opts.key}`,
+        "HTTP-Referer": "https://campus-path-chi.vercel.app",
+        "X-Title": "Campus Path",
       },
-    );
+      body: JSON.stringify({
+        model: opts.model,
+        messages: [
+          { role: "system", content: opts.system },
+          ...opts.messages.map((m) => ({
+            role: m.role,
+            content: m.content ?? "",
+            ...(m.role === "tool" ? { tool_call_id: m.toolCallId ?? "" } : {}),
+          })),
+        ],
+        tools: opts.tools,
+        tool_choice: "auto",
+        max_tokens: opts.maxTokens,
+        temperature: 0.2,
+      }),
+    });
   } catch {
     throw new ProviderError(0);
   } finally {
@@ -136,5 +90,5 @@ export async function callProvider(opts: {
   }
   if (response.status === 429) throw new ProviderBusyError();
   if (!response.ok) throw new ProviderError(response.status);
-  return parseGeminiResponse(await response.json());
+  return parseProviderResponse(await response.json());
 }

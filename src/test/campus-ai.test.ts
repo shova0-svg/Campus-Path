@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ROUTE_WHITELIST, safeDeepLink } from "../../supabase/functions/campus-ai/shared";
-import { AI_BUSY_MESSAGE, parseGeminiResponse } from "../../supabase/functions/campus-ai/provider";
+import {
+  AI_BUSY_MESSAGE,
+  parseProviderResponse,
+} from "../../supabase/functions/campus-ai/provider";
 
 describe("Campus AI deep-link whitelist", () => {
   it("accepts known app routes and product links", () => {
@@ -16,21 +19,22 @@ describe("Campus AI deep-link whitelist", () => {
   });
 });
 
-describe("Gemini provider wrapper", () => {
-  it("parses text and tool calls from a Gemini response", () => {
-    const parsed = parseGeminiResponse({
-      candidates: [
+describe("OpenRouter provider wrapper", () => {
+  it("parses text and tool calls from a provider response", () => {
+    const parsed = parseProviderResponse({
+      choices: [
         {
-          content: {
-            parts: [
-              { text: "Found it" },
-              { functionCall: { name: "search_shop", args: { query: "book" } } },
+          message: {
+            content: "Found it",
+            tool_calls: [
+              { id: "call_1", function: { name: "search_shop", arguments: '{"query":"book"}' } },
             ],
           },
         },
       ],
     });
     expect(parsed.content).toBe("Found it");
+    expect(parsed.toolCalls[0]?.id).toBe("call_1");
     expect(parsed.toolCalls[0]?.name).toBe("search_shop");
     expect(parsed.toolCalls[0]?.args).toEqual({ query: "book" });
   });
