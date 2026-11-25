@@ -95,6 +95,11 @@ use the editor.
 - Required secrets (names only): `OPENROUTER_API_KEY` and `AI_MODEL` (both set in Supabase; missing either returns the existing 503 without counting usage). Optional: `AI_DAILY_LIMIT`, `AI_ENABLED`. Response: `{answer, sources[], deepLink?}`. Verified: missing key increments nothing (usage 0); increment→refund restores 1→0.
 - Live checks (6/6): cross-institute scope, injection-as-data, unauth 401, banned 403, rate limit 429 on 21st question. Secrets `OPENROUTER_API_KEY` + `AI_MODEL` set in Supabase. Final 15-question audit at 4.2s spacing: model `google/gemini-2.5-flash`, avg latency 1774ms, **0 provider 429s**, **14/15 strict pass** (Q6 "sports update" mentioned an unrelated general update instead of the exact couldn't-find phrase — reported honestly; a prior run scored 15/15, so this path is non-deterministic). Tool results redact phone-like numbers and instruction-like phrases; routine tool orders by `updated_at desc` and reads 20 routines. `?debug=1` returns model/toolCalls/latency for audits.
 
+## Campus AI chat UI (Phase 2)
+
+- `src/components/sohoj/AskCampusAi.tsx` renders a floating **Ask AI** button on Home only, above the bottom tab bar + safe area. `src/routes/index.tsx` mounts it. No new tab, no edge-function security changes.
+- Chat sheet: suggested chips, last-6-message history, abort/cancel, source chips, whitelisted deep links via `campus-ai/shared.ts`, thumbs up/down + "report wrong answer" into `public.feedback` (existing RLS), disclaimer, offline disabled, `VITE_AI_ENABLED=false` kill switch, theme tokens + bilingual labels. Live at 390px: button above tab bar (738 < 769), absent on other screens, answer + sources visible, feedback row inserted.
+
 ## Campus AI answer-quality review (Phase 3)
 
 - 30-question audit (Bangla/English/Banglish, 8 tricky) against a temporary `qa-*` test institute with incomplete routine + outdated CR update; all test data deleted afterwards. Final run: `google/gemini-2.5-flash`, avg latency 2337ms, 0 provider 429, 31,267 tokens (in 29,282 / out 1,985; ~$0.0137 at assumed $0.30/$2.50 per M), **24/30 strict pass, 1 fact failure → RELEASE** (rule: >2 fact failures blocks release).
