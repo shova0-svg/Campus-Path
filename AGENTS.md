@@ -95,6 +95,12 @@ use the editor.
 - Required secrets (names only): `OPENROUTER_API_KEY` and `AI_MODEL` (both set in Supabase; missing either returns the existing 503 without counting usage). Optional: `AI_DAILY_LIMIT`, `AI_ENABLED`. Response: `{answer, sources[], deepLink?}`. Verified: missing key increments nothing (usage 0); increment→refund restores 1→0.
 - Live checks (6/6): cross-institute scope, injection-as-data, unauth 401, banned 403, rate limit 429 on 21st question. Secrets `OPENROUTER_API_KEY` + `AI_MODEL` set in Supabase. Final 15-question audit at 4.2s spacing: model `google/gemini-2.5-flash`, avg latency 1774ms, **0 provider 429s**, **14/15 strict pass** (Q6 "sports update" mentioned an unrelated general update instead of the exact couldn't-find phrase — reported honestly; a prior run scored 15/15, so this path is non-deterministic). Tool results redact phone-like numbers and instruction-like phrases; routine tool orders by `updated_at desc` and reads 20 routines. `?debug=1` returns model/toolCalls/latency for audits.
 
+## Campus AI date handling
+
+- `supabase/functions/_shared/dhaka-time.ts` is the single pure Dhaka (UTC+6, no DST) date module with injectable `now`: `nowDhaka`, `resolveWhen`, `nextClassDayAfter`, Bangla/English labels, Sunday–Thursday class week (Friday/Saturday = no class). Unit tests: `src/test/dhaka-time.test.ts` (12 cases incl. boundaries).
+- The model never computes dates. Every date-aware tool takes structured `when`; missing `when` triggers a repair round. `get_my_routine` also has `mode:"now_and_next"` (current block / next block / next class day's first block). Every date-aware result includes resolved iso, weekday names, labels, relative, isClassDay, nextClassDay. A fresh CURRENT TIME block is injected into the system prompt per request.
+- Fixed clock for local tests only: `AI_FIXED_NOW` (ISO with +06:00 offset) is honored ONLY when `AI_ALLOW_FIXED_NOW=true`; production ignores both unless that flag is explicitly set. `AI_MAX_TOKENS_CAMPUS` (700) / `AI_MAX_TOKENS_GENERAL` (1000) are env caps; OpenRouter credits must cover the prompt+max_tokens or provider returns 402.
+
 ## Campus AI hybrid + ops (latest)
 
 - Env-only provider config (names only): `AI_BASE_URL` (`https://openrouter.ai/api/v1`), `AI_API_KEY`, `AI_MODEL` (no hardcoded default), optional `AI_FALLBACK_MODEL`, `AI_ENABLED`, `AI_DAILY_LIMIT` (30), `AI_GLOBAL_DAILY_LIMIT`, `AI_MAX_INPUT_CHARS` (1000), `AI_MAX_TOKENS_GENERAL` (1000). To switch models: `supabase secrets set AI_MODEL=<provider/model-id>` — no code change.
