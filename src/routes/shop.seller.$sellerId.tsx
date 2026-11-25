@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BadgeCheck, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/sohoj/shop/ProductCard";
+import { ShopImage } from "@/components/sohoj/shop/ShopImage";
 import { getShopPublicProfile, imageUrl, listMyProducts } from "@/lib/repo/shop";
 import type { ShopProduct } from "@/lib/shop";
 

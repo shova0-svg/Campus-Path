@@ -116,7 +116,9 @@ function NewProduct() {
           ? "সর্বোচ্চ ১০টি active আইটেম — কিছু বেচা বা মুছে ফেলুন / Max 10 active listings"
           : /row-level security|permission|banned/i.test(message)
             ? "পোস্ট করা যাবে না — অ্যাডমিনের সাথে যোগাযোগ করুন / Posting not allowed"
-            : "পোস্ট করা যায় ni — ইন্টারনেট চেক করুন / Could not post",
+            : /upload|image|ছবি/i.test(message)
+              ? "ছবি আপলোড ব্যর্থ — ফর্ম রেখে আবার চেষ্টা করুন / Image upload failed — form kept, please retry"
+              : "পোস্ট করা যায় ni — ইন্টারনেট চেক করুন / Could not post",
       );
     } finally {
       setBusy(false);

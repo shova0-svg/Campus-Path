@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { GoogleLogo } from "@/components/sohoj/GoogleLogo";
 import { EditShopProfileDialog } from "@/components/sohoj/shop/EditShopProfileDialog";
+import { ShopImage } from "@/components/sohoj/shop/ShopImage";
 import { useAuth } from "@/hooks/use-auth";
 import { useShopProfile } from "@/hooks/use-shop-profile";
 import {

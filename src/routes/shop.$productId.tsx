@@ -50,6 +50,7 @@ import { REQUEST_SAFETY_NOTE, validateRequestInput } from "@/lib/shop-requests";
 import { listWishlistIds, toggleWishlist } from "@/lib/repo/wishlist";
 import { rememberProduct } from "@/lib/shop-recent";
 import { ProductCard } from "@/components/sohoj/shop/ProductCard";
+import { ShopImage } from "@/components/sohoj/shop/ShopImage";
 
 export const Route = createFileRoute("/shop/$productId")({
   head: () => ({ meta: [{ title: "Item details — Campus Path" }] }),
@@ -233,10 +234,10 @@ function ProductDetail() {
                   onClick={() => setZoom(true)}
                   className="block size-full"
                 >
-                  <img
-                    src={images[slide] ?? images[0]}
+                  <ShopImage
+                    src={images[slide] ?? images[0] ?? ""}
                     alt={product.title}
-                    className="size-full object-cover"
+                    className="absolute inset-0"
                   />
                   <ZoomIn className="absolute right-2 top-2 size-5 text-foreground/70" />
                 </button>
@@ -422,7 +423,7 @@ function ProductDetail() {
       <Dialog open={zoom} onOpenChange={setZoom}>
         <DialogContent className="max-w-lg rounded-3xl bg-card/95 p-2">
           <img
-            src={images[slide] ?? images[0]}
+            src={images[slide] ?? images[0] ?? ""}
             alt={product.title}
             className="max-h-[80dvh] w-full object-contain"
           />

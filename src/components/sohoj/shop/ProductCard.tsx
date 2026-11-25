@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Heart, Store } from "lucide-react";
+import { Heart } from "lucide-react";
 import { categoryLabel, conditionLabel, formatPrice, timeAgo, type ShopProduct } from "@/lib/shop";
 import { imageUrl } from "@/lib/repo/shop";
+import { ShopImage } from "@/components/sohoj/shop/ShopImage";
 
 interface Props {
   product: ShopProduct;
@@ -18,23 +19,12 @@ export function ProductCard({ product, wishlisted, onToggleWishlist, compact }: 
         params={{ productId: product.id }}
         className={compact ? "block w-36 shrink-0" : "block"}
       >
-        <div
-          className={
-            compact ? "relative aspect-square bg-muted" : "relative aspect-square bg-muted"
-          }
-        >
-          {product.images[0] ? (
-            <img
-              src={imageUrl(product.images[0]!)}
-              alt={product.title}
-              loading="lazy"
-              className="size-full object-cover"
-            />
-          ) : (
-            <span className="grid size-full place-items-center text-muted-foreground">
-              <Store className="size-8" />
-            </span>
-          )}
+        <div className="relative aspect-square bg-muted">
+          <ShopImage
+            src={imageUrl(product.images[0])}
+            alt={product.title}
+            className="absolute inset-0"
+          />
           <span className="absolute left-2 top-2 rounded-full bg-card/90 px-2 py-0.5 text-[9px] font-bold text-foreground backdrop-blur">
             {conditionLabel(product.condition).split(" / ")[0]}
           </span>

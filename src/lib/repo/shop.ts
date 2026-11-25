@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { SHOP_BUCKET, compressForUpload, shopImageUrl } from "@/lib/shop-image";
 import {
   MAX_IMAGES,
   type ProductInput,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/shop";
 import { db } from "./client";
 
-const BUCKET = "shop-images";
+const BUCKET = SHOP_BUCKET;
 
 type Row = {
   id: string;
@@ -386,62 +387,44 @@ export async function getSellerContact(
 }
 
 export async function uploadShopAvatar(userId: string, file: File): Promise<string> {
-  const blob = await compressImage(file, 512, 0.8);
-  const path = `${userId}/avatar-${crypto.randomUUID()}.webp`;
+  const { blob, type } = await compressForUpload(file);
+  if (!blob || blob.size === 0) throw new Error("Empty image / ছবি খালি");
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  const path = `${userId}/avatar-${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage
     .from(BUCKET)
-    .upload(path, blob, { contentType: "image/webp", upsert: false });
+    .upload(path, blob, { contentType: type, upsert: false });
   if (error) throw error;
   return path;
 }
 
 /* ---------------- Images ---------------- */
 
-export function imageUrl(path: string): string {
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-}
+/** Deprecated name kept for callers; all screens use the shared helper. */
+export const imageUrl = shopImageUrl;
 
-/** Canvas-based browser compression; keeps uploads small without new dependencies. */
-export async function compressImage(
-  file: File,
-  maxDimension = 1280,
-  quality = 0.78,
-): Promise<Blob> {
-  if (typeof createImageBitmap !== "function" || typeof document === "undefined") return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      bitmap.close();
-      return file;
-    }
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/webp", quality),
-    );
-    return blob ?? file;
-  } catch {
-    return file;
-  }
+/** Kept for existing callers; delegates to the validated shared compressor. */
+export async function compressImage(file: File): Promise<Blob> {
+  const { blob } = await compressForUpload(file);
+  return blob;
 }
 
 export async function uploadShopImages(userId: string, files: File[]): Promise<string[]> {
   const paths: string[] = [];
   try {
     for (const file of files.slice(0, MAX_IMAGES)) {
-      const blob = await compressImage(file);
-      const path = `${userId}/${crypto.randomUUID()}.webp`;
+      const { blob, type } = await compressForUpload(file);
+      if (!blob || blob.size === 0) throw new Error("Empty image / ছবি খালি");
+      const extension = type === "image/webp" ? "webp" : type === "image/png" ? "png" : "jpg";
+      const path = `${userId}/${crypto.randomUUID()}.${extension}`;
       const { error } = await supabase.storage
         .from(BUCKET)
-        .upload(path, blob, { contentType: "image/webp", upsert: false });
+        .upload(path, blob, { contentType: type, upsert: false });
       if (error) throw error;
       paths.push(path);
     }
+    if (paths.length !== Math.min(files.length, MAX_IMAGES))
+      throw new Error("Some images failed to upload / কিছু ছবি আপলোড হয়নি");
     return paths;
   } catch (e) {
     if (paths.length) await deleteShopImages(paths);
