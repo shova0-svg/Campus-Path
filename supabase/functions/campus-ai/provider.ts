@@ -13,7 +13,11 @@ export type ToolDef = {
 };
 
 export type ToolCall = { id: string; name: string; args: Record<string, unknown> };
-export type ProviderResult = { content: string; toolCalls: ToolCall[] };
+export type ProviderResult = {
+  content: string;
+  toolCalls: ToolCall[];
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+};
 
 export const AI_BUSY_MESSAGE =
   "AI এখন ব্যস্ত — কিছুক্ষণ পরে আবার চেষ্টা করুন / AI is busy right now — please try again later.";
@@ -42,7 +46,24 @@ export function parseProviderResponse(data: unknown): ProviderResult {
       }
       return { id: call.id ?? `call_${i}`, name: call.function!.name!, args };
     });
-  return { content: (message.content ?? "").trim(), toolCalls };
+  const usage = (
+    data as {
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    }
+  )?.usage;
+  return {
+    content: (message.content ?? "").trim(),
+    toolCalls,
+    ...(usage
+      ? {
+          usage: {
+            promptTokens: usage.prompt_tokens ?? 0,
+            completionTokens: usage.completion_tokens ?? 0,
+            totalTokens: usage.total_tokens ?? 0,
+          },
+        }
+      : {}),
+  };
 }
 
 export async function callProvider(opts: {
