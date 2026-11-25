@@ -26,6 +26,8 @@ type Row = {
   price: string | number;
   is_negotiable: boolean;
   images: string[] | null;
+  quantity: number;
+  views: number;
   department: string | null;
   semester: number | null;
   status: string;
@@ -45,6 +47,8 @@ function fromRow(row: Row): ShopProduct {
     price: Number(row["price"]),
     isNegotiable: row["is_negotiable"],
     images: row["images"] ?? [],
+    quantity: row.quantity ?? 1,
+    views: row.views ?? 0,
     ...(row["department"] ? { department: row["department"] } : {}),
     ...(row["semester"] != null ? { semester: row["semester"] } : {}),
     status: row.status as ShopStatus,
@@ -137,6 +141,7 @@ function toRow(input: ProductInput): Record<string, unknown> {
     price: Number(input.price),
     is_negotiable: input.isNegotiable,
     images: input.images.slice(0, MAX_IMAGES),
+    quantity: Math.max(0, input.quantity),
     ...(input.department ? { department: input.department.trim() } : {}),
     ...(input.semester != null ? { semester: input.semester } : {}),
   };
@@ -166,6 +171,7 @@ export async function updateProduct(
   if (patch.price !== undefined) row["price"] = Number(patch.price);
   if (patch.isNegotiable !== undefined) row["is_negotiable"] = patch.isNegotiable;
   if (patch.images !== undefined) row["images"] = patch.images.slice(0, MAX_IMAGES);
+  if (patch.quantity !== undefined) row["quantity"] = Math.max(0, patch.quantity);
   if (patch.department !== undefined) row["department"] = patch.department.trim() || null;
   if (patch.semester !== undefined) row["semester"] = patch.semester;
   const { data, error } = await db
@@ -195,6 +201,22 @@ export async function getSellerName(sellerId: string): Promise<string> {
     return String(data ?? "Student");
   } catch {
     return "Student";
+  }
+}
+
+export async function relistProduct(id: string): Promise<void> {
+  const { error } = await db
+    .from("shop_products")
+    .update({ status: "available", quantity: 1 })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function incrementProductViews(id: string): Promise<void> {
+  try {
+    await db.rpc("shop_increment_views", { p_product: id });
+  } catch {
+    /* view counting is best-effort */
   }
 }
 

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_ACTIVE_LISTINGS,
   SAFETY_NOTE,
+  canRelist,
   conditionLabel,
   filterProducts,
   formatPrice,
   isValidPhone,
   sortProducts,
+  statusForQuantity,
   timeAgo,
   validateProduct,
   validateShopProfile,
@@ -23,6 +25,7 @@ const input = (patch: Partial<ProductInput> = {}): ProductInput => ({
   price: "450",
   isNegotiable: true,
   images: ["rpi/u1/a.webp"],
+  quantity: 1,
   ...patch,
 });
 
@@ -37,6 +40,8 @@ const product = (patch: Partial<ShopProduct> = {}): ShopProduct => ({
   price: 100,
   isNegotiable: false,
   images: ["a.webp"],
+  quantity: 1,
+  views: 0,
   status: "available",
   createdAt: "2026-11-23T00:00:00Z",
   updatedAt: "2026-11-23T00:00:00Z",
@@ -125,5 +130,19 @@ describe("shop profile validation", () => {
   it("rejects short name, bad phone and missing department", () => {
     const errors = validateShopProfile({ ...base, shopName: "x", phone: "abc", department: "" });
     expect(Object.keys(errors).sort()).toEqual(["department", "phone", "shopName"]);
+  });
+});
+
+describe("seller dashboard rules", () => {
+  it("marks zero stock as sold", () => {
+    expect(statusForQuantity(0, "available")).toBe("sold");
+    expect(statusForQuantity(0, "reserved")).toBe("sold");
+    expect(statusForQuantity(2, "available")).toBe("available");
+  });
+
+  it("allows relist only with stock", () => {
+    expect(canRelist(product({ status: "sold", quantity: 1 }))).toBe(true);
+    expect(canRelist(product({ status: "sold", quantity: 0 }))).toBe(false);
+    expect(canRelist(product({ status: "available", quantity: 1 }))).toBe(false);
   });
 });

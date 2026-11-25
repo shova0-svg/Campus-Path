@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Copy, Flag, MessageCircle, Phone, ShieldCheck, Store } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import {
 import {
   getProduct,
   getSellerContact,
+  incrementProductViews,
   getSellerName,
   imageUrl,
   reportProduct,
@@ -41,6 +42,7 @@ function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [slide, setSlide] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
+  const counted = useRef(false);
   const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
 
@@ -51,6 +53,10 @@ function ProductDetail() {
       setProduct(p);
       setLoading(false);
       if (p) {
+        if (!counted.current) {
+          counted.current = true;
+          void incrementProductViews(p.id);
+        }
         setSeller(await getSellerName(p.sellerId));
         setContact(await getSellerContact(p.sellerId));
       }

@@ -79,6 +79,7 @@ function NewProduct() {
       price,
       isNegotiable: negotiable,
       images: files.map(() => "pending"),
+      quantity: 1,
       department,
       ...(semester ? { semester: Number(semester) } : {}),
     });
@@ -101,6 +102,7 @@ function NewProduct() {
         price,
         isNegotiable: negotiable,
         images: uploaded,
+        quantity: 1,
         ...(department ? { department } : {}),
         ...(semester ? { semester: Number(semester) } : {}),
       });

@@ -36,6 +36,8 @@ export interface ShopProduct {
   price: number;
   isNegotiable: boolean;
   images: string[];
+  quantity: number;
+  views: number;
   department?: string;
   semester?: number;
   status: ShopStatus;
@@ -66,6 +68,7 @@ export interface ProductInput {
   price: string | number;
   isNegotiable: boolean;
   images: string[];
+  quantity: number;
   department?: string;
   semester?: number;
 }
@@ -208,4 +211,20 @@ export function validateShopProfile(input: ShopProfileInput): Record<string, str
     errors["whatsapp"] = "সঠিক WhatsApp নম্বর / Valid WhatsApp number";
   if (!input.department.trim()) errors["department"] = "বিভাগ বেছে নিন / Department required";
   return errors;
+}
+
+export const SHOP_STATUS_TABS: { id: ShopStatus; label: string }[] = [
+  { id: "available", label: "Active / চলতি" },
+  { id: "reserved", label: "Reserved / রিজার্ভ" },
+  { id: "sold", label: "Sold / বিক্রীত" },
+  { id: "removed", label: "Removed / বাতিল" },
+];
+
+/** Server trigger applies the same rule; this keeps the UI in sync. */
+export function statusForQuantity(quantity: number, current: ShopStatus): ShopStatus {
+  return quantity <= 0 && (current === "available" || current === "reserved") ? "sold" : current;
+}
+
+export function canRelist(product: ShopProduct): boolean {
+  return product.status === "sold" && product.quantity > 0;
 }

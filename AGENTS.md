@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Campus Shop seller dashboard (Phase 2)
+
+- Migrations `20261126000005_shop_seller_dashboard.sql` (`quantity`, `views`, stock→sold trigger, sold counter, view RPC, banned-seller update policy), `...06_shop_counter_fix.sql` (internal counter update allowed), `...07_shop_ban_check.sql` (ban check via `shop_is_banned()`).
+- `/shop/my` dashboard: profile header + stats, status tabs, edit/delete/reserve/out-of-stock/relist, edit-profile dialog. Entry via **My Shop** on `/shop`. Product detail counts a view once via RPC. Live RLS check (seller/other/buyer/banned): 9/9 passed.
+
 ## Campus Shop profiles (Phase 1)
 
 - Migration `20261126000003_shop_profiles.sql` (+ `...04_shop_contact_rule.sql`): `shop_profiles` replaces per-product contact fields (backfilled from first product). Public fields via `shop_public_profile()` RPC; phone via `shop_seller_contact()` (authenticated only). Selling requires a profile; bans still block. Google sign-in reused from `src/lib/supabase-auth.ts` — no second auth system.
