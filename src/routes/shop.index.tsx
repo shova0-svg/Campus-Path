@@ -22,6 +22,8 @@ import {
 import { currentShopInstitute } from "@/lib/shop-scope";
 import { useConnectivity } from "@/hooks/use-connectivity";
 import { listProducts } from "@/lib/repo/shop";
+import { useShopProfile } from "@/hooks/use-shop-profile";
+import { ShopAccessGate } from "@/components/sohoj/shop/ShopAccessGate";
 
 export const Route = createFileRoute("/shop/")({
   head: () => ({
@@ -37,6 +39,7 @@ export const Route = createFileRoute("/shop/")({
 });
 
 function ShopHome() {
+  const { profile, loading: profileLoading, refresh: refreshProfile } = useShopProfile();
   const institute = currentShopInstitute();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -95,6 +98,21 @@ function ShopHome() {
 
   function onTouchEnd(y: number) {
     if (y - touchY.current > 70 && window.scrollY < 20 && !busy) void load(0);
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
+        <div className="mx-auto max-w-md space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (!profile) {
+    return <ShopAccessGate onReady={() => void refreshProfile()} />;
   }
 
   return (

@@ -9,6 +9,7 @@ import {
   sortProducts,
   timeAgo,
   validateProduct,
+  validateShopProfile,
   whatsappLink,
   type ProductInput,
   type ShopProduct,
@@ -22,7 +23,6 @@ const input = (patch: Partial<ProductInput> = {}): ProductInput => ({
   price: "450",
   isNegotiable: true,
   images: ["rpi/u1/a.webp"],
-  contactPhone: "01712345678",
   ...patch,
 });
 
@@ -37,7 +37,6 @@ const product = (patch: Partial<ShopProduct> = {}): ShopProduct => ({
   price: 100,
   isNegotiable: false,
   images: ["a.webp"],
-  contactPhone: "01712345678",
   status: "available",
   createdAt: "2026-11-23T00:00:00Z",
   updatedAt: "2026-11-23T00:00:00Z",
@@ -50,22 +49,13 @@ describe("shop validation", () => {
   });
 
   it("rejects missing category, short title, bad price and no images", () => {
-    const errors = validateProduct(
-      input({ title: "ab", category: "", price: "-1", images: [], contactPhone: "x" }),
-    );
-    expect(Object.keys(errors).sort()).toEqual([
-      "category",
-      "contactPhone",
-      "images",
-      "price",
-      "title",
-    ]);
+    const errors = validateProduct(input({ title: "ab", category: "", price: "-1", images: [] }));
+    expect(Object.keys(errors).sort()).toEqual(["category", "images", "price", "title"]);
   });
 
   it("validates phone and WhatsApp numbers", () => {
     expect(isValidPhone(" 01712-345678 ")).toBe(true);
     expect(isValidPhone("abc")).toBe(false);
-    expect(validateProduct(input({ contactWhatsapp: "abc" }))["contactWhatsapp"]).toBeTruthy();
   });
 
   it("has the expected limits and safety note", () => {
@@ -122,5 +112,18 @@ describe("shop feed helpers", () => {
     const now = new Date("2026-11-24T00:00:00Z");
     expect(timeAgo("2026-11-23T23:30:00Z", now)).toBe("এখনই / Just now");
     expect(timeAgo("2026-11-22T23:30:00Z", now)).toBe("কাল / Yesterday");
+  });
+});
+
+describe("shop profile validation", () => {
+  const base = { shopName: "Campus Store", bio: "", phone: "01712345678", department: "CST" };
+
+  it("accepts a valid seller profile", () => {
+    expect(validateShopProfile(base)).toEqual({});
+  });
+
+  it("rejects short name, bad phone and missing department", () => {
+    const errors = validateShopProfile({ ...base, shopName: "x", phone: "abc", department: "" });
+    expect(Object.keys(errors).sort()).toEqual(["department", "phone", "shopName"]);
   });
 });

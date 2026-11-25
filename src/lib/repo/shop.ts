@@ -26,8 +26,6 @@ type Row = {
   price: string | number;
   is_negotiable: boolean;
   images: string[] | null;
-  contact_phone: string;
-  contact_whatsapp: string | null;
   department: string | null;
   semester: number | null;
   status: string;
@@ -47,8 +45,6 @@ function fromRow(row: Row): ShopProduct {
     price: Number(row["price"]),
     isNegotiable: row["is_negotiable"],
     images: row["images"] ?? [],
-    contactPhone: row["contact_phone"],
-    ...(row["contact_whatsapp"] ? { contactWhatsapp: row["contact_whatsapp"] } : {}),
     ...(row["department"] ? { department: row["department"] } : {}),
     ...(row["semester"] != null ? { semester: row["semester"] } : {}),
     status: row.status as ShopStatus,
@@ -141,8 +137,6 @@ function toRow(input: ProductInput): Record<string, unknown> {
     price: Number(input.price),
     is_negotiable: input.isNegotiable,
     images: input.images.slice(0, MAX_IMAGES),
-    contact_phone: input.contactPhone.trim(),
-    ...(input.contactWhatsapp ? { contact_whatsapp: input.contactWhatsapp.trim() } : {}),
     ...(input.department ? { department: input.department.trim() } : {}),
     ...(input.semester != null ? { semester: input.semester } : {}),
   };
@@ -172,9 +166,6 @@ export async function updateProduct(
   if (patch.price !== undefined) row["price"] = Number(patch.price);
   if (patch.isNegotiable !== undefined) row["is_negotiable"] = patch.isNegotiable;
   if (patch.images !== undefined) row["images"] = patch.images.slice(0, MAX_IMAGES);
-  if (patch.contactPhone !== undefined) row["contact_phone"] = patch.contactPhone.trim();
-  if (patch.contactWhatsapp !== undefined)
-    row["contact_whatsapp"] = patch.contactWhatsapp.trim() || null;
   if (patch.department !== undefined) row["department"] = patch.department.trim() || null;
   if (patch.semester !== undefined) row["semester"] = patch.semester;
   const { data, error } = await db
@@ -277,6 +268,109 @@ export async function banUser(input: {
 export async function unbanUser(userId: string): Promise<void> {
   const { error } = await db.from("shop_bans").delete().eq("user_id", userId);
   if (error) throw error;
+}
+
+/* ---------------- Shop profile ---------------- */
+
+export interface ShopProfileRow {
+  user_id: string;
+  shop_name: string;
+  avatar_url: string | null;
+  bio: string;
+  phone: string;
+  whatsapp: string | null;
+  institute_id: string;
+  department: string;
+  semester: number | null;
+  is_verified: boolean;
+  total_sold: number;
+  created_at: string;
+}
+
+export async function getMyShopProfile(): Promise<import("@/lib/shop").ShopProfile | null> {
+  try {
+    const { data, error } = await db.from("shop_profiles").select("*").maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const r = data as ShopProfileRow;
+    return {
+      userId: r.user_id,
+      shopName: r.shop_name,
+      ...(r.avatar_url ? { avatarUrl: r.avatar_url } : {}),
+      bio: r.bio,
+      phone: r.phone,
+      ...(r.whatsapp ? { whatsapp: r.whatsapp } : {}),
+      instituteId: r.institute_id,
+      department: r.department,
+      ...(r.semester != null ? { semester: r.semester } : {}),
+      isVerified: r.is_verified,
+      totalSold: r.total_sold,
+      createdAt: r.created_at,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function saveShopProfile(input: {
+  shopName: string;
+  bio: string;
+  phone: string;
+  whatsapp?: string;
+  department: string;
+  semester?: number;
+  avatarUrl?: string;
+  instituteId: string;
+}): Promise<void> {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) throw new Error("Sign in first");
+  const { error } = await db.from("shop_profiles").upsert({
+    user_id: userId,
+    shop_name: input.shopName.trim(),
+    bio: input.bio.trim(),
+    phone: input.phone.trim(),
+    ...(input.whatsapp ? { whatsapp: input.whatsapp.trim() } : {}),
+    ...(input.avatarUrl ? { avatar_url: input.avatarUrl } : {}),
+    institute_id: input.instituteId,
+    department: input.department.trim(),
+    ...(input.semester != null ? { semester: input.semester } : {}),
+  });
+  if (error) throw error;
+}
+
+export async function getShopPublicProfile(userId: string) {
+  try {
+    const { data, error } = await db.rpc("shop_public_profile", { _seller: userId });
+    if (error) throw error;
+    return (data ?? [])[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getSellerContact(
+  userId: string,
+): Promise<{ phone: string; whatsapp?: string } | null> {
+  try {
+    const { data, error } = await db.rpc("shop_seller_contact", { _seller: userId });
+    if (error) throw error;
+    const row = (data ?? [])[0] as { phone: string; whatsapp: string | null } | undefined;
+    if (!row) return null;
+    return { phone: row.phone, ...(row.whatsapp ? { whatsapp: row.whatsapp } : {}) };
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadShopAvatar(userId: string, file: File): Promise<string> {
+  const blob = await compressImage(file, 512, 0.8);
+  const path = `${userId}/avatar-${crypto.randomUUID()}.webp`;
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, blob, { contentType: "image/webp", upsert: false });
+  if (error) throw error;
+  return path;
 }
 
 /* ---------------- Images ---------------- */

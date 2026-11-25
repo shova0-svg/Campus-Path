@@ -20,7 +20,13 @@ import {
   whatsappLink,
   type ShopProduct,
 } from "@/lib/shop";
-import { getProduct, getSellerName, imageUrl, reportProduct } from "@/lib/repo/shop";
+import {
+  getProduct,
+  getSellerContact,
+  getSellerName,
+  imageUrl,
+  reportProduct,
+} from "@/lib/repo/shop";
 
 export const Route = createFileRoute("/shop/$productId")({
   head: () => ({ meta: [{ title: "Item details — Campus Path" }] }),
@@ -31,6 +37,7 @@ function ProductDetail() {
   const { productId } = Route.useParams();
   const [product, setProduct] = useState<ShopProduct | null>(null);
   const [seller, setSeller] = useState("Student");
+  const [contact, setContact] = useState<{ phone: string; whatsapp?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [slide, setSlide] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
@@ -43,7 +50,10 @@ function ProductDetail() {
       if (!active) return;
       setProduct(p);
       setLoading(false);
-      if (p) setSeller(await getSellerName(p.sellerId));
+      if (p) {
+        setSeller(await getSellerName(p.sellerId));
+        setContact(await getSellerContact(p.sellerId));
+      }
     });
     return () => {
       active = false;
@@ -211,25 +221,31 @@ function ProductDetail() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
-            <a href={`tel:${product.contactPhone}`}>
-              <Phone /> Call / কল
-            </a>
-          </Button>
-          <Button variant="outline" asChild>
-            <a
-              href={whatsappLink(product.contactWhatsapp || product.contactPhone)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <MessageCircle /> WhatsApp
-            </a>
-          </Button>
-          <Button variant="outline" onClick={() => void copyNumber(product.contactPhone)}>
-            <Copy /> Copy number
-          </Button>
-        </section>
+        {contact ? (
+          <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
+              <a href={`tel:${contact.phone}`}>
+                <Phone /> Call / কল
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a
+                href={whatsappLink(contact.whatsapp || contact.phone)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle /> WhatsApp
+              </a>
+            </Button>
+            <Button variant="outline" onClick={() => void copyNumber(contact.phone)}>
+              <Copy /> Copy number
+            </Button>
+          </section>
+        ) : (
+          <p className="rounded-2xl border border-dashed border-border bg-card p-3 text-center text-[11px] text-muted-foreground">
+            Sign in to contact this seller / যোগাযোগ করতে লগইন করুন
+          </p>
+        )}
       </main>
 
       <Dialog open={reportOpen} onOpenChange={setReportOpen}>

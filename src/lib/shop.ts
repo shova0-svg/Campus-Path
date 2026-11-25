@@ -36,8 +36,6 @@ export interface ShopProduct {
   price: number;
   isNegotiable: boolean;
   images: string[];
-  contactPhone: string;
-  contactWhatsapp?: string;
   department?: string;
   semester?: number;
   status: ShopStatus;
@@ -68,8 +66,6 @@ export interface ProductInput {
   price: string | number;
   isNegotiable: boolean;
   images: string[];
-  contactPhone: string;
-  contactWhatsapp?: string;
   department?: string;
   semester?: number;
 }
@@ -116,10 +112,6 @@ export function validateProduct(input: ProductInput): Record<string, string> {
     errors["price"] = "সঠিক দাম দিন / Valid price required";
   if (input.images.length < 1 || input.images.length > MAX_IMAGES)
     errors["images"] = `১–${MAX_IMAGES} ছবি দিন / 1–${MAX_IMAGES} images`;
-  if (!isValidPhone(input.contactPhone))
-    errors["contactPhone"] = "সঠিক ফোন নম্বর দিন / Valid phone number";
-  if (input.contactWhatsapp && !isValidPhone(input.contactWhatsapp))
-    errors["contactWhatsapp"] = "সঠিক WhatsApp নম্বর / Valid WhatsApp number";
   return errors;
 }
 
@@ -177,4 +169,43 @@ export function whatsappLink(phone: string, message = "Hi, is this item still av
 
 export function fileSizeLabel(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export interface ShopProfile {
+  userId: string;
+  shopName: string;
+  avatarUrl?: string;
+  bio: string;
+  phone: string;
+  whatsapp?: string;
+  instituteId: string;
+  department: string;
+  semester?: number;
+  isVerified: boolean;
+  totalSold: number;
+  createdAt: string;
+}
+
+export interface ShopProfileInput {
+  shopName: string;
+  bio: string;
+  phone: string;
+  whatsapp?: string;
+  department: string;
+  semester?: number;
+  avatarUrl?: string;
+}
+
+/** Client mirror of the shop_profiles CHECK constraints. */
+export function validateShopProfile(input: ShopProfileInput): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const name = input.shopName.trim();
+  if (name.length < 2 || name.length > 60)
+    errors["shopName"] = "দোকানের নাম ২–৬০ অক্ষর / Shop name 2–60 characters";
+  if (input.bio.trim().length > 500) errors["bio"] = "সর্বোচ্চ ৫০০ অক্ষর / Max 500 characters";
+  if (!isValidPhone(input.phone)) errors["phone"] = "সঠিক ফোন নম্বর দিন / Valid phone number";
+  if (input.whatsapp && !isValidPhone(input.whatsapp))
+    errors["whatsapp"] = "সঠিক WhatsApp নম্বর / Valid WhatsApp number";
+  if (!input.department.trim()) errors["department"] = "বিভাগ বেছে নিন / Department required";
+  return errors;
 }

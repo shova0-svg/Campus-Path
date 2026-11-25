@@ -23,6 +23,7 @@ import {
 import { currentShopInstitute } from "@/lib/shop-scope";
 import { parseStudent, STUDENT_KEY } from "@/lib/student";
 import { createProduct, deleteShopImages, uploadShopImages } from "@/lib/repo/shop";
+import { useShopProfile } from "@/hooks/use-shop-profile";
 
 export const Route = createFileRoute("/shop/new")({
   head: () => ({ meta: [{ title: "Sell an item — Campus Path" }] }),
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/shop/new")({
 
 function NewProduct() {
   const { user, loading: authLoading } = useAuth();
+  const { profile: shopProfile, loading: profileLoading } = useShopProfile();
   const navigate = useNavigate();
   const profile =
     typeof window === "undefined" ? null : parseStudent(window.localStorage.getItem(STUDENT_KEY));
@@ -45,8 +47,6 @@ function NewProduct() {
   const [condition, setCondition] = useState<ShopCondition | "">("");
   const [price, setPrice] = useState("");
   const [negotiable, setNegotiable] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
   const [department, setDepartment] = useState(profile?.department ?? "");
   const [semester, setSemester] = useState(profile ? String(profile.semester) : "");
   const [files, setFiles] = useState<File[]>([]);
@@ -79,8 +79,6 @@ function NewProduct() {
       price,
       isNegotiable: negotiable,
       images: files.map(() => "pending"),
-      contactPhone: phone,
-      ...(whatsapp ? { contactWhatsapp: whatsapp } : {}),
       department,
       ...(semester ? { semester: Number(semester) } : {}),
     });
@@ -103,8 +101,6 @@ function NewProduct() {
         price,
         isNegotiable: negotiable,
         images: uploaded,
-        contactPhone: phone,
-        ...(whatsapp ? { contactWhatsapp: whatsapp } : {}),
         ...(department ? { department } : {}),
         ...(semester ? { semester: Number(semester) } : {}),
       });
@@ -123,6 +119,22 @@ function NewProduct() {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!profileLoading && user && !shopProfile) {
+    return (
+      <div className="bg-desk grid min-h-dvh place-items-center px-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center">
+          <p className="text-sm font-semibold">Set up your shop first / আগে দোকান খুলুন</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Selling needs a shop profile with your phone number.
+          </p>
+          <Button className="mt-4" asChild>
+            <Link to="/shop">Go to Shop</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (authLoading || !user) {
@@ -216,23 +228,9 @@ function NewProduct() {
               placeholder="Price ৳ / দাম"
               className="h-11 rounded-xl"
             />
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              aria-label="Contact phone"
-              placeholder="Contact phone / ফোন"
-              className="h-11 rounded-xl"
-            />
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Input
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              aria-label="WhatsApp number"
-              placeholder="WhatsApp (optional)"
-              className="h-11 rounded-xl"
-            />
             <Input
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
