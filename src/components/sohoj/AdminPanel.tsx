@@ -219,8 +219,8 @@ export function AdminPanel({
             "fixed left-0 top-0 flex h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0",
             "sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92dvh] sm:w-full sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-3xl",
             tab === "feedback" || tab === "stats" || tab === "notices"
-              ? "sm:max-w-2xl"
-              : "sm:max-w-lg",
+              ? "sm:max-w-2xl lg:max-w-3xl"
+              : "sm:max-w-2xl",
           )}
         >
           <div className="bg-hero px-4 pb-4 pt-[calc(1.25rem+env(safe-area-inset-top))] text-primary-foreground sm:px-5 sm:pt-5">
