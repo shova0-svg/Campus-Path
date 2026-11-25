@@ -1,7 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Plus, RefreshCw, Search, Store, WifiOff } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Cpu,
+  Heart,
+  Package,
+  Plus,
+  Ruler,
+  Search,
+  SlidersHorizontal,
+  Store,
+  WifiOff,
+  Wrench,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -21,22 +35,32 @@ import {
 } from "@/lib/shop";
 import { currentShopInstitute } from "@/lib/shop-scope";
 import { useConnectivity } from "@/hooks/use-connectivity";
-import { listProducts } from "@/lib/repo/shop";
 import { useShopProfile } from "@/hooks/use-shop-profile";
 import { ShopAccessGate } from "@/components/sohoj/shop/ShopAccessGate";
+import { listProducts } from "@/lib/repo/shop";
+import { listWishlistIds, toggleWishlist } from "@/lib/repo/wishlist";
+import { recentProductIds } from "@/lib/shop-recent";
+import { DEPARTMENT_OPTIONS } from "@/lib/teachers";
 
 export const Route = createFileRoute("/shop/")({
-  head: () => ({
-    meta: [
-      { title: "Campus Shop — Campus Path" },
-      {
-        name: "description",
-        content: "Buy and sell used items with classmates. Pay in person on campus.",
-      },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Campus Shop — Campus Path" }] }),
   component: ShopHome,
 });
+
+const CATEGORY_ICONS: Record<ShopCategory, typeof BookOpen> = {
+  old_books: BookOpen,
+  drawing_tools: Ruler,
+  engineering_instruments: Wrench,
+  electronics: Cpu,
+  others: Package,
+};
+
+const SEGMENTS = [
+  { to: "/shop", label: "Home" },
+  { to: "/shop/wishlist", label: "Wishlist" },
+  { to: "/shop/requests", label: "Requests" },
+  { to: "/shop/my", label: "My Shop" },
+] as const;
 
 function ShopHome() {
   const { profile, loading: profileLoading, refresh: refreshProfile } = useShopProfile();
@@ -45,14 +69,18 @@ function ShopHome() {
   const [debounced, setDebounced] = useState("");
   const [category, setCategory] = useState<ShopCategory | "all">("all");
   const [condition, setCondition] = useState<ShopCondition | "all">("all");
+  const [department, setDepartment] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState<ShopSort>("newest");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  const [recent, setRecent] = useState<string[]>([]);
   const { online } = useConnectivity();
   const touchY = useRef(0);
 
@@ -90,15 +118,28 @@ function ShopHome() {
 
   useEffect(() => {
     void load(0);
+    void listWishlistIds().then(setWishlist);
+    setRecent(recentProductIds());
   }, [load]);
 
-  function onTouchStart(y: number) {
-    touchY.current = y;
-  }
+  const visibleProducts = useMemo(
+    () => (department ? products.filter((p) => p.department === department) : products),
+    [products, department],
+  );
 
-  function onTouchEnd(y: number) {
-    if (y - touchY.current > 70 && window.scrollY < 20 && !busy) void load(0);
-  }
+  const sections = useMemo(
+    () => ({
+      newArrivals: [...visibleProducts]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 8),
+      under500: visibleProducts.filter((p) => p.price < 500).slice(0, 8),
+      books: visibleProducts.filter((p) => p.category === "old_books").slice(0, 8),
+      recent: recent
+        .map((id) => products.find((p) => p.id === id))
+        .filter(Boolean) as ShopProduct[],
+    }),
+    [visibleProducts, recent, products],
+  );
 
   if (profileLoading) {
     return (
@@ -111,88 +152,198 @@ function ShopHome() {
       </div>
     );
   }
-  if (!profile) {
-    return <ShopAccessGate onReady={() => void refreshProfile()} />;
+  if (!profile) return <ShopAccessGate onReady={() => void refreshProfile()} />;
+
+  async function toggleHeart(id: string) {
+    const wasActive = wishlist.includes(id);
+    setWishlist((prev) => (wasActive ? prev.filter((x) => x !== id) : [...prev, id]));
+    try {
+      const active = await toggleWishlist(id, wasActive);
+      setWishlist((prev) =>
+        active ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id),
+      );
+    } catch {
+      setWishlist((prev) => (wasActive ? [...prev, id] : prev.filter((x) => x !== id)));
+    }
+  }
+
+  const cardProps = { wishlist, onToggleWishlist: (id: string) => void toggleHeart(id) };
+
+  function horizontal(title: string, items: ShopProduct[]) {
+    if (items.length === 0) return null;
+    return (
+      <section className="space-y-2">
+        <h2 className="text-sm font-bold">{title}</h2>
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          {items.map((p) => (
+            <div key={p.id} className="w-36 shrink-0">
+              <ProductCard product={p} compact {...cardProps} />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
   }
 
   return (
-    <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
-      <main className="mx-auto w-full max-w-md space-y-4">
-        <div className="flex items-center gap-2">
+    <div className="bg-desk min-h-dvh pb-[calc(7rem+env(safe-area-inset-bottom))]">
+      <div className="sticky top-0 z-30 border-b border-border bg-background/95 px-4 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))] backdrop-blur">
+        <div className="mx-auto flex max-w-md items-center gap-2">
           <Link to="/" aria-label="Back to home">
-            <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
-              <ArrowLeft /> <span className="hidden sm:inline">Back to home</span>
+            <Button variant="ghost" size="icon" className="-ml-2">
+              <ArrowLeft />
             </Button>
           </Link>
-          <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-primary">
-            <Store className="size-4" /> Campus Shop
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            className="shrink-0"
-            aria-label="Notifications inbox"
-          >
-            <Link to="/shop/inbox">Inbox</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild className="shrink-0" aria-label="My Shop">
-            <Link to="/shop/my">My Shop</Link>
-          </Button>
-          <Button variant="emerald" size="sm" asChild className="shrink-0">
-            <Link to="/shop/new">
-              <Plus className="size-4" /> Sell / বেচুন
-            </Link>
-          </Button>
-        </div>
-
-        {!online && (
-          <p className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3 text-[11px] text-muted-foreground">
-            <WifiOff className="size-4" /> Offline — showing last loaded items / অফলাইন
-          </p>
-        )}
-
-        <section className="space-y-3 rounded-3xl border border-border bg-card p-4 shadow-[var(--shadow-card)]">
-          <div className="relative">
+          <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search items / আইটেম খুঁজুন"
               aria-label="Search shop items"
-              className="h-11 rounded-xl pl-9"
+              className="h-10 rounded-xl pl-9"
             />
           </div>
-
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-            <button
-              type="button"
-              onClick={() => setCategory("all")}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold ${category === "all" ? "bg-emerald text-emerald-foreground" : "bg-muted text-muted-foreground"}`}
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Filters and sort"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal />
+          </Button>
+        </div>
+        <div className="mx-auto mt-2 flex max-w-md gap-1 rounded-xl bg-muted p-1">
+          {SEGMENTS.map((s) => (
+            <Link
+              key={s.to}
+              to={s.to}
+              className="flex-1 rounded-lg py-1.5 text-center text-[10px] font-semibold text-muted-foreground hover:bg-card hover:text-primary"
             >
-              All / সব
-            </button>
-            {SHOP_CATEGORIES.map((c) => (
+              {s.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <main className="mx-auto w-full max-w-md space-y-4 px-4 pt-4">
+        <section className="rounded-2xl bg-hero px-4 py-4 text-primary-foreground">
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald">
+            <Store className="size-3.5" /> Campus Shop
+          </p>
+          <h1 className="font-display mt-1 text-lg font-bold">
+            Find it on campus / ক্যাম্পাসে খুঁজে নিন
+          </h1>
+          <p className="mt-1 text-[11px] text-primary-foreground/75">
+            Buy and sell used items. Pay in person.
+          </p>
+        </section>
+
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            className={`grid w-16 shrink-0 place-items-center gap-1 rounded-2xl border p-2 text-[9px] font-semibold ${category === "all" ? "border-emerald bg-emerald-soft text-emerald" : "border-border bg-card text-muted-foreground"}`}
+          >
+            <Package className="size-5" /> All
+          </button>
+          {SHOP_CATEGORIES.map((c) => {
+            const Icon = CATEGORY_ICONS[c.id];
+            return (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => setCategory(c.id)}
-                className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-semibold ${category === c.id ? "bg-emerald text-emerald-foreground" : "bg-muted text-muted-foreground"}`}
+                className={`grid w-16 shrink-0 place-items-center gap-1 rounded-2xl border p-2 text-center text-[9px] font-semibold leading-tight ${category === c.id ? "border-emerald bg-emerald-soft text-emerald" : "border-border bg-card text-muted-foreground"}`}
               >
-                {c.label.split(" / ")[0]}
+                <Icon className="size-5" /> {c.label.split(" / ")[0]}
               </button>
+            );
+          })}
+        </div>
+
+        {!online && (
+          <p className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3 text-[11px] text-muted-foreground">
+            <WifiOff className="size-4" /> Offline — showing cached items / অফলাইন
+          </p>
+        )}
+
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div
+                key={i}
+                className="animate-pulse overflow-hidden rounded-2xl border border-border bg-card"
+              >
+                <div className="aspect-square bg-muted" />
+                <div className="space-y-2 p-3">
+                  <div className="h-3 w-3/4 rounded bg-muted" />
+                  <div className="h-3 w-1/2 rounded bg-muted" />
+                </div>
+              </div>
             ))}
           </div>
+        ) : (
+          <>
+            {horizontal("New arrivals / নতুন আইটেম", sections.newArrivals)}
+            {horizontal("Under ৳500 / ৫০০ টাকার কম", sections.under500)}
+            {horizontal("Old Books / পুরোনো বই", sections.books)}
+            {horizontal("Recently viewed / সম্প্রতি দেখা", sections.recent)}
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold">All items / সব আইটেম</h2>
+                <span className="text-[10px] text-muted-foreground">
+                  {visibleProducts.length} found
+                </span>
+              </div>
+              {visibleProducts.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                  No items found / কোনো আইটেম পাওয়া যায়নি।
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {visibleProducts.map((p) => (
+                    <ProductCard key={p.id} product={p} {...cardProps} />
+                  ))}
+                </div>
+              )}
+              {hasMore && (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void load(page + 1, true)}
+                  >
+                    {busy ? "Loading…" : "Load more / আরও"}
+                  </Button>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </main>
+
+      <Link
+        to="/shop/new"
+        aria-label="Sell an item"
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-30 grid size-14 place-items-center rounded-full bg-emerald text-emerald-foreground shadow-[var(--shadow-float)]"
+      >
+        <Plus className="size-6" />
+      </Link>
+
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="fixed bottom-0 left-0 top-auto w-full max-w-none translate-x-0 translate-y-0 rounded-t-3xl border-t bg-background p-5">
+          <DialogHeader>
+            <DialogTitle>Filters / ফিল্টার</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
             <Select
               value={condition}
               onValueChange={(v) => setCondition(v as ShopCondition | "all")}
             >
-              <SelectTrigger
-                className="h-10 rounded-xl [&>span]:truncate"
-                aria-label="Filter by condition"
-              >
+              <SelectTrigger aria-label="Condition">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -204,8 +355,39 @@ function ShopHome() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={department} onValueChange={setDepartment}>
+              <SelectTrigger aria-label="Department">
+                <SelectValue placeholder="Department / বিভাগ" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All departments</SelectItem>
+                {DEPARTMENT_OPTIONS.map((d) => (
+                  <SelectItem key={d.key} value={d.english}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="number"
+                min={0}
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                aria-label="Minimum price"
+                placeholder="Min ৳"
+              />
+              <Input
+                type="number"
+                min={0}
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                aria-label="Maximum price"
+                placeholder="Max ৳"
+              />
+            </div>
             <Select value={sort} onValueChange={(v) => setSort(v as ShopSort)}>
-              <SelectTrigger className="h-10 rounded-xl [&>span]:truncate" aria-label="Sort items">
+              <SelectTrigger aria-label="Sort">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -214,91 +396,35 @@ function ShopHome() {
                 <SelectItem value="price_desc">Price high → low</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              type="number"
-              min={0}
-              value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
-              placeholder="Min ৳"
-              aria-label="Minimum price"
-              className="h-10 rounded-xl"
-            />
-            <Input
-              type="number"
-              min={0}
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder="Max ৳"
-              aria-label="Maximum price"
-              className="h-10 rounded-xl"
-            />
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setCategory("all");
+                  setCondition("all");
+                  setDepartment("");
+                  setMinPrice("");
+                  setMaxPrice("");
+                  setSort("newest");
+                }}
+              >
+                Reset
+              </Button>
+              <Button
+                variant="emerald"
+                className="flex-1"
+                onClick={() => {
+                  setFiltersOpen(false);
+                  void load(0);
+                }}
+              >
+                Apply / প্রয়োগ
+              </Button>
+            </div>
           </div>
-        </section>
-
-        <div
-          onTouchStart={(e) => onTouchStart(e.touches[0]!.clientY)}
-          onTouchEnd={(e) => onTouchEnd(e.changedTouches[0]!.clientY)}
-        >
-          {loading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {Array.from({ length: 6 }, (_, i) => (
-                <div
-                  key={i}
-                  className="animate-pulse overflow-hidden rounded-2xl border border-border bg-card"
-                >
-                  <div className="aspect-square bg-muted" />
-                  <div className="space-y-2 p-3">
-                    <div className="h-3 w-3/4 rounded bg-muted" />
-                    <div className="h-3 w-1/2 rounded bg-muted" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : products.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border bg-card p-8 text-center">
-              <Store className="mx-auto size-8 text-muted-foreground" />
-              <p className="mt-3 text-sm font-semibold">No items yet / এখনো কোনো আইটেম নেই</p>
-              <p className="font-bangla mt-1 text-xs text-muted-foreground">
-                নতুন আইটেমের জন্য আবার চেষ্টা করুন।
-              </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => void load(0)} disabled={busy}>
-                  <RefreshCw className={busy ? "animate-spin" : ""} /> Retry / আবার
-                </Button>
-                <Button size="sm" variant="emerald" asChild>
-                  <Link to="/shop/new">
-                    <Plus /> Add product / আইটেম দিন
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
-              <div className="mt-4 flex justify-center">
-                {hasMore ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void load(page + 1, true)}
-                    disabled={busy}
-                  >
-                    {busy ? "Loading…" : "Load more / আরও দেখুন"}
-                  </Button>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">
-                    All items shown / সব দেখানো হয়েছে
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </main>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

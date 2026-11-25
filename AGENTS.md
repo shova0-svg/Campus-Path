@@ -88,6 +88,11 @@ use the editor.
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
 - 6 names remain unmatched/ambiguous (`MD. MOHOSIN`, `SAMROZ NAHAR`, `ANJUMAN ARA`, `MD. SORIAT ULLAH`, `SYEDA SADIKA AKHTER JAHAN`, `MD. MOHON ALI`) — see `UNCONFIRMED_ALIASES`; never auto-match, never use acronyms as identity.
 
+## Campus Shop storefront (Phase 4)
+
+- Migrations `20261126000012_shop_wishlist.sql` + `...13_shop_wishlist_default.sql`: per-user wishlist with `user_id DEFAULT auth.uid()`, RLS owner-only. No other RLS/request rules changed in this phase.
+- `/shop` redesigned: sticky search + segments (Home/Wishlist/Requests/My Shop), category icon row, New arrivals / Under ৳500 / Old Books / Recently viewed rails, main grid, filter bottom sheet, floating +Sell button. Product detail: zoomable carousel, clickable seller card → `/shop/seller/$sellerId`, similar products, share, sticky Wishlist/Contact/Request bar. `/shop/wishlist` and public seller page added. Wishlist RLS check (2 users + anon): 6/6 passed.
+
 ## Campus Shop purchase requests (Phase 3)
 
 - Migrations `20261126000008_shop_requests.sql` (`purchase_requests`, `notifications` inbox, RLS, status guard/effects, 5-pending rate limit, one active request/product), `...09_shop_request_defaults.sql` (`buyer_id default auth.uid()`), `...10_shop_request_notify_buyer.sql` (buyer notification on submit). No payments.

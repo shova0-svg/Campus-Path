@@ -25,6 +25,8 @@ import { Route as ShopInboxRouteImport } from './routes/shop.inbox'
 import { Route as ShopMyRouteImport } from './routes/shop.my'
 import { Route as ShopNewRouteImport } from './routes/shop.new'
 import { Route as ShopRequestsRouteImport } from './routes/shop.requests'
+import { Route as ShopWishlistRouteImport } from './routes/shop.wishlist'
+import { Route as ShopSellerSellerIdRouteImport } from './routes/shop.seller.$sellerId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -106,6 +108,16 @@ const ShopRequestsRoute = ShopRequestsRouteImport.update({
   path: '/requests',
   getParentRoute: () => ShopRoute,
 } as any)
+const ShopWishlistRoute = ShopWishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopSellerSellerIdRoute = ShopSellerSellerIdRouteImport.update({
+  id: '/seller/$sellerId',
+  path: '/seller/$sellerId',
+  getParentRoute: () => ShopRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -123,7 +135,9 @@ export interface FileRoutesByFullPath {
   '/shop/my': typeof ShopMyRoute
   '/shop/new': typeof ShopNewRoute
   '/shop/requests': typeof ShopRequestsRoute
+  '/shop/wishlist': typeof ShopWishlistRoute
   '/shop/': typeof ShopIndexRoute
+  '/shop/seller/$sellerId': typeof ShopSellerSellerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -140,7 +154,9 @@ export interface FileRoutesByTo {
   '/shop/my': typeof ShopMyRoute
   '/shop/new': typeof ShopNewRoute
   '/shop/requests': typeof ShopRequestsRoute
+  '/shop/wishlist': typeof ShopWishlistRoute
   '/shop': typeof ShopIndexRoute
+  '/shop/seller/$sellerId': typeof ShopSellerSellerIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -159,7 +175,9 @@ export interface FileRoutesById {
   '/shop/my': typeof ShopMyRoute
   '/shop/new': typeof ShopNewRoute
   '/shop/requests': typeof ShopRequestsRoute
+  '/shop/wishlist': typeof ShopWishlistRoute
   '/shop/': typeof ShopIndexRoute
+  '/shop/seller/$sellerId': typeof ShopSellerSellerIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -179,7 +197,9 @@ export interface FileRouteTypes {
     | '/shop/my'
     | '/shop/new'
     | '/shop/requests'
+    | '/shop/wishlist'
     | '/shop/'
+    | '/shop/seller/$sellerId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -196,7 +216,9 @@ export interface FileRouteTypes {
     | '/shop/my'
     | '/shop/new'
     | '/shop/requests'
+    | '/shop/wishlist'
     | '/shop'
+    | '/shop/seller/$sellerId'
   id:
     | '__root__'
     | '/'
@@ -214,7 +236,9 @@ export interface FileRouteTypes {
     | '/shop/my'
     | '/shop/new'
     | '/shop/requests'
+    | '/shop/wishlist'
     | '/shop/'
+    | '/shop/seller/$sellerId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -344,6 +368,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShopRequestsRouteImport
       parentRoute: typeof ShopRoute
     }
+    '/shop/wishlist': {
+      id: '/shop/wishlist'
+      path: '/wishlist'
+      fullPath: '/shop/wishlist'
+      preLoaderRoute: typeof ShopWishlistRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/seller/$sellerId': {
+      id: '/shop/seller/$sellerId'
+      path: '/seller/$sellerId'
+      fullPath: '/shop/seller/$sellerId'
+      preLoaderRoute: typeof ShopSellerSellerIdRouteImport
+      parentRoute: typeof ShopRoute
+    }
   }
 }
 
@@ -353,7 +391,9 @@ interface ShopRouteChildren {
   ShopMyRoute: typeof ShopMyRoute
   ShopNewRoute: typeof ShopNewRoute
   ShopRequestsRoute: typeof ShopRequestsRoute
+  ShopWishlistRoute: typeof ShopWishlistRoute
   ShopIndexRoute: typeof ShopIndexRoute
+  ShopSellerSellerIdRoute: typeof ShopSellerSellerIdRoute
 }
 
 const ShopRouteChildren: ShopRouteChildren = {
@@ -362,7 +402,9 @@ const ShopRouteChildren: ShopRouteChildren = {
   ShopMyRoute: ShopMyRoute,
   ShopNewRoute: ShopNewRoute,
   ShopRequestsRoute: ShopRequestsRoute,
+  ShopWishlistRoute: ShopWishlistRoute,
   ShopIndexRoute: ShopIndexRoute,
+  ShopSellerSellerIdRoute: ShopSellerSellerIdRoute,
 }
 
 const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)

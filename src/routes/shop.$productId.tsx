@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  BadgeCheck,
   Copy,
   Flag,
+  Heart,
   MessageCircle,
   Phone,
+  Share2,
   ShieldCheck,
   ShoppingBag,
   Store,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,9 +42,14 @@ import {
   getSellerName,
   imageUrl,
   reportProduct,
+  getShopPublicProfile,
+  listProducts,
 } from "@/lib/repo/shop";
 import { createRequest } from "@/lib/repo/shopRequests";
 import { REQUEST_SAFETY_NOTE, validateRequestInput } from "@/lib/shop-requests";
+import { listWishlistIds, toggleWishlist } from "@/lib/repo/wishlist";
+import { rememberProduct } from "@/lib/shop-recent";
+import { ProductCard } from "@/components/sohoj/shop/ProductCard";
 
 export const Route = createFileRoute("/shop/$productId")({
   head: () => ({ meta: [{ title: "Item details — Campus Path" }] }),
@@ -64,6 +73,11 @@ function ProductDetail() {
   const [reqMsg, setReqMsg] = useState("");
   const [reqBusy, setReqBusy] = useState(false);
   const [reqError, setReqError] = useState("");
+  const [zoom, setZoom] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
+  const [similar, setSimilar] = useState<ShopProduct[]>([]);
+  const [sellerProfile, setSellerProfile] =
+    useState<Awaited<ReturnType<typeof getShopPublicProfile>>>(null);
 
   useEffect(() => {
     let active = true;
@@ -76,8 +90,14 @@ function ProductDetail() {
           counted.current = true;
           void incrementProductViews(p.id);
         }
+        rememberProduct(p.id);
         setSeller(await getSellerName(p.sellerId));
         setContact(await getSellerContact(p.sellerId));
+        setSellerProfile(await getShopPublicProfile(p.sellerId));
+        void listWishlistIds().then((ids) => setWishlisted(ids.includes(p.id)));
+        void listProducts(p.instituteId, { category: p.category, sort: "newest" }).then((page) =>
+          setSimilar(page.items.filter((item) => item.id !== p.id).slice(0, 4)),
+        );
       }
     });
     return () => {
@@ -184,7 +204,21 @@ function ProductDetail() {
               <ArrowLeft /> <span className="hidden sm:inline">Back to shop</span>
             </Button>
           </Link>
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setReportOpen(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Share product"
+            onClick={() => {
+              const url = window.location.href;
+              if (navigator.share)
+                void navigator.share({ title: product.title, url }).catch(() => {});
+              else
+                void navigator.clipboard?.writeText(url).then(() => toast.success("Link copied"));
+            }}
+          >
+            <Share2 />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setReportOpen(true)}>
             <Flag /> Report
           </Button>
         </div>
@@ -193,11 +227,19 @@ function ProductDetail() {
           {images.length > 0 ? (
             <>
               <div className="relative aspect-square bg-muted">
-                <img
-                  src={images[slide] ?? images[0]}
-                  alt={product.title}
-                  className="size-full object-cover"
-                />
+                <button
+                  type="button"
+                  aria-label="Zoom image"
+                  onClick={() => setZoom(true)}
+                  className="block size-full"
+                >
+                  <img
+                    src={images[slide] ?? images[0]}
+                    alt={product.title}
+                    className="size-full object-cover"
+                  />
+                  <ZoomIn className="absolute right-2 top-2 size-5 text-foreground/70" />
+                </button>
                 <span className="absolute bottom-2 right-2 rounded-full bg-card/90 px-2 py-0.5 text-[10px] font-semibold backdrop-blur">
                   {slide + 1}/{images.length}
                 </span>
@@ -262,64 +304,130 @@ function ProductDetail() {
                 {product.description}
               </p>
             )}
-            <div className="rounded-2xl bg-muted/60 p-3 text-xs">
-              <p className="font-semibold">{seller}</p>
-              <p className="text-muted-foreground">
-                {[product.department, product.semester ? `Sem ${product.semester}` : ""]
-                  .filter(Boolean)
-                  .join(" · ") || "Campus seller"}
-              </p>
-            </div>
+            <Link
+              to="/shop/seller/$sellerId"
+              params={{ sellerId: product.sellerId }}
+              className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 text-xs"
+            >
+              {sellerProfile?.avatar_url ? (
+                <img
+                  src={imageUrl(sellerProfile.avatar_url)}
+                  alt=""
+                  className="size-10 rounded-xl object-cover"
+                />
+              ) : (
+                <span className="grid size-10 place-items-center rounded-xl bg-emerald-soft text-emerald">
+                  <Store className="size-5" />
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1 truncate font-semibold">
+                  {seller}
+                  {sellerProfile?.is_verified && <BadgeCheck className="size-4 text-emerald" />}
+                </span>
+                <span className="block truncate text-muted-foreground">
+                  {[product.department, product.semester ? `Sem ${product.semester}` : ""]
+                    .filter(Boolean)
+                    .join(" · ") || "Campus seller"}
+                  {sellerProfile ? ` · ${sellerProfile.total_sold} sold` : ""}
+                </span>
+              </span>
+            </Link>
             <p className="flex items-start gap-2 rounded-2xl border border-primary/15 bg-primary-soft p-3 text-[11px] text-primary">
               <ShieldCheck className="mt-0.5 size-4 shrink-0" /> {SAFETY_NOTE}
             </p>
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Button
-            variant="emerald"
-            onClick={() => {
-              if (!user) {
-                window.location.assign("/auth");
-                return;
-              }
-              setRequestOpen(true);
-            }}
-          >
-            <ShoppingBag /> {user ? "Request to Buy / কিনতে চাই" : "Sign in to request / লগইন করুন"}
-          </Button>
-          <Button variant="outline" asChild>
-            <Link to="/shop/requests">My requests / আমার অনুরোধ</Link>
-          </Button>
-        </section>
-
-        {contact ? (
-          <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
-              <a href={`tel:${contact.phone}`}>
-                <Phone /> Call / কল
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
-              <a
-                href={whatsappLink(contact.whatsapp || contact.phone)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageCircle /> WhatsApp
-              </a>
-            </Button>
-            <Button variant="outline" onClick={() => void copyNumber(contact.phone)}>
-              <Copy /> Copy number
-            </Button>
+        {similar.length > 0 && (
+          <section className="space-y-2">
+            <h2 className="text-sm font-bold">Similar items / একই ধরনের আইটেম</h2>
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+              {similar.map((item) => (
+                <div key={item.id} className="w-36 shrink-0">
+                  <ProductCard product={item} compact />
+                </div>
+              ))}
+            </div>
           </section>
-        ) : (
-          <p className="rounded-2xl border border-dashed border-border bg-card p-3 text-center text-[11px] text-muted-foreground">
-            Sign in to contact this seller / যোগাযোগ করতে লগইন করুন
-          </p>
         )}
+
+        <section id="shop-contact" className="space-y-2">
+          <h2 className="text-sm font-bold">Contact seller / বিক্রেতার সাথে যোগাযোগ</h2>
+          {contact ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
+                <a href={`tel:${contact.phone}`}>
+                  <Phone /> Call / কল
+                </a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a
+                  href={whatsappLink(contact.whatsapp || contact.phone)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MessageCircle /> WhatsApp
+                </a>
+              </Button>
+              <Button variant="outline" onClick={() => void copyNumber(contact.phone)}>
+                <Copy /> Copy number
+              </Button>
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border bg-card p-3 text-center text-[11px] text-muted-foreground">
+              Sign in to contact this seller / যোগাযোগ করতে লগইন করুন
+            </p>
+          )}
+        </section>
       </main>
+
+      <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-1/2 z-30 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 gap-2 rounded-2xl border border-border bg-card/95 p-2 shadow-[var(--shadow-float)] backdrop-blur">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          onClick={() =>
+            void toggleWishlist(product.id, wishlisted)
+              .then((active) => setWishlisted(active))
+              .catch(() => {})
+          }
+        >
+          <Heart className={wishlisted ? "fill-destructive text-destructive" : ""} />
+        </Button>
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() =>
+            document.getElementById("shop-contact")?.scrollIntoView({ behavior: "smooth" })
+          }
+        >
+          <Phone /> Contact
+        </Button>
+        <Button
+          variant="emerald"
+          className="flex-1"
+          onClick={() => {
+            if (!user) {
+              window.location.assign("/auth");
+              return;
+            }
+            setRequestOpen(true);
+          }}
+        >
+          <ShoppingBag /> {user ? "Request to Buy" : "Sign in"}
+        </Button>
+      </div>
+
+      <Dialog open={zoom} onOpenChange={setZoom}>
+        <DialogContent className="max-w-lg rounded-3xl bg-card/95 p-2">
+          <img
+            src={images[slide] ?? images[0]}
+            alt={product.title}
+            className="max-h-[80dvh] w-full object-contain"
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
         <DialogContent className="max-w-sm rounded-3xl">

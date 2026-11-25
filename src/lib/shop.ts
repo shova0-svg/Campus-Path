@@ -34,6 +34,8 @@ export interface ShopProduct {
   category: ShopCategory;
   condition: ShopCondition;
   price: number;
+  /** Optional client-only price history; not stored in the DB. */
+  oldPrice?: number;
   isNegotiable: boolean;
   images: string[];
   quantity: number;
