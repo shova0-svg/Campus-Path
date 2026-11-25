@@ -216,11 +216,14 @@ export function AdminPanel({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           className={cn(
-            "flex max-h-[92vh] flex-col gap-0 overflow-hidden rounded-3xl p-0",
-            tab === "feedback" || tab === "stats" || tab === "notices" ? "max-w-lg" : "max-w-md",
+            "fixed left-0 top-0 flex h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0",
+            "sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[92dvh] sm:w-full sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-3xl",
+            tab === "feedback" || tab === "stats" || tab === "notices"
+              ? "sm:max-w-2xl"
+              : "sm:max-w-lg",
           )}
         >
-          <div className="bg-hero px-5 pb-4 pt-5 text-primary-foreground">
+          <div className="bg-hero px-4 pb-4 pt-[calc(1.25rem+env(safe-area-inset-top))] text-primary-foreground sm:px-5 sm:pt-5">
             <DialogHeader className="space-y-0 pr-6 text-left">
               <DialogTitle className="flex items-center gap-2 text-lg">
                 <ShieldCheck className="size-5 text-emerald" /> Admin Panel
@@ -233,7 +236,7 @@ export function AdminPanel({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-3 flex gap-1 rounded-xl bg-primary-foreground/10 p-1">
+            <div className="mt-3 flex gap-1 overflow-x-auto rounded-xl bg-primary-foreground/10 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {tabs.map((t) => {
                 const Icon = t.icon;
                 return (
@@ -246,7 +249,7 @@ export function AdminPanel({
                       setEditingTeacher(null);
                     }}
                     className={cn(
-                      "flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors",
+                      "flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors",
                       tab === t.id
                         ? "bg-primary-foreground text-primary"
                         : "text-primary-foreground/75",
@@ -282,11 +285,19 @@ export function AdminPanel({
                 </Select>
               ) : (
                 <div className="flex h-11 min-w-0 flex-1 items-center rounded-xl border border-primary-foreground/20 bg-primary-foreground/10 px-3 text-sm">
-                  {institute.name}
+                  <span className="truncate" title={institute.name}>
+                    {institute.name}
+                  </span>
                 </div>
               )}
-              <Button variant="glass" size="lg" onClick={onLogout} className="h-11 shrink-0">
-                <LogOut /> Logout
+              <Button
+                variant="glass"
+                size="lg"
+                onClick={onLogout}
+                className="h-11 shrink-0"
+                aria-label="Log out"
+              >
+                <LogOut /> <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </div>
@@ -371,7 +382,7 @@ export function AdminPanel({
           )}
 
           {tab === "buildings" && (
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               {editingBuilding ? (
                 <BuildingEditor
                   initial={editingBuilding === "new" ? null : editingBuilding}
@@ -445,7 +456,7 @@ export function AdminPanel({
           )}
 
           {tab === "teachers" && (
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               {editingTeacher ? (
                 <TeacherEditor
                   instituteName={institute.name}
@@ -548,7 +559,7 @@ export function AdminPanel({
           )}
 
           {tab === "admins" && isSuper && (
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               <p className="text-xs text-muted-foreground">
                 Per polytechnic max {MAX_ADMINS_PER_INSTITUTE} admin. Institute admin shudhu nijer
                 polytechnic edit korte parbe.
@@ -620,7 +631,7 @@ export function AdminPanel({
             </div>
           )}
           {(tab === "feedback" || tab === "stats") && (
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               {panelLoading && (
                 <p className="py-6 text-center text-xs text-muted-foreground">Loading…</p>
               )}
@@ -743,6 +754,7 @@ export function AdminPanel({
               )}
             </div>
           )}
+          <div className="h-[env(safe-area-inset-bottom)] sm:hidden" aria-hidden="true" />
         </DialogContent>
       </Dialog>
 
