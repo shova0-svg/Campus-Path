@@ -67,6 +67,7 @@ export function parseProviderResponse(data: unknown): ProviderResult {
 }
 
 export async function callProvider(opts: {
+  baseUrl: string;
   key: string;
   model: string;
   system: string;
@@ -79,7 +80,7 @@ export async function callProvider(opts: {
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
   let response: Response;
   try {
-    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    response = await fetch(`${opts.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
       headers: {
