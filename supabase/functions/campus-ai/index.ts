@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { safeDeepLink } from "./shared.ts";
+import { normalizeMessages } from "../_shared/chat-history.ts";
+import { SEED_ROUTINES } from "../_shared/seed-routines.ts";
 import { nowDhaka, resolveWhen, type Resolved, type When } from "../_shared/dhaka-time.ts";
 
 /** Fixed clock is honoured only for local tests, never in production. */
@@ -50,6 +52,18 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const errResponse = (
+  code: string,
+  status: number,
+  messageBn: string,
+  messageEn: string,
+  requestId: string,
+) =>
+  json(
+    { error: { code, message_bn: messageBn, message_en: messageEn, request_id: requestId } },
+    status,
+  );
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -82,6 +96,15 @@ const WHEN_SCHEMA: Record<string, unknown> = {
 };
 
 const TOOLS: ToolDef[] = [
+  {
+    type: "function",
+    function: {
+      name: "get_live_classes",
+      description:
+        "Which classes are running on campus RIGHT NOW, from the server clock and my institute's routine. No arguments.",
+      parameters: { type: "object", properties: {}, additionalProperties: false },
+    },
+  },
   {
     type: "function",
     function: {
@@ -175,6 +198,7 @@ You have two behaviours. Decide the mode for EVERY reply and append a final line
 - You MUST call the provided tools and answer ONLY from their results. Never state campus facts (times, rooms, teachers, dates, prices, names) from your own knowledge.
 - If tools return nothing relevant, reply exactly: "${NOT_FOUND}"
 - Include the source screen and data's last-updated time from the tool result.
+- "ক্যাম্পাসে এখন কি চলতেছে / right now on campus" -> ALWAYS call get_live_classes (server time, my institute). Never guess running classes.
 - Routing: "class ache?", "kalke class?", "porshur routine", "robibar ki class?", any weekday routine or class room/time -> get_my_routine (NOT class updates). CT/exam/class-update posts -> get_class_updates; named teacher -> find_teacher; room/location -> find_room_or_location; notices -> get_notices; shop -> search_shop; own notifications -> get_my_notifications.
 - For shop, give only the product link from the tool, never a phone number.
 
@@ -226,18 +250,29 @@ const latest = (rows: Record<string, unknown>[]): string | null => {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const requestId = crypto.randomUUID().slice(0, 8);
   const startedAt = Date.now();
   const debug = new URL(req.url).searchParams.get("debug") === "1";
   const toolTrace: string[] = [];
   try {
     if ((Deno.env.get("AI_ENABLED") ?? "true").toLowerCase() === "false")
-      return json(
-        { answer: "AI সেবা এখন বন্ধ আছে / AI is temporarily disabled.", sources: [] },
+      return errResponse(
+        "disabled",
         503,
+        "AI সেবা এখন বন্ধ আছে।",
+        "AI service is disabled right now.",
+        requestId,
       );
 
     const authHeader = req.headers.get("authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    if (!authHeader.startsWith("Bearer "))
+      return errResponse(
+        "unauthenticated",
+        401,
+        "সাইন ইন করুন।",
+        "Please sign in again.",
+        requestId,
+      );
     const token = authHeader.slice(7);
     const url = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
@@ -246,18 +281,24 @@ Deno.serve(async (req) => {
       auth: { persistSession: false },
     });
     const { data: authData, error: authError } = await db.auth.getUser(token);
-    if (authError || !authData.user) return json({ error: "Unauthorized" }, 401);
+    if (authError || !authData.user)
+      return errResponse(
+        "unauthenticated",
+        401,
+        "সেশন শেষ — আবার লগইন করুন।",
+        "Session expired — please sign in again.",
+        requestId,
+      );
     const user = authData.user;
 
     const banned = await db.rpc("shop_is_banned");
     if (banned.data === true)
-      return json(
-        {
-          answer:
-            "আপনার একাউন্টে এই সেবা বর্তমানে উপলব্ধ নয় / This service is unavailable for your account.",
-          sources: [],
-        },
+      return errResponse(
+        "disabled",
         403,
+        "this account cannot use AI.",
+        "This account cannot use AI.",
+        requestId,
       );
 
     // Provider configuration is env-only; no model default is hardcoded.
@@ -265,7 +306,13 @@ Deno.serve(async (req) => {
     const model = Deno.env.get("AI_MODEL");
     const baseUrl = Deno.env.get("AI_BASE_URL");
     if (!aiKey || !model || !baseUrl)
-      return json({ answer: "AI key not configured / AI key সেট করা নেই।", sources: [] }, 503);
+      return errResponse(
+        "busy",
+        503,
+        "AI সেবা প্রস্তুত নেই।",
+        "AI service is not configured.",
+        requestId,
+      );
     const fallbackModel = Deno.env.get("AI_FALLBACK_MODEL") || undefined;
     const generalMaxTokens = Number(Deno.env.get("AI_MAX_TOKENS_GENERAL") ?? "1000") || 1000;
     const campusMaxTokens = Number(Deno.env.get("AI_MAX_TOKENS_CAMPUS") ?? "700") || 700;
@@ -280,24 +327,42 @@ Deno.serve(async (req) => {
       p_limit: limit,
     });
     if (usageError) throw usageError;
-    if (used === -1) return json({ answer: DAILY_LIMIT, sources: [] }, 429);
+    if (used === -1)
+      return errResponse(
+        "limit",
+        429,
+        "দৈনিক সীমা শেষ — কাল আবার চেষ্টা করুন।",
+        "Daily limit reached — try again tomorrow.",
+        requestId,
+      );
 
     const globalLimit = Number(Deno.env.get("AI_GLOBAL_DAILY_LIMIT") ?? "0") || 0;
     if (globalLimit > 0) {
       const { data: globalUsed } = await db.rpc("ai_global_increment", { p_limit: globalLimit });
       if (globalUsed === -1) {
         await refund();
-        return json({ answer: BUSY, sources: [] }, 429);
+        return errResponse(
+          "busy",
+          429,
+          "AI আজ ব্যস্ত — কাল আবার চেষ্টা করুন।",
+          "AI is busy today — try again tomorrow.",
+          requestId,
+        );
       }
     }
 
     const body = await req.json().catch(() => null);
     if (!body || !Array.isArray(body.messages))
-      return json({ answer: "Please send a question / প্রশ্ন পাঠান।", sources: [] }, 400);
-    const messages = body.messages.slice(-8).map((m: { role?: string; content?: unknown }) => ({
-      role: m.role === "assistant" ? "assistant" : "user",
-      content: String(m.content ?? "").slice(0, maxInputChars),
-    }));
+      return errResponse("bad_request", 400, "প্রশ্ন পাঠান।", "Please send a question.", requestId);
+    const messages = normalizeMessages(
+      body.messages.map((m: { role?: string; content?: unknown }) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: String(m.content ?? "").slice(0, maxInputChars),
+      })),
+      8,
+    );
+    if (!messages.length || messages[messages.length - 1]?.role !== "user")
+      return errResponse("bad_request", 400, "প্রশ্ন পাঠান।", "Please send a question.", requestId);
 
     const { data: profile } = await db
       .from("student_profiles")
@@ -327,6 +392,109 @@ Deno.serve(async (req) => {
       });
       const institute = String(scope["institute_id"] ?? "");
       if (!institute) return empty("Profile");
+
+      if (name === "get_live_classes") {
+        const resolved = resolveWhen(undefined, clockNow);
+        lastResolved = resolvedFields(resolved);
+        const nowMin = minutes(nowDhaka(clockNow).time);
+        const { data: dbRows } = await db
+          .from("routines")
+          .select("semester,shift,department,data,updated_at")
+          .eq("institute_id", institute)
+          .limit(30);
+        const live: Record<string, unknown>[] = [];
+        let lastUpdated: string | null = null;
+        const consider = (
+          semester: number,
+          shift: number,
+          department: string,
+          day: string,
+          entry: Record<string, unknown>,
+          periodTimes: Record<string, string>,
+          updated: string | null,
+        ) => {
+          if (day !== resolved.weekdayEn && day !== "Today") return;
+          const period = Number(entry["period"] ?? 0);
+          const endPeriod = Number(entry["endPeriod"] ?? entry["period"] ?? period);
+          const start =
+            periodTimes[String(period)]?.split("-")[0] ?? String(entry["time"] ?? "").split("-")[0];
+          const end =
+            periodTimes[String(endPeriod)]?.split("-")[1] ??
+            String(entry["time"] ?? "").split("-")[1];
+          const from = minutes(start);
+          const to = minutes(end);
+          if (from == null || to == null || nowMin == null || from > nowMin || nowMin > to) return;
+          if (updated && (!lastUpdated || updated > lastUpdated)) lastUpdated = updated;
+          live.push({
+            department,
+            semester,
+            shift,
+            subject: entry["subject"] ?? "",
+            code: entry["code"] ?? "",
+            teacher: entry["teacher"] ?? "",
+            room: entry["room"] ?? "",
+            periodRange: `P${period}${endPeriod !== period ? `-${endPeriod}` : ""}`,
+            startTime: start,
+            endTime: end,
+          });
+        };
+        for (const row of (dbRows ?? []) as Record<string, unknown>[]) {
+          const data = (row["data"] ?? {}) as Record<string, unknown>;
+          const entries = Array.isArray(data["entries"])
+            ? (data["entries"] as Record<string, unknown>[])
+            : [];
+          const times = (data["periods"] ?? {}) as Record<string, string>;
+          for (const entry of entries)
+            consider(
+              Number(row["semester"]),
+              Number(row["shift"]),
+              String(row["department"] ?? "CST"),
+              String(entry["day"] ?? ""),
+              entry,
+              times,
+              String(row["updated_at"] ?? ""),
+            );
+        }
+        if (live.length === 0) {
+          for (const seed of SEED_ROUTINES.filter((r) => r.instituteId === institute)) {
+            const subjectMap = new Map(seed.subjects.map((s) => [s.code, s]));
+            for (const block of seed.blocks) {
+              const subject = subjectMap.get(block.subjectCode);
+              consider(
+                seed.semester,
+                seed.shift,
+                seed.department,
+                block.day,
+                {
+                  period: block.startPeriod,
+                  endPeriod: block.endPeriod,
+                  code: block.subjectCode,
+                  subject: subject?.name ?? "",
+                  teacher: subject?.teacher ?? "",
+                  room: block.room,
+                },
+                seed.periods,
+                null,
+              );
+            }
+          }
+        }
+        const inClassHours = nowMin != null && nowMin >= 8 * 60 && nowMin <= 13 * 60 + 15;
+        return {
+          data: {
+            resolved: resolvedFields(resolved),
+            classes: live,
+            message: !resolved.isClassDay
+              ? `No classes on ${resolved.labelBn} / ${resolved.labelEn}. Next class day: ${resolved.nextClassDay.labelBn} / ${resolved.nextClassDay.labelEn}.`
+              : !inClassHours
+                ? "No class is running now. Class hours are 08:00–13:15. / এখন কোনো ক্লাস চলছে না।"
+                : live.length === 0
+                  ? "No class is running right now. / এখন কোনো ক্লাস চলছে না।"
+                  : "Classes running right now. / এখন চলমান ক্লাস।",
+          },
+          sources: [{ screen: "Right now on campus", lastUpdated }],
+        };
+      }
 
       if (name === "get_my_routine") {
         const { data } = await db
@@ -603,64 +771,116 @@ Deno.serve(async (req) => {
       );
     const maxTokens = campusHint ? campusMaxTokens : generalMaxTokens;
 
+    const testOverrides = Deno.env.get("AI_ALLOW_TEST_OVERRIDES") === "true";
+    const providers = [
+      { label: "primary", baseUrl, key: aiKey, model },
+      ...(fallbackModel
+        ? [
+            {
+              label: "fallback",
+              baseUrl: Deno.env.get("AI_FALLBACK_BASE_URL") || baseUrl,
+              key: Deno.env.get("AI_FALLBACK_API_KEY") || aiKey,
+              model: fallbackModel,
+            },
+          ]
+        : []),
+    ];
+    const attempts: { provider: string; status: number | string; ms: number }[] = [];
+    const { data: providerStates } = await db.rpc("ai_provider_state_get");
+
+    async function callProviders(tokensOverride?: number): Promise<ProviderResultType> {
+      let lastError: unknown;
+      for (const provider of providers) {
+        const forced = testOverrides ? Deno.env.get("AI_FORCE_PROVIDER") : undefined;
+        if (forced && forced !== provider.label) continue;
+        if (
+          testOverrides &&
+          Deno.env.get(`AI_SIMULATE_FAIL_${provider.label.toUpperCase()}`) === "1"
+        ) {
+          attempts.push({ provider: provider.label, status: 503, ms: 0 });
+          lastError = new ProviderError(503, "simulated");
+          continue;
+        }
+        const state = (providerStates ?? []).find(
+          (x: { provider: string }) => x.provider === provider.label,
+        );
+        if (
+          state &&
+          (state.disabled ||
+            (state.cooldown_until && Date.parse(state.cooldown_until) > Date.now()))
+        ) {
+          attempts.push({ provider: provider.label, status: "cooldown", ms: 0 });
+          continue;
+        }
+        const started = Date.now();
+        try {
+          const response = await callProvider({
+            baseUrl: provider.baseUrl,
+            key: provider.key,
+            model: provider.model,
+            system: systemPrompt(clockNow),
+            messages: convo,
+            tools: TOOLS,
+            maxTokens: tokensOverride ?? maxTokens,
+            timeoutMs: 18000,
+          });
+          attempts.push({ provider: provider.label, status: 200, ms: Date.now() - started });
+          await db.rpc("ai_provider_state_set", {
+            p_provider: provider.label,
+            p_model: provider.model,
+            p_status: 200,
+            p_error: "",
+            p_cooldown_seconds: 0,
+            p_disabled: false,
+          });
+          if (!response.content && response.toolCalls.length === 0) {
+            if (response.finishReason === "length" && !tokensOverride) {
+              return callProviders(Math.min(maxTokens * 2, 1600));
+            }
+            lastError = new ProviderError(0, "empty reply");
+            continue;
+          }
+          return response;
+        } catch (error) {
+          const status =
+            error instanceof ProviderBusyError
+              ? 429
+              : error instanceof ProviderError
+                ? error.status
+                : 0;
+          attempts.push({ provider: provider.label, status, ms: Date.now() - started });
+          await db.rpc("ai_provider_state_set", {
+            p_provider: provider.label,
+            p_model: provider.model,
+            p_status: status,
+            p_error: error instanceof ProviderError ? error.detail : "",
+            p_cooldown_seconds: status >= 500 || status === 429 ? 30 : 300,
+            p_disabled: false,
+          });
+          lastError = error;
+        }
+      }
+      throw lastError ?? new ProviderError(0, "all providers skipped");
+    }
+
     let forcedToolRound = false;
     let mixedRepair = false;
     let whenRepair = 0;
     const mixedHint = /\+|translate|অনুবাদ|closure|code|math|কত|ক্যারিয়ার|career/i.test(latestText);
     for (let round = 0; round < 4; round++) {
       let result;
-      let usedModel = model;
       try {
-        result = await callProvider({
-          baseUrl,
-          key: aiKey,
-          model: usedModel,
-          system: systemPrompt(clockNow),
-          messages: convo,
-          tools: TOOLS,
-          maxTokens,
-          timeoutMs: 18000,
-        });
-      } catch (error) {
-        let failure = error;
-        const retryable =
-          failure instanceof ProviderBusyError ||
-          (failure instanceof ProviderError && failure.status >= 500);
-        if (retryable && fallbackModel && fallbackModel !== model) {
-          try {
-            usedModel = fallbackModel;
-            result = await callProvider({
-              baseUrl,
-              key: aiKey,
-              model: usedModel,
-              system: systemPrompt(clockNow),
-              messages: convo,
-              tools: TOOLS,
-              maxTokens,
-              timeoutMs: 18000,
-            });
-          } catch (retryError) {
-            failure = retryError;
-          }
-        }
-        if (!result) {
-          await refund(); // provider-side failure must not spend the user's question
-          if (failure instanceof ProviderBusyError)
-            return json({ answer: AI_BUSY_MESSAGE, sources: [] });
-          if (failure instanceof ProviderError)
-            console.error("campus-ai provider status", failure.status);
-          return json(
-            {
-              answer: "AI সেবা এখন উপলব্ধ নয় / AI service is unavailable right now.",
-              sources: [],
-              detail:
-                failure instanceof ProviderError
-                  ? `${failure.status}: ${failure.detail}`
-                  : "network",
-            },
-            502,
-          );
-        }
+        result = await callProviders();
+      } catch {
+        await refund(); // provider-side failure never spends the user's question
+        console.error("campus-ai provider failure", requestId);
+        return errResponse(
+          "busy",
+          503,
+          "AI এখন ব্যস্ত — কিছুক্ষণ পরে আবার চেষ্টা করুন।",
+          "AI is busy right now — please try again shortly.",
+          requestId,
+        );
       }
 
       lastUsage = result.usage ?? lastUsage;
@@ -760,6 +980,7 @@ Deno.serve(async (req) => {
     });
 
     return json({
+      requestId,
       answer,
       mode,
       sources: mode === "general" ? [] : sources,
@@ -768,7 +989,9 @@ Deno.serve(async (req) => {
         ? {
             debug: {
               model,
+              requestId,
               toolCalls: toolTraceRef,
+              attempts,
               resolved: lastResolved,
               latencyMs: Date.now() - startedAt,
               usage: lastUsage ?? null,
@@ -778,12 +1001,13 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("campus-ai error", e);
-    return json(
-      {
-        answer: "একটি সমস্যা হয়েছে — আবার চেষ্টা করুন / Something went wrong — please retry.",
-        sources: [],
-      },
+    console.error("campus-ai internal error", requestId);
+    return errResponse(
+      "generic",
       500,
+      "একটি সমস্যা হয়েছে — আবার চেষ্টা করুন।",
+      "Something went wrong — please retry.",
+      requestId,
     );
   }
 });

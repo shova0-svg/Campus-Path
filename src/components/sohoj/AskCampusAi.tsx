@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Bot,
@@ -20,23 +20,30 @@ import { useConnectivity } from "@/hooks/use-connectivity";
 import { submitFeedback } from "@/lib/repo/feedback";
 import { supabase } from "@/integrations/supabase/client";
 import { safeDeepLink } from "../../../supabase/functions/campus-ai/shared";
+import {
+  completedPairs,
+  normalizeMessages,
+} from "../../../supabase/functions/_shared/chat-history";
+import { chatErrorMessage, codeFromHttp, type ChatErrorCode } from "@/lib/chat-errors";
 
 type ChatLine = {
   role: "user" | "assistant";
   content: string;
-  sources?: { screen: string; lastUpdated: string | null }[];
-  deepLink?: string;
-  mode?: "campus" | "general" | "mixed";
-  vote?: "up" | "down";
+  status?: "pending" | "sent" | "failed" | "cancelled" | "timeout" | undefined;
+  errorCode?: ChatErrorCode | undefined;
+  requestId?: string | undefined;
+  sources?: { screen: string; lastUpdated: string | null }[] | undefined;
+  deepLink?: string | undefined;
+  mode?: "campus" | "general" | "mixed" | undefined;
+  vote?: "up" | "down" | undefined;
 };
 
 const SUGGESTIONS = ["আজকের রুটিন কী?", "কালের ক্লাস আপডেট?", "নোটিশ দেখাও", "শপে কী আছে?"];
-
 const API_URL = import.meta.env["VITE_SUPABASE_URL"] as string | undefined;
 const ANON_KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] as string | undefined;
 const AI_ENABLED = import.meta.env["VITE_AI_ENABLED"] !== "false";
+const CLIENT_TIMEOUT_MS = 35000; // longer than the server's 18s per-provider budget
 
-/** Minimal safe rendering: bold, inline code, lists and fenced code. No HTML injection. */
 function renderInline(text: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
@@ -51,6 +58,7 @@ function renderInline(text: string): ReactNode[] {
   });
 }
 
+/** Plain-text-safe renderer: no raw HTML, math characters stay literal. */
 function renderSafe(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   text.split(/```/).forEach((block, bi) => {
@@ -103,30 +111,75 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
   const [reporting, setReporting] = useState<number | null>(null);
   const [reportText, setReportText] = useState("");
   const abortRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<number | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  // Only completed user/assistant pairs go back to the server.
+  const completedHistory = useMemo(() => normalizeMessages(completedPairs(lines), 8), [lines]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lines, busy]);
-
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   if (!AI_ENABLED || !user) return null;
 
-  async function ask(question: string) {
+  function failTurn(index: number, code: ChatErrorCode, requestId?: string) {
+    setLines((prev) =>
+      prev.map((line, i) =>
+        i === index
+          ? {
+              ...line,
+              status:
+                code === "cancelled" ? "cancelled" : code === "timeout" ? "timeout" : "failed",
+              errorCode: code,
+              requestId,
+            }
+          : line,
+      ),
+    );
+  }
+
+  async function ask(question: string, retryIndex?: number) {
     const text = question.trim();
-    if (!text || busy || !online) return;
+    if (!text || busy) return;
+    if (!online) {
+      setNotice(chatErrorMessage("offline"));
+      return;
+    }
     setNotice("");
     setInput("");
-    const history: ChatLine[] = [...lines.slice(-5), { role: "user", content: text }];
-    setLines(history);
+    let base = [...lines];
+    let index: number;
+    if (retryIndex != null) {
+      base = base.filter((_, i) => i !== retryIndex && i !== retryIndex + 1);
+      index = Math.min(retryIndex, base.length);
+    } else {
+      index = base.length;
+    }
+    const nextLine: ChatLine = { role: "user", content: text, status: "pending" };
+    const next = [...base.slice(0, index), nextLine, ...base.slice(index)];
+    setLines(next);
     setBusy(true);
     const controller = new AbortController();
     abortRef.current = controller;
+    timerRef.current = window.setTimeout(() => {
+      controller.abort();
+      failTurn(index, "timeout");
+      setNotice(chatErrorMessage("timeout"));
+    }, CLIENT_TIMEOUT_MS);
+
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token || !API_URL || !ANON_KEY) throw new Error("configuration");
+      const messages = [...completedHistory, { role: "user", content: text }];
       const response = await fetch(`${API_URL}/functions/v1/campus-ai`, {
         method: "POST",
         signal: controller.signal,
@@ -135,48 +188,51 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
           Authorization: `Bearer ${token}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          messages: history.map((m) => ({ role: m.role, content: m.content })),
-        }),
+        body: JSON.stringify({ messages }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 429) {
-          setNotice(
-            "দৈনিক সীমা শেষ — কাল আবার চেষ্টা করুন / Daily limit reached — try again tomorrow.",
-          );
-          return;
-        }
-        if (response.status === 503) {
-          setNotice("AI সেবা এখন বন্ধ / AI service is disabled right now.");
-          return;
-        }
-        throw new Error("request failed");
+        const code = codeFromHttp(response.status, payload?.error?.code);
+        const requestId = String(payload?.error?.request_id ?? "").slice(0, 8);
+        failTurn(index, code, requestId);
+        setNotice(chatErrorMessage(code, requestId));
+        return;
       }
-      const sources = Array.isArray(payload.sources)
-        ? (payload.sources as ChatLine["sources"])
-        : undefined;
-      const deepLink = safeDeepLink(payload.deepLink);
-      setLines((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: String(payload.answer ?? ""),
-          ...(sources ? { sources } : {}),
-          ...(deepLink ? { deepLink } : {}),
-          mode:
-            payload.mode === "campus" || payload.mode === "general" || payload.mode === "mixed"
-              ? payload.mode
-              : undefined,
-        },
-      ]);
-    } catch (error) {
-      if ((error as Error).name !== "AbortError")
-        setNotice(
-          "উত্তর আনতে সমস্যা হয়েছে — আবার চেষ্টা করুন / Couldn't get an answer — please retry.",
+      const answer = String(payload.answer ?? "").trim();
+      if (!answer) {
+        const requestId = String(payload.requestId ?? "").slice(0, 8);
+        failTurn(index, "busy", requestId);
+        setNotice(chatErrorMessage("busy", requestId));
+        return;
+      }
+      setLines((prev) => {
+        const copy = [...prev];
+        const at = copy.findIndex(
+          (l, i) => i >= index && l.role === "user" && l.content === text && l.status === "pending",
         );
+        const target = at >= 0 ? at : index;
+        copy[target] = { ...copy[target], status: "sent" } as ChatLine;
+        copy.splice(target + 1, 0, {
+          role: "assistant",
+          content: answer,
+          ...(Array.isArray(payload.sources) ? { sources: payload.sources } : {}),
+          ...(safeDeepLink(payload.deepLink) ? { deepLink: safeDeepLink(payload.deepLink) } : {}),
+          ...(["campus", "general", "mixed"].includes(payload.mode) ? { mode: payload.mode } : {}),
+        });
+        return copy;
+      });
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        if (timerRef.current) window.clearTimeout(timerRef.current);
+        return;
+      }
+      const code: ChatErrorCode = online ? "generic" : "offline";
+      failTurn(index, code);
+      setNotice(chatErrorMessage(code));
+      setInput(text); // keep typed text for retry
     } finally {
       abortRef.current = null;
+      if (timerRef.current) window.clearTimeout(timerRef.current);
       setBusy(false);
     }
   }
@@ -184,11 +240,11 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
   function cancel() {
     abortRef.current?.abort();
     setBusy(false);
-    setNotice("বাতিল করা হয়েছে / Cancelled.");
+    setNotice(chatErrorMessage("cancelled"));
   }
 
-  async function sendFeedback(index: number, vote: "up" | "down", message = "") {
-    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, vote } : l)));
+  async function sendFeedback(at: number, vote: "up" | "down", message = "") {
+    setLines((prev) => prev.map((l, i) => (i === at ? { ...l, vote } : l)));
     try {
       await submitFeedback(user?.id ?? null, instituteId, {
         rating: vote === "up" ? 5 : 1,
@@ -212,30 +268,43 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
         title={online ? "Ask Campus AI" : "Offline — AI unavailable"}
         className="fixed bottom-[calc(6.6rem+env(safe-area-inset-bottom))] right-4 z-30 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-xs font-bold text-primary-foreground shadow-[var(--shadow-float)] transition-transform active:scale-95 disabled:opacity-50"
       >
-        {online ? <Sparkles className="size-4" /> : <Bot className="size-4" />}
-        Ask AI
+        {online ? <Sparkles className="size-4" /> : <Bot className="size-4" />} Ask AI
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="fixed bottom-0 left-0 top-auto flex h-[80dvh] max-h-[80dvh] w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-t-3xl border-t bg-background p-0">
+        <DialogContent className="fixed bottom-0 left-0 top-auto flex h-[80dvh] max-h-[80dvh] max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-t-3xl border-t p-0 [&>button]:hidden">
           <DialogHeader className="flex-row items-center justify-between border-b border-border px-4 py-3 text-left">
             <DialogTitle className="flex items-center gap-2 text-sm">
               <Sparkles className="size-4 text-emerald" /> Ask Campus AI / ক্যাম্পাস এআই
             </DialogTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Close chat"
-              onClick={() => setOpen(false)}
-            >
-              <X />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Clear chat"
+                onClick={() => {
+                  setLines([]);
+                  setNotice("");
+                }}
+              >
+                <RotateCcw />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close chat"
+                onClick={() => setOpen(false)}
+              >
+                <X />
+              </Button>
+            </div>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
             <p className="rounded-xl bg-primary-soft p-2.5 text-[10px] text-primary">
-              Answers come only from Campus Path data. Verify before relying on it. / সব উত্তর শুধু
-              Campus Path ডাটা থেকে — নিশ্চিত হয়ে নিন।
+              Campus answers come from Campus Path data. General answers can be wrong — verify
+              important things. / ক্যাম্পাসের উত্তর Campus Path ডাটা থেকে আসে। সাধারণ উত্তরে ভুল থাকতে
+              পারে, গুরুত্বপূর্ণ তথ্য যাচাই করুন।
             </p>
             {lines.length === 0 && (
               <div className="flex flex-wrap gap-2">
@@ -259,30 +328,18 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
                 <div
                   className={`max-w-[88%] rounded-2xl px-3 py-2 text-xs ${line.role === "user" ? "bg-primary text-primary-foreground" : "border border-border bg-card"}`}
                 >
-                  {line.mode && (
-                    <span className="mb-1 inline-block rounded-full bg-primary-soft px-2 py-0.5 text-[9px] font-bold text-primary">
-                      {line.mode === "campus"
-                        ? "Campus data / ক্যাম্পাস ডেটা"
-                        : line.mode === "general"
-                          ? "General AI / সাধারণ AI"
-                          : "Campus + General / দুটোই"}
-                    </span>
-                  )}
-                  <div className="space-y-1 leading-relaxed">{renderSafe(line.content)}</div>
-                  <button
-                    type="button"
-                    aria-label="Copy answer"
-                    onClick={() =>
-                      void navigator.clipboard
-                        ?.writeText(line.content)
-                        .then(() => toast.success("Copied / কপি হয়েছে"))
-                    }
-                    className="mt-1 flex items-center gap-1 text-[9px] text-muted-foreground underline"
-                  >
-                    <Copy className="size-3" /> Copy / কপি
-                  </button>
-                  {line.role === "assistant" && (
+                  {line.role === "assistant" ? (
                     <>
+                      {line.mode && (
+                        <span className="mb-1 inline-block rounded-full bg-primary-soft px-2 py-0.5 text-[9px] font-bold text-primary">
+                          {line.mode === "campus"
+                            ? "Campus data / ক্যাম্পাস ডেটা"
+                            : line.mode === "general"
+                              ? "General AI / সাধারণ AI"
+                              : "Campus + General / দুটোই"}
+                        </span>
+                      )}
+                      <div className="space-y-1 leading-relaxed">{renderSafe(line.content)}</div>
                       {line.sources && line.sources.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {line.sources.map((s, j) => (
@@ -325,13 +382,24 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
                         </button>
                         <button
                           type="button"
-                          className="text-[10px] text-muted-foreground underline"
+                          className="flex items-center gap-1 text-[9px] text-muted-foreground underline"
+                          onClick={() =>
+                            void navigator.clipboard
+                              ?.writeText(line.content)
+                              .then(() => toast.success("Copied / কপি হয়েছে"))
+                          }
+                        >
+                          <Copy className="size-3" /> Copy
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[9px] text-muted-foreground underline"
                           onClick={() => {
                             setReporting(i);
                             setReportText("");
                           }}
                         >
-                          Report wrong answer / ভুল উত্তর জানান
+                          Report / জানান
                         </button>
                       </div>
                       {reporting === i && (
@@ -357,6 +425,28 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
                         </div>
                       )}
                     </>
+                  ) : (
+                    <>
+                      <p className="whitespace-pre-wrap">{line.content}</p>
+                      {line.status === "pending" && (
+                        <span className="mt-1 block text-[9px] opacity-75">…</span>
+                      )}
+                      {line.status && line.status !== "sent" && line.status !== "pending" && (
+                        <div className="mt-2 space-y-1 border-t border-primary-foreground/20 pt-2">
+                          <p className="text-[10px] text-destructive">
+                            {chatErrorMessage(line.errorCode ?? "generic", line.requestId)}
+                          </p>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void ask(line.content, i)}
+                            className="flex items-center gap-1 text-[10px] font-bold underline"
+                          >
+                            <RotateCcw className="size-3" /> Retry / আবার চেষ্টা
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -369,7 +459,7 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
             {notice && <p className="text-[11px] text-destructive">{notice}</p>}
             {!online && (
               <p className="rounded-xl bg-muted p-2 text-[11px] text-muted-foreground">
-                অফলাইন — সংযোগ ফিরলে আবার চেষ্টা করুন / Offline — retry when connected.
+                {chatErrorMessage("offline")}
               </p>
             )}
             <div ref={endRef} />
@@ -382,14 +472,20 @@ export function AskCampusAi({ instituteId }: { instituteId: string }) {
               void ask(input);
             }}
           >
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={!online}
-              placeholder="প্রশ্ন লিখুন / Ask a question…"
-              aria-label="AI question"
-              className="h-11 flex-1 rounded-xl"
-            />
+            <div className="min-w-0 flex-1">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value.slice(0, 1000))}
+                maxLength={1000}
+                disabled={!online || busy}
+                placeholder="প্রশ্ন লিখুন / Ask a question…"
+                aria-label="AI question"
+                className="h-11 w-full rounded-xl"
+              />
+              <p className="mt-0.5 text-right text-[9px] text-muted-foreground">
+                {input.length}/1000
+              </p>
+            </div>
             {busy ? (
               <Button
                 type="button"

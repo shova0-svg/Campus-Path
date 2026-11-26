@@ -17,6 +17,8 @@ export type ProviderResult = {
   content: string;
   toolCalls: ToolCall[];
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  finishReason: string;
+  reasoning: string;
 };
 
 export const AI_BUSY_MESSAGE =
@@ -49,6 +51,14 @@ export function parseProviderResponse(data: unknown): ProviderResult {
       }
       return { id: call.id ?? `call_${i}`, name: call.function!.name!, args };
     });
+  const finishReason = String(
+    (data as { choices?: { finish_reason?: string }[] })?.choices?.[0]?.finish_reason ?? "",
+  );
+  const reasoning = String(
+    (message as { reasoning?: string; reasoning_content?: string }).reasoning ??
+      (message as { reasoning_content?: string }).reasoning_content ??
+      "",
+  );
   const usage = (
     data as {
       usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
@@ -56,6 +66,8 @@ export function parseProviderResponse(data: unknown): ProviderResult {
   )?.usage;
   return {
     content: (message.content ?? "").trim(),
+    finishReason,
+    reasoning,
     toolCalls,
     ...(usage
       ? {
