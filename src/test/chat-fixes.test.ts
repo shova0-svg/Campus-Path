@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import { completedPairs, normalizeMessages } from "../../supabase/functions/_shared/chat-history";
 import { chatErrorMessage, codeFromHttp } from "@/lib/chat-errors";
+import { inferWhenFromText } from "../../supabase/functions/campus-ai/date-intent";
 
 type Line = { role: string; content: string; status?: string | undefined };
 
@@ -85,3 +86,19 @@ const renderInlineText = (text: string) =>
           : part,
     )
     .join("");
+
+describe("server-side date intent", () => {
+  it("maps Bangla, English and Banglish day cues without model input", () => {
+    expect(inferWhenFromText("আজকের রুটিন")).toEqual({ kind: "relative", offset: 0 });
+    expect(inferWhenFromText("kalke class ache?")).toEqual({ kind: "relative", offset: 1 });
+    expect(inferWhenFromText("পরশু কী আছে")).toEqual({ kind: "relative", offset: 2 });
+    expect(inferWhenFromText("gotokal kotha")).toEqual({ kind: "relative", offset: -1 });
+    expect(inferWhenFromText("robibar ki class?")).toEqual({
+      kind: "weekday",
+      weekday: 0,
+      which: "this",
+    });
+    expect(inferWhenFromText("শুক্রবার")).toEqual({ kind: "weekday", weekday: 5, which: "this" });
+    expect(inferWhenFromText("কেমন আছো?")).toBeUndefined();
+  });
+});

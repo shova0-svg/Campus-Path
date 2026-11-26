@@ -24,7 +24,11 @@ export type ProviderResult = {
 export const AI_BUSY_MESSAGE =
   "AI এখন ব্যস্ত — কিছুক্ষণ পরে আবার চেষ্টা করুন / AI is busy right now — please try again later.";
 
-export class ProviderBusyError extends Error {}
+export class ProviderBusyError extends Error {
+  constructor(public detail = "") {
+    super("Provider busy");
+  }
+}
 export class ProviderError extends Error {
   constructor(
     public status: number,
@@ -111,7 +115,9 @@ export async function callProvider(opts: {
           ...opts.messages.map((m) => ({
             role: m.role,
             content: m.content ?? "",
-            ...(m.role === "tool" ? { tool_call_id: m.toolCallId ?? "" } : {}),
+            ...(m.role === "tool"
+              ? { tool_call_id: m.toolCallId ?? "", name: m.name ?? "tool" }
+              : {}),
           })),
         ],
         tools: opts.tools,
@@ -125,10 +131,9 @@ export async function callProvider(opts: {
   } finally {
     clearTimeout(timer);
   }
-  if (response.status === 429) throw new ProviderBusyError();
-  if (!response.ok) {
-    const raw = await response.text().catch(() => "");
-    throw new ProviderError(response.status, raw.replaceAll(opts.key, "[redacted]").slice(0, 240));
-  }
+  const raw = response.ok ? "" : await response.text().catch(() => "");
+  const safe = raw.replaceAll(opts.key, "[redacted]").slice(0, 240);
+  if (response.status === 429) throw new ProviderBusyError(safe);
+  if (!response.ok) throw new ProviderError(response.status, safe);
   return parseProviderResponse(await response.json());
 }
