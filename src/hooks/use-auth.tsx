@@ -109,9 +109,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // getSession() reads local storage — no network needed, so offline boot stays fast.
     void supabase.auth
       .getSession()
-      .then(({ data: result }) =>
-        apply(result.session?.user ?? (navigator.onLine ? null : offlineUser())),
-      )
+      .then(async ({ data: result }) => {
+        const sessionUser = result.session?.user ?? null;
+        if (sessionUser && navigator.onLine) {
+          // A cached session can outlive its JWT; without this, RLS hides the
+          // seller profile and the shop page loops on "Create shop".
+          const { error } = await supabase.auth.getUser();
+          if (error) {
+            safeRemove(CACHE_KEY);
+            await supabase.auth.signOut();
+            apply(null);
+            return;
+          }
+        }
+        apply(sessionUser ?? (navigator.onLine ? null : offlineUser()));
+      })
       .catch(() => apply(navigator.onLine ? null : offlineUser()));
 
     return () => {

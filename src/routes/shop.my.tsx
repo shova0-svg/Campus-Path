@@ -123,12 +123,24 @@ function MyShop() {
 
   async function saveEdit() {
     if (!editing) return;
+    const amount = Number(price);
+    const qty = Number(quantity);
+    if (
+      title.trim().length < 3 ||
+      !Number.isFinite(amount) ||
+      amount < 0 ||
+      !Number.isFinite(qty) ||
+      qty < 0
+    ) {
+      toast.error("Valid title, price and quantity দিন / সঠিক নাম, দাম ও পরিমাণ দিন");
+      return;
+    }
     setBusy(true);
     try {
       await updateProduct(editing.id, {
-        title,
-        price,
-        quantity: Number(quantity),
+        title: title.trim(),
+        price: amount,
+        quantity: qty,
       });
       setEditing(null);
       await load();
@@ -473,13 +485,23 @@ function MyShop() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground"
+              disabled={busy}
               onClick={() => {
                 if (!pendingDelete) return;
-                void deleteProduct(pendingDelete.id).then(() => {
-                  setPendingDelete(null);
-                  void load();
-                  toast.success("Product deleted");
-                });
+                const id = pendingDelete.id;
+                setBusy(true);
+                void deleteProduct(id)
+                  .then(() => {
+                    setPendingDelete(null);
+                    void load();
+                    toast.success("Product deleted / আইটেম মুছে ফেলা হয়েছে");
+                  })
+                  .catch((e: unknown) =>
+                    toast.error(
+                      e instanceof Error ? e.message : "Could not delete / মুছে ফেলা যায়নি",
+                    ),
+                  )
+                  .finally(() => setBusy(false));
               }}
             >
               Delete

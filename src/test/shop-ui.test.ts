@@ -13,4 +13,18 @@ describe("shop home access", () => {
   it("keeps the seller gate on the add-product route", () => {
     expect(sell).toContain("Set up your shop first");
   });
+
+  it("surfaces delete failures and validates edits in My Shop", () => {
+    const mine = fs.readFileSync("src/routes/shop.my.tsx", "utf8");
+    expect(mine).toContain("void deleteProduct(id)");
+    expect(mine).toContain(".catch(");
+    expect(mine).toContain("Number.isFinite(amount)");
+  });
+
+  it("validates stale sessions and caches the seller profile", () => {
+    const auth = fs.readFileSync("src/hooks/use-auth.tsx", "utf8");
+    const hook = fs.readFileSync("src/hooks/use-shop-profile.ts", "utf8");
+    expect(auth).toContain("supabase.auth.getUser()");
+    expect(hook).toContain("readCached(user.id)");
+  });
 });
