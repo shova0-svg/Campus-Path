@@ -22,7 +22,7 @@ import {
 const input = (patch: Partial<ProductInput> = {}): ProductInput => ({
   title: "Engineer's steel ruler",
   description: "Good condition",
-  category: "drawing_tools",
+  category: "components_tools",
   condition: "used",
   price: "450",
   isNegotiable: true,
@@ -37,14 +37,14 @@ const product = (patch: Partial<ShopProduct> = {}): ShopProduct => ({
   instituteId: "rpi",
   title: "Old book",
   description: "Bangla medium",
-  category: "old_books",
+  category: "books_notes",
   condition: "used",
   price: 100,
   isNegotiable: false,
   images: ["a.webp"],
   quantity: 1,
   views: 0,
-  status: "available",
+  status: "active",
   createdAt: "2026-11-23T00:00:00Z",
   updatedAt: "2026-11-23T00:00:00Z",
   ...patch,
@@ -82,7 +82,7 @@ describe("shop validation", () => {
         input({ pickupLocation: "x".repeat(101), images: ["a", "b", "c", "d", "e"] }),
       ),
     ).toEqual({ pickupLocation: expect.any(String) });
-    expect(statusLabel("removed")).toContain("Hidden");
+    expect(statusLabel("hidden")).toContain("Hidden");
   });
 
   it("has the expected limits and safety note", () => {
@@ -94,7 +94,7 @@ describe("shop validation", () => {
 
 describe("shop feed helpers", () => {
   const list = [
-    product({ id: "cheap", price: 50, category: "old_books", createdAt: "2026-11-20T00:00:00Z" }),
+    product({ id: "cheap", price: 50, category: "books_notes", createdAt: "2026-11-20T00:00:00Z" }),
     product({
       id: "pricey",
       price: 500,
@@ -164,14 +164,14 @@ describe("shop profile validation", () => {
 
 describe("seller dashboard rules", () => {
   it("marks zero stock as sold", () => {
-    expect(statusForQuantity(0, "available")).toBe("sold");
+    expect(statusForQuantity(0, "active")).toBe("sold");
     expect(statusForQuantity(0, "reserved")).toBe("sold");
-    expect(statusForQuantity(2, "available")).toBe("available");
+    expect(statusForQuantity(2, "active")).toBe("active");
   });
 
   it("allows relist only with stock", () => {
     expect(canRelist(product({ status: "sold", quantity: 1 }))).toBe(true);
     expect(canRelist(product({ status: "sold", quantity: 0 }))).toBe(false);
-    expect(canRelist(product({ status: "available", quantity: 1 }))).toBe(false);
+    expect(canRelist(product({ status: "active", quantity: 1 }))).toBe(false);
   });
 });

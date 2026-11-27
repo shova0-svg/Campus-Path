@@ -8,6 +8,9 @@ import { listBuildings, type StoredBuilding } from "@/lib/repo/buildings";
 import { listRooms, type StoredRoom } from "@/lib/repo/rooms";
 import { listTeachers } from "@/lib/repo/teachers";
 import { listRoutines } from "@/lib/repo/routines";
+import { listProducts } from "@/lib/repo/shop";
+import { currentShopInstitute } from "@/lib/shop-scope";
+import type { ShopProduct } from "@/lib/shop";
 
 function seedBuildings(): StoredBuilding[] {
   return INSTITUTES.flatMap((i) =>
@@ -48,6 +51,13 @@ export const teachersResource = createResource<typeof TEACHERS>({
   fetcher: async () => mergeWithSeedTeachers(await listTeachers().catch(() => null)),
 });
 
+export const shopFeedResource = createResource<ShopProduct[]>({
+  key: "sohoj-rasta-shop-feed-v1",
+  event: "sohoj:shop-changed",
+  seed: () => [],
+  fetcher: async () => (await listProducts(currentShopInstitute(), {}, 0, 20)).items,
+});
+
 export const adminsResource = createResource<ReturnType<typeof defaultAdmins>>({
   key: "sohoj-rasta-admins-v1",
   event: "sohoj:admins-changed",
@@ -61,6 +71,7 @@ export function startSync(): () => void {
   void roomsResource.refresh();
   void routinesResource.refresh();
   void teachersResource.refresh();
+  void shopFeedResource.refresh();
   void adminsResource.refresh();
   return () => {};
 }

@@ -83,7 +83,7 @@ export async function listProducts(
       .from("shop_products")
       .select("*")
       .eq("institute_id", instituteId)
-      .in("status", ["available", "active", "reserved", "sold"]);
+      .in("status", ["active", "reserved", "sold"]);
     if (filters.category) query = query.eq("category", filters.category);
     if (filters.condition) query = query.eq("item_condition", filters.condition);
     if (filters.minPrice !== undefined) query = query.gte("price", filters.minPrice);
@@ -205,7 +205,7 @@ export async function getSellerName(sellerId: string): Promise<string> {
 export async function relistProduct(id: string): Promise<void> {
   const { error } = await db
     .from("shop_products")
-    .update({ status: "available", quantity: 1 })
+    .update({ status: "active", quantity: 1 })
     .eq("id", id);
   if (error) throw error;
 }

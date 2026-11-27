@@ -52,7 +52,7 @@ export const Route = createFileRoute("/shop/my")({
 });
 
 function statusValue(status: ShopStatus): ShopStatus {
-  return status === "removed" ? "hidden" : status;
+  return status;
 }
 
 function MyShop() {
@@ -61,7 +61,7 @@ function MyShop() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [productLoading, setProductLoading] = useState(true);
   const [productError, setProductError] = useState<{ refId: string; message: string } | null>(null);
-  const [tab, setTab] = useState<ShopStatus>("available");
+  const [tab, setTab] = useState<ShopStatus>("active");
   const [pendingDelete, setPendingDelete] = useState<ShopProduct | null>(null);
   const [editProfile, setEditProfile] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -95,7 +95,7 @@ function MyShop() {
 
   const stats = useMemo(
     () => ({
-      active: products.filter((p) => p.status === "available" || p.status === "reserved").length,
+      active: products.filter((p) => p.status === "active" || p.status === "reserved").length,
       sold: products.filter((p) => p.status === "sold").length,
       hidden: products.filter((p) => statusValue(p.status) === "hidden").length,
       views: products.reduce((sum, p) => sum + p.views, 0),

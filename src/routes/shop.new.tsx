@@ -67,7 +67,7 @@ function NewProduct() {
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [pickupLocation, setPickupLocation] = useState("");
-  const [status, setStatus] = useState<ShopStatus>("available");
+  const [status, setStatus] = useState<ShopStatus>("active");
   const [negotiable, setNegotiable] = useState(false);
   const [department, setDepartment] = useState(profile?.department ?? "");
   const [semester, setSemester] = useState(profile ? String(profile.semester) : "");
@@ -98,7 +98,7 @@ function NewProduct() {
         setPrice(String(p.price));
         setQuantity(String(p.quantity));
         setPickupLocation(p.pickupLocation ?? "");
-        setStatus(p.status === "removed" ? "hidden" : p.status);
+        setStatus(p.status);
         setNegotiable(p.isNegotiable);
         setDepartment(p.department ?? "");
         setSemester(p.semester != null ? String(p.semester) : "");
@@ -219,7 +219,7 @@ function NewProduct() {
           pickupLocation,
           ...(semester ? { semester: Number(semester) } : {}),
         });
-        if (status !== "available") await setProductStatus(product.id, status);
+        if (status !== "active") await setProductStatus(product.id, status);
         toast.success("Posted / আইটেম পোস্ট হয়েছে");
         await navigate({ to: "/shop/$productId", params: { productId: product.id } });
       }

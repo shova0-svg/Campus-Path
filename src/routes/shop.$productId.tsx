@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -31,6 +31,7 @@ import {
   conditionLabel,
   formatPrice,
   SAFETY_NOTE,
+  statusLabel,
   timeAgo,
   whatsappLink,
   type ShopProduct,
@@ -44,6 +45,8 @@ import {
   reportProduct,
   getShopPublicProfile,
   listProducts,
+  deleteProduct,
+  setProductStatus,
 } from "@/lib/repo/shop";
 import { createRequest } from "@/lib/repo/shopRequests";
 import { REQUEST_SAFETY_NOTE, validateRequestInput } from "@/lib/shop-requests";
@@ -69,6 +72,8 @@ function ProductDetail() {
   const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [reqQty, setReqQty] = useState("1");
   const [reqMsg, setReqMsg] = useState("");
@@ -357,9 +362,51 @@ function ProductDetail() {
           </section>
         )}
 
+        {user?.id === product.sellerId && (
+          <section className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-3">
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/shop/new" search={{ edit: product.id }}>
+                Edit / সম্পাদনা
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                void setProductStatus(
+                  product.id,
+                  product.status === "sold" || product.status === "hidden" ? "active" : "hidden",
+                ).then(() => window.location.reload());
+              }}
+            >
+              Status / অবস্থা বদলান
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => {
+                void deleteProduct(product.id).then(() => {
+                  toast.success("Product deleted / আইটেম মুছে ফেলা হয়েছে");
+                  void navigate({ to: "/shop/my" });
+                });
+              }}
+            >
+              Delete / মুছুন
+            </Button>
+          </section>
+        )}
+
         <section id="shop-contact" className="space-y-2">
           <h2 className="text-sm font-bold">Contact seller / বিক্রেতার সাথে যোগাযোগ</h2>
-          {contact ? (
+          {(product.status === "sold" || product.status === "hidden") && (
+            <p className="rounded-xl bg-muted p-3 text-center text-[11px] text-muted-foreground">
+              Contact closed — this item is {statusLabel(product.status).split(" / ")[0]} / যোগাযোগ
+              বন্ধ
+            </p>
+          )}
+          {contact && product.status !== "sold" && product.status !== "hidden" ? (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
                 <a href={`tel:${contact.phone}`}>
@@ -381,7 +428,9 @@ function ProductDetail() {
             </div>
           ) : (
             <p className="rounded-2xl border border-dashed border-border bg-card p-3 text-center text-[11px] text-muted-foreground">
-              Sign in to contact this seller / যোগাযোগ করতে লগইন করুন
+              {user
+                ? "Seller has hidden their phone / বিক্রেতা ফোন দেখেননি"
+                : "Sign in to contact this seller / যোগাযোগ করতে লগইন করুন"}
             </p>
           )}
         </section>
@@ -403,6 +452,7 @@ function ProductDetail() {
         <Button
           variant="outline"
           className="flex-1"
+          disabled={product.status === "sold" || product.status === "hidden"}
           onClick={() =>
             document.getElementById("shop-contact")?.scrollIntoView({ behavior: "smooth" })
           }
@@ -412,6 +462,7 @@ function ProductDetail() {
         <Button
           variant="emerald"
           className="flex-1"
+          disabled={product.status === "sold" || product.status === "hidden"}
           onClick={() => {
             if (!user) {
               window.location.assign("/auth");

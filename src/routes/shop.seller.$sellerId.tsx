@@ -26,7 +26,7 @@ function SellerShop() {
     ]).then(([p, rows]) => {
       if (!active) return;
       setProfile(p);
-      setProducts(rows.filter((r) => r.status === "available" || r.status === "reserved"));
+      setProducts(rows.filter((r) => r.status === "active" || r.status === "reserved"));
       setLoading(false);
     });
     return () => {

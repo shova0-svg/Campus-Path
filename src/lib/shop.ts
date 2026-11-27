@@ -1,23 +1,27 @@
 /** Pure helpers for Campus Shop. No network calls, no UI imports. */
 
 export const SHOP_CATEGORIES = [
-  { id: "old_books", label: "Old Books / পুরোনো বই" },
-  { id: "drawing_tools", label: "T-Scale & Drawing Tools / টি-স্কেল ও ড্রইং সরঞ্জাম" },
-  { id: "engineering_instruments", label: "Engineering Instruments / ইঞ্জিনিয়ারিং যন্ত্র" },
+  { id: "books_notes", label: "Books & Notes / বই ও নোট" },
   { id: "electronics", label: "Electronics / ইলেকট্রনিক্স" },
-  { id: "others", label: "Others / অন্যান্য" },
+  { id: "components_tools", label: "Components & Tools / কম্পোনেন্ট ও টুল" },
+  { id: "stationery", label: "Stationery / স্টেশনারি" },
+  { id: "clothing", label: "Clothing / পোশাক" },
+  { id: "hostel", label: "Hostel Essentials / হোস্টেল সরঞ্জাম" },
+  { id: "food", label: "Food / খাবার" },
+  { id: "bikes", label: "Bikes / সাইকেল" },
+  { id: "services", label: "Services / সেবা" },
+  { id: "other", label: "Other / অন্যান্য" },
 ] as const;
 
 export const SHOP_CONDITIONS = [
   { id: "new", label: "New / নতুন" },
   { id: "like_new", label: "Like new / প্রায় নতুন" },
   { id: "used", label: "Used / ব্যবহৃত" },
-  { id: "old", label: "Old / পুরোনো" },
 ] as const;
 
 export type ShopCategory = (typeof SHOP_CATEGORIES)[number]["id"];
 export type ShopCondition = (typeof SHOP_CONDITIONS)[number]["id"];
-export type ShopStatus = "available" | "reserved" | "sold" | "removed" | "hidden";
+export type ShopStatus = "active" | "reserved" | "sold" | "hidden";
 export type ShopSort = "newest" | "price_asc" | "price_desc";
 
 export const MAX_ACTIVE_LISTINGS = 10;
@@ -129,7 +133,7 @@ export function formatPrice(price: number): string {
 }
 
 export function isActive(product: ShopProduct): boolean {
-  return ["available", "active", "reserved", "sold"].includes(product.status);
+  return ["active", "reserved", "sold"].includes(product.status);
 }
 
 export function filterProducts(products: ShopProduct[], filters: ShopFilters): ShopProduct[] {
@@ -228,20 +232,20 @@ export function validateShopProfile(input: ShopProfileInput): Record<string, str
 }
 
 export const SHOP_STATUS_TABS: { id: ShopStatus; label: string }[] = [
-  { id: "available", label: "Active / বিক্রির জন্য" },
+  { id: "active", label: "Active / বিক্রির জন্য" },
   { id: "reserved", label: "Reserved / রিজার্ভ" },
   { id: "sold", label: "Sold / বিক্রি হয়ে গেছে" },
   { id: "hidden", label: "Hidden / লুকানো" },
 ];
 
 export function statusLabel(status: ShopStatus): string {
-  if (status === "removed" || status === "hidden") return "Hidden / লুকানো";
+  if (status === "hidden") return "Hidden / লুকানো";
   return SHOP_STATUS_TABS.find((t) => t.id === status)?.label ?? status;
 }
 
 /** Server trigger applies the same rule; this keeps the UI in sync. */
 export function statusForQuantity(quantity: number, current: ShopStatus): ShopStatus {
-  return quantity <= 0 && (current === "available" || current === "reserved") ? "sold" : current;
+  return quantity <= 0 && (current === "active" || current === "reserved") ? "sold" : current;
 }
 
 export function canRelist(product: ShopProduct): boolean {

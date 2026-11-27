@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  Bike,
   BookOpen,
   Cpu,
   Heart,
   Package,
   Plus,
-  Ruler,
   Search,
+  Shirt,
   SlidersHorizontal,
   Store,
+  UtensilsCrossed,
+  Wallet,
   WifiOff,
   Wrench,
 } from "lucide-react";
@@ -40,6 +43,7 @@ import { listProducts } from "@/lib/repo/shop";
 import { listWishlistIds, toggleWishlist } from "@/lib/repo/wishlist";
 import { recentProductIds } from "@/lib/shop-recent";
 import { DEPARTMENT_OPTIONS } from "@/lib/teachers";
+import { shopFeedResource } from "@/lib/resources";
 
 export const Route = createFileRoute("/shop/")({
   head: () => ({ meta: [{ title: "Campus Shop — Campus Path" }] }),
@@ -47,11 +51,16 @@ export const Route = createFileRoute("/shop/")({
 });
 
 const CATEGORY_ICONS: Record<ShopCategory, typeof BookOpen> = {
-  old_books: BookOpen,
-  drawing_tools: Ruler,
-  engineering_instruments: Wrench,
+  books_notes: BookOpen,
   electronics: Cpu,
-  others: Package,
+  components_tools: Wrench,
+  stationery: Package,
+  clothing: Shirt,
+  hostel: Package,
+  food: UtensilsCrossed,
+  bikes: Bike,
+  services: Wallet,
+  other: Package,
 };
 
 const SEGMENTS = [
@@ -73,11 +82,12 @@ function ShopHome() {
   const [maxPrice, setMaxPrice] = useState("");
   const [sort, setSort] = useState<ShopSort>("newest");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [products, setProducts] = useState<ShopProduct[]>(() => shopFeedResource.get());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(0);
+  const [loadError, setLoadError] = useState("");
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const { online } = useConnectivity();
@@ -90,27 +100,45 @@ function ShopHome() {
 
   const load = useCallback(
     async (nextPage: number, append = false) => {
-      if (nextPage === 0) setLoading(true);
+      if (nextPage === 0) {
+        setLoading(true);
+        setLoadError("");
+      }
       setBusy(true);
-      const min = minPrice.trim() === "" ? undefined : Number(minPrice);
-      const max = maxPrice.trim() === "" ? undefined : Number(maxPrice);
-      const result = await listProducts(
-        institute,
-        {
-          query: debounced,
-          ...(category !== "all" ? { category } : {}),
-          ...(condition !== "all" ? { condition } : {}),
-          ...(min !== undefined && Number.isFinite(min) ? { minPrice: min } : {}),
-          ...(max !== undefined && Number.isFinite(max) ? { maxPrice: max } : {}),
-          sort,
-        },
-        nextPage,
-      );
-      setProducts((prev) => (append ? [...prev, ...result.items] : result.items));
-      setHasMore(result.hasMore);
-      setPage(nextPage);
-      setLoading(false);
-      setBusy(false);
+      try {
+        const min = minPrice.trim() === "" ? undefined : Number(minPrice);
+        const max = maxPrice.trim() === "" ? undefined : Number(maxPrice);
+        const result = await listProducts(
+          institute,
+          {
+            query: debounced,
+            ...(category !== "all" ? { category } : {}),
+            ...(condition !== "all" ? { condition } : {}),
+            ...(min !== undefined && Number.isFinite(min) ? { minPrice: min } : {}),
+            ...(max !== undefined && Number.isFinite(max) ? { maxPrice: max } : {}),
+            sort,
+          },
+          nextPage,
+          20,
+        );
+        setProducts((prev) => (append ? [...prev, ...result.items] : result.items));
+        if (
+          nextPage === 0 &&
+          !debounced &&
+          category === "all" &&
+          condition === "all" &&
+          min === undefined &&
+          max === undefined
+        )
+          shopFeedResource.set(result.items);
+        setHasMore(result.hasMore);
+        setPage(nextPage);
+      } catch {
+        setLoadError("আইটেম লোড করা যায়নি — আবার চেষ্টা করুন / Could not load items — please retry");
+      } finally {
+        setLoading(false);
+        setBusy(false);
+      }
     },
     [institute, debounced, category, condition, minPrice, maxPrice, sort],
   );
@@ -119,6 +147,7 @@ function ShopHome() {
     void load(0);
     void listWishlistIds().then(setWishlist);
     setRecent(recentProductIds());
+    return shopFeedResource.subscribe(setProducts);
   }, [load]);
 
   const visibleProducts = useMemo(
@@ -132,7 +161,7 @@ function ShopHome() {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, 8),
       under500: visibleProducts.filter((p) => p.price < 500).slice(0, 8),
-      books: visibleProducts.filter((p) => p.category === "old_books").slice(0, 8),
+      books: visibleProducts.filter((p) => p.category === "books_notes").slice(0, 8),
       recent: recent
         .map((id) => products.find((p) => p.id === id))
         .filter(Boolean) as ShopProduct[],
@@ -268,6 +297,15 @@ function ShopHome() {
           })}
         </div>
 
+        {loadError && (
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-center">
+            <p className="text-[11px] text-destructive">{loadError}</p>
+            <Button className="mt-2" size="sm" variant="outline" onClick={() => void load(0)}>
+              Retry / আবার চেষ্টা
+            </Button>
+          </div>
+        )}
+
         {!online && (
           <p className="flex items-center gap-2 rounded-2xl border border-border bg-card p-3 text-[11px] text-muted-foreground">
             <WifiOff className="size-4" /> Offline — showing cached items / অফলাইন
@@ -293,7 +331,7 @@ function ShopHome() {
           <>
             {horizontal("New arrivals / নতুন আইটেম", sections.newArrivals)}
             {horizontal("Under ৳500 / ৫০০ টাকার কম", sections.under500)}
-            {horizontal("Old Books / পুরোনো বই", sections.books)}
+            {horizontal("Books & Notes / বই ও নোট", sections.books)}
             {horizontal("Recently viewed / সম্প্রতি দেখা", sections.recent)}
 
             <section className="space-y-2">
