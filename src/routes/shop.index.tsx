@@ -36,7 +36,6 @@ import {
 import { currentShopInstitute } from "@/lib/shop-scope";
 import { useConnectivity } from "@/hooks/use-connectivity";
 import { useShopProfile } from "@/hooks/use-shop-profile";
-import { ShopAccessGate } from "@/components/sohoj/shop/ShopAccessGate";
 import { listProducts } from "@/lib/repo/shop";
 import { listWishlistIds, toggleWishlist } from "@/lib/repo/wishlist";
 import { recentProductIds } from "@/lib/shop-recent";
@@ -63,7 +62,7 @@ const SEGMENTS = [
 ] as const;
 
 function ShopHome() {
-  const { profile, loading: profileLoading, refresh: refreshProfile } = useShopProfile();
+  const { profile, loading: profileLoading } = useShopProfile();
   const institute = currentShopInstitute();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -152,8 +151,6 @@ function ShopHome() {
       </div>
     );
   }
-  if (!profile) return <ShopAccessGate onReady={() => void refreshProfile()} />;
-
   async function toggleHeart(id: string) {
     const wasActive = wishlist.includes(id);
     setWishlist((prev) => (wasActive ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -238,6 +235,15 @@ function ShopHome() {
             Buy and sell used items. Pay in person.
           </p>
         </section>
+
+        {!profile && (
+          <Link
+            to="/shop/new"
+            className="block rounded-2xl border border-emerald bg-emerald-soft p-3 text-xs font-semibold text-emerald"
+          >
+            Sell something? Set up your shop first / কিছু বেচতে চান? আগে দোকান খুলুন →
+          </Link>
+        )}
 
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
           <button
