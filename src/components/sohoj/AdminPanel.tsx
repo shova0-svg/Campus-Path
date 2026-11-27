@@ -110,8 +110,8 @@ interface Props {
   onRemoveAdmin: (email: string) => void;
   onSaveBuilding: (building: Building) => void;
   onDeleteBuilding: (buildingId: string) => void;
-  onSaveTeacher: (teacher: Teacher) => void;
-  onDeleteTeacher: (id: string) => void;
+  onSaveTeacher: (teacher: Teacher, instituteId: string) => Promise<boolean>;
+  onDeleteTeacher: (id: string, instituteId: string) => Promise<void>;
   noticesApi: NoticesApi;
 }
 
@@ -464,9 +464,8 @@ export function AdminPanel({
                   instituteName={institute.name}
                   buildings={buildings}
                   initial={editingTeacher === "new" ? null : editingTeacher}
-                  onSave={(teacher) => {
-                    onSaveTeacher(teacher);
-                    setEditingTeacher(null);
+                  onSave={async (teacher) => {
+                    if (await onSaveTeacher(teacher, institute.id)) setEditingTeacher(null);
                   }}
                   onCancel={() => setEditingTeacher(null)}
                 />
@@ -518,7 +517,9 @@ export function AdminPanel({
                               size="icon"
                               aria-label={`Delete ${teacher.name}`}
                               className="text-destructive hover:text-destructive"
-                              onClick={() => onDeleteTeacher(teacherId(teacher))}
+                              onClick={() =>
+                                void onDeleteTeacher(teacher.id ?? teacherId(teacher), institute.id)
+                              }
                             >
                               <Trash2 />
                             </Button>

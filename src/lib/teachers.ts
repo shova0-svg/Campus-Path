@@ -57,6 +57,14 @@ export function teacherId(t: Teacher): string {
   return t.id ?? `${t.instituteId ?? "rpi"}-${t.facultyKey}-${t.name}`;
 }
 
+/** New admin-added teachers need a stable DB primary key before upsert. */
+export function teacherForSave(teacher: Teacher, instituteId: string): Teacher {
+  const scoped = { ...teacher, instituteId };
+  if (scoped.id) return scoped;
+  const suffix = globalThis.crypto?.randomUUID?.().slice(0, 8) ?? Date.now().toString(36);
+  return { ...scoped, id: `${teacherId(scoped)}-${suffix}` };
+}
+
 export function upsertTeacher(
   store: TeacherStore,
   instituteId: string,

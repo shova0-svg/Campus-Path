@@ -113,7 +113,13 @@ import {
 } from "@/lib/campus-data";
 import { decodeQr, type QrTarget } from "@/lib/qr";
 import { parseShift, parseStudent, STUDENT_KEY, type StudentProfile } from "@/lib/student";
-import { deleteTeacher, upsertTeacher, type Teacher, type TeacherStore } from "@/lib/teachers";
+import {
+  deleteTeacher,
+  teacherForSave,
+  upsertTeacher,
+  type Teacher,
+  type TeacherStore,
+} from "@/lib/teachers";
 import { cn } from "@/lib/utils";
 import { openFeedback } from "@/lib/feedback";
 import { logEvent } from "@/lib/analytics";
@@ -434,23 +440,31 @@ function Index() {
   }
 
   function commitTeachers(next: TeacherStore) {
-    teachersResource.set(
-      Object.values(next)
-        .flat()
-        .map((t) => ({ ...t, instituteId: institute.id })),
-    );
+    teachersResource.set(Object.values(next).flat());
   }
 
-  function saveTeacher(teacher: Teacher) {
-    if (!isAdmin) return;
-    commitTeachers(upsertTeacher(teacherStore, institute.id, teacher));
-    void upsertTeacherRow({ ...teacher, instituteId: institute.id }).catch(() => {});
+  async function saveTeacher(teacher: Teacher, targetInstituteId: string): Promise<boolean> {
+    if (!isAdmin) return false;
+    const scoped = teacherForSave(teacher, targetInstituteId);
+    try {
+      await upsertTeacherRow(scoped);
+    } catch {
+      toast.error("Teacher save hoy ni — আবার চেষ্টা করুন / Could not save teacher");
+      return false;
+    }
+    commitTeachers(upsertTeacher(teacherStore, targetInstituteId, scoped));
     toast.success(`${teacher.name} saved`, { description: "Teachers page-e dekha jay" });
+    return true;
   }
 
-  function removeTeacher(id: string) {
-    commitTeachers(deleteTeacher(teacherStore, institute.id, id));
-    void removeTeacherRow(id).catch(() => {});
+  async function removeTeacher(id: string, targetInstituteId: string) {
+    try {
+      await removeTeacherRow(id);
+    } catch {
+      toast.error("Teacher remove hoy ni — আবার চেষ্টা করুন / Could not remove teacher");
+      return;
+    }
+    commitTeachers(deleteTeacher(teacherStore, targetInstituteId, id));
     toast.success("Teacher removed");
   }
 
