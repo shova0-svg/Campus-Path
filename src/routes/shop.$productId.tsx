@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -31,22 +31,17 @@ import {
   conditionLabel,
   formatPrice,
   SAFETY_NOTE,
-  statusLabel,
   timeAgo,
   whatsappLink,
   type ShopProduct,
 } from "@/lib/shop";
 import {
   getProduct,
-  getSellerContact,
   incrementProductViews,
   getSellerName,
   imageUrl,
   reportProduct,
-  getShopPublicProfile,
   listProducts,
-  deleteProduct,
-  setProductStatus,
 } from "@/lib/repo/shop";
 import { createRequest } from "@/lib/repo/shopRequests";
 import { REQUEST_SAFETY_NOTE, validateRequestInput } from "@/lib/shop-requests";
@@ -64,7 +59,12 @@ function ProductDetail() {
   const { productId } = Route.useParams();
   const [product, setProduct] = useState<ShopProduct | null>(null);
   const [seller, setSeller] = useState("Student");
-  const [contact, setContact] = useState<{ phone: string; whatsapp?: string } | null>(null);
+  const contact = product?.contactPhone
+    ? {
+        phone: product.contactPhone,
+        ...(product.contactWhatsapp ? { whatsapp: product.contactWhatsapp } : {}),
+      }
+    : null;
   const [loading, setLoading] = useState(true);
   const [slide, setSlide] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
@@ -72,7 +72,6 @@ function ProductDetail() {
   const [reason, setReason] = useState("");
   const [reporting, setReporting] = useState(false);
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [reqQty, setReqQty] = useState("1");
@@ -82,8 +81,6 @@ function ProductDetail() {
   const [zoom, setZoom] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
   const [similar, setSimilar] = useState<ShopProduct[]>([]);
-  const [sellerProfile, setSellerProfile] =
-    useState<Awaited<ReturnType<typeof getShopPublicProfile>>>(null);
 
   useEffect(() => {
     let active = true;
@@ -98,8 +95,6 @@ function ProductDetail() {
         }
         rememberProduct(p.id);
         setSeller(await getSellerName(p.sellerId));
-        setContact(await getSellerContact(p.sellerId));
-        setSellerProfile(await getShopPublicProfile(p.sellerId));
         void listWishlistIds().then((ids) => setWishlisted(ids.includes(p.id)));
         void listProducts(p.instituteId, { category: p.category, sort: "newest" }).then((page) =>
           setSimilar(page.items.filter((item) => item.id !== p.id).slice(0, 4)),
@@ -314,99 +309,21 @@ function ProductDetail() {
                 {product.description}
               </p>
             )}
-            <Link
-              to="/shop/seller/$sellerId"
-              params={{ sellerId: product.sellerId }}
-              className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 text-xs"
-            >
-              {sellerProfile?.avatar_url ? (
-                <img
-                  src={imageUrl(sellerProfile.avatar_url)}
-                  alt=""
-                  className="size-10 rounded-xl object-cover"
-                />
-              ) : (
-                <span className="grid size-10 place-items-center rounded-xl bg-emerald-soft text-emerald">
-                  <Store className="size-5" />
-                </span>
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1 truncate font-semibold">
-                  {seller}
-                  {sellerProfile?.is_verified && <BadgeCheck className="size-4 text-emerald" />}
-                </span>
-                <span className="block truncate text-muted-foreground">
-                  {[product.department, product.semester ? `Sem ${product.semester}` : ""]
-                    .filter(Boolean)
-                    .join(" · ") || "Campus seller"}
-                  {sellerProfile ? ` · ${sellerProfile.total_sold} sold` : ""}
-                </span>
+            <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 text-xs">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-soft text-emerald">
+                <Store className="size-5" />
               </span>
-            </Link>
-            <p className="flex items-start gap-2 rounded-2xl border border-primary/15 bg-primary-soft p-3 text-[11px] text-primary">
-              <ShieldCheck className="mt-0.5 size-4 shrink-0" /> {SAFETY_NOTE}
-            </p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold">{seller || "Campus seller"}</p>
+                <p className="text-[10px] text-muted-foreground">Campus seller / ক্যাম্পাস বিক্রেতা</p>
+              </div>
+            </div>
           </div>
         </section>
 
-        {similar.length > 0 && (
-          <section className="space-y-2">
-            <h2 className="text-sm font-bold">Similar items / একই ধরনের আইটেম</h2>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-              {similar.map((item) => (
-                <div key={item.id} className="w-36 shrink-0">
-                  <ProductCard product={item} compact />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {user?.id === product.sellerId && (
-          <section className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-3">
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/shop/new" search={{ edit: product.id }}>
-                Edit / সম্পাদনা
-              </Link>
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                void setProductStatus(
-                  product.id,
-                  product.status === "sold" || product.status === "hidden" ? "active" : "hidden",
-                ).then(() => window.location.reload());
-              }}
-            >
-              Status / অবস্থা বদলান
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={busy}
-              onClick={() => {
-                void deleteProduct(product.id).then(() => {
-                  toast.success("Product deleted / আইটেম মুছে ফেলা হয়েছে");
-                  void navigate({ to: "/shop/my" });
-                });
-              }}
-            >
-              Delete / মুছুন
-            </Button>
-          </section>
-        )}
-
         <section id="shop-contact" className="space-y-2">
           <h2 className="text-sm font-bold">Contact seller / বিক্রেতার সাথে যোগাযোগ</h2>
-          {(product.status === "sold" || product.status === "hidden") && (
-            <p className="rounded-xl bg-muted p-3 text-center text-[11px] text-muted-foreground">
-              Contact closed — this item is {statusLabel(product.status).split(" / ")[0]} / যোগাযোগ
-              বন্ধ
-            </p>
-          )}
-          {contact && product.status !== "sold" && product.status !== "hidden" ? (
+          {contact ? (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <Button asChild className="bg-emerald text-emerald-foreground hover:bg-emerald/90">
                 <a href={`tel:${contact.phone}`}>
@@ -428,9 +345,7 @@ function ProductDetail() {
             </div>
           ) : (
             <p className="rounded-2xl border border-dashed border-border bg-card p-3 text-center text-[11px] text-muted-foreground">
-              {user
-                ? "Seller has hidden their phone / বিক্রেতা ফোন দেখেননি"
-                : "Sign in to contact this seller / যোগাযোগ করতে লগইন করুন"}
+              No contact number provided / কোনো যোগাযোগ নম্বর দেওয়া হয়নি
             </p>
           )}
         </section>
@@ -452,7 +367,6 @@ function ProductDetail() {
         <Button
           variant="outline"
           className="flex-1"
-          disabled={product.status === "sold" || product.status === "hidden"}
           onClick={() =>
             document.getElementById("shop-contact")?.scrollIntoView({ behavior: "smooth" })
           }
@@ -462,7 +376,6 @@ function ProductDetail() {
         <Button
           variant="emerald"
           className="flex-1"
-          disabled={product.status === "sold" || product.status === "hidden"}
           onClick={() => {
             if (!user) {
               window.location.assign("/auth");

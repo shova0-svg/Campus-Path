@@ -11,52 +11,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShopAccessGate } from "@/components/sohoj/shop/ShopAccessGate";
-import { ShopProfileErrorState } from "@/components/sohoj/shop/ShopProfileErrorState";
 import { useAuth } from "@/hooks/use-auth";
-import { useShopProfile } from "@/hooks/use-shop-profile";
 import { parseStudent, STUDENT_KEY } from "@/lib/student";
-import {
-  createProduct,
-  deleteShopImages,
-  getProduct,
-  setProductStatus,
-  updateProduct,
-  uploadShopImages,
-} from "@/lib/repo/shop";
+import { createProduct, deleteShopImages, uploadShopImages } from "@/lib/repo/shop";
 import { safeGet } from "@/lib/storage";
-import { shopImageUrl } from "@/lib/shop-image";
 import {
+  isValidBdPhone,
   MAX_IMAGES,
   SHOP_CATEGORIES,
   SHOP_CONDITIONS,
-  SHOP_STATUS_TABS,
   validateProduct,
   type ShopCategory,
   type ShopCondition,
-  type ShopStatus,
 } from "@/lib/shop";
 import { currentShopInstitute } from "@/lib/shop-scope";
 
 export const Route = createFileRoute("/shop/new")({
-  validateSearch: (search: Record<string, unknown>): { edit?: string } => ({
-    ...(typeof search["edit"] === "string" ? { edit: search["edit"] } : {}),
-  }),
   head: () => ({ meta: [{ title: "Sell an item — Campus Path" }] }),
   component: NewProduct,
 });
 
-type ImageItem = { key: string; preview: string; file?: File; path?: string };
+type ImageItem = { key: string; preview: string; file: File };
 
 function NewProduct() {
   const { user, loading: authLoading } = useAuth();
-  const {
-    profile: shopProfile,
-    loading: profileLoading,
-    error: profileError,
-    refresh: refreshProfile,
-  } = useShopProfile();
-  const { edit } = Route.useSearch();
   const navigate = useNavigate();
   const profile = typeof window === "undefined" ? null : parseStudent(safeGet(STUDENT_KEY));
 
@@ -67,13 +45,12 @@ function NewProduct() {
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [pickupLocation, setPickupLocation] = useState("");
-  const [status, setStatus] = useState<ShopStatus>("active");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactWhatsapp, setContactWhatsapp] = useState("");
   const [negotiable, setNegotiable] = useState(false);
   const [department, setDepartment] = useState(profile?.department ?? "");
   const [semester, setSemester] = useState(profile ? String(profile.semester) : "");
   const [images, setImages] = useState<ImageItem[]>([]);
-  const [removedPaths, setRemovedPaths] = useState<string[]>([]);
-  const [editLoading, setEditLoading] = useState(Boolean(edit));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,47 +58,9 @@ function NewProduct() {
     if (!authLoading && !user) window.location.replace("/auth?next=/shop/new");
   }, [authLoading, user]);
 
-  useEffect(() => {
-    if (!edit) return;
-    let active = true;
-    void getProduct(edit)
-      .then((p) => {
-        if (!active) return;
-        if (!p) {
-          setError("Product not found / পণ্য পাওয়া যায়নি");
-          return;
-        }
-        setTitle(p.title);
-        setDescription(p.description);
-        setCategory(p.category);
-        setCondition(p.condition);
-        setPrice(String(p.price));
-        setQuantity(String(p.quantity));
-        setPickupLocation(p.pickupLocation ?? "");
-        setStatus(p.status);
-        setNegotiable(p.isNegotiable);
-        setDepartment(p.department ?? "");
-        setSemester(p.semester != null ? String(p.semester) : "");
-        setImages(
-          p.images.map((path, i) => ({
-            key: `existing-${i}`,
-            preview: shopImageUrl(path),
-            path,
-          })),
-        );
-      })
-      .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "Could not load product / পণ্য লোড করা যায়নি"),
-      )
-      .finally(() => active && setEditLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [edit]);
-
   useEffect(
     () => () => {
-      images.filter((i) => i.file).forEach((i) => URL.revokeObjectURL(i.preview));
+      images.forEach((i) => URL.revokeObjectURL(i.preview));
     },
     [images],
   );
@@ -129,11 +68,7 @@ function NewProduct() {
   function pickImages(e: ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? [])
       .slice(0, MAX_IMAGES - images.length)
-      .map((file) => ({
-        key: crypto.randomUUID(),
-        preview: URL.createObjectURL(file),
-        file,
-      }));
+      .map((file) => ({ key: crypto.randomUUID(), preview: URL.createObjectURL(file), file }));
     setImages((prev) => [...prev, ...picked].slice(0, MAX_IMAGES));
     e.target.value = "";
   }
@@ -141,8 +76,7 @@ function NewProduct() {
   function removeImage(index: number) {
     setImages((prev) => {
       const item = prev[index];
-      if (item?.path) setRemovedPaths((paths) => [...paths, item.path!]);
-      else if (item?.file) URL.revokeObjectURL(item.preview);
+      if (item) URL.revokeObjectURL(item.preview);
       return prev.filter((_, i) => i !== index);
     });
   }
@@ -174,82 +108,67 @@ function NewProduct() {
       setError(Object.values(check)[0] ?? "");
       return;
     }
+    if (!isValidBdPhone(contactPhone)) {
+      setError("017XXXXXXXX ফরম্যাটে ফোন দিন / Enter a valid BD phone number");
+      return;
+    }
+    if (contactWhatsapp && !isValidBdPhone(contactWhatsapp)) {
+      setError("সঠিক WhatsApp নম্বর দিন / Enter a valid WhatsApp number");
+      return;
+    }
     setBusy(true);
     setError("");
-    const newPaths: string[] = [];
+    let uploaded: string[] = [];
     try {
-      const files = images.filter((i) => i.file).map((i) => i.file!);
-      const uploaded = files.length ? await uploadShopImages(user.id, files) : [];
-      newPaths.push(...uploaded);
-      let uploadIndex = 0;
-      const ordered = images.map((item) =>
-        item.path ? item.path : (uploaded[uploadIndex++] ?? ""),
-      );
-      if (edit) {
-        await updateProduct(edit, {
-          title: title.trim(),
-          description: description.trim(),
-          category: category as ShopCategory,
-          condition: condition as ShopCondition,
-          price: Number(price),
-          isNegotiable: negotiable,
-          images: ordered,
-          quantity: qty,
-          department,
-          pickupLocation,
-          ...(semester ? { semester: Number(semester) } : {}),
-        });
-        await setProductStatus(edit, status);
-        if (removedPaths.length) await deleteShopImages(removedPaths);
-        toast.success("Product updated / আইটেম বদলেছে");
-        await navigate({ to: "/shop/my" });
-      } else {
-        const product = await createProduct({
-          sellerId: user.id,
-          instituteId: currentShopInstitute(),
-          title,
-          description,
-          category: category as ShopCategory,
-          condition: condition as ShopCondition,
-          price,
-          isNegotiable: negotiable,
-          images: ordered,
-          quantity: qty,
-          department,
-          pickupLocation,
-          ...(semester ? { semester: Number(semester) } : {}),
-        });
-        if (status !== "active") await setProductStatus(product.id, status);
-        toast.success("Posted / আইটেম পোস্ট হয়েছে");
-        await navigate({ to: "/shop/$productId", params: { productId: product.id } });
-      }
+      uploaded = images.length
+        ? await uploadShopImages(
+            user.id,
+            images.map((i) => i.file),
+          )
+        : [];
+      const product = await createProduct({
+        sellerId: user.id,
+        instituteId: currentShopInstitute(),
+        title: title.trim(),
+        description: description.trim(),
+        category: category as ShopCategory,
+        condition: condition as ShopCondition,
+        price,
+        isNegotiable: negotiable,
+        images: uploaded,
+        quantity: qty,
+        department,
+        pickupLocation,
+        contactPhone,
+        ...(contactWhatsapp ? { contactWhatsapp } : {}),
+        ...(semester ? { semester: Number(semester) } : {}),
+      });
+      toast.success("Posted / আইটেম পোস্ট হয়েছে");
+      await navigate({ to: "/shop/$productId", params: { productId: product.id } });
     } catch (e) {
-      if (newPaths.length) await deleteShopImages(newPaths).catch(() => {});
+      if (uploaded.length) await deleteShopImages(uploaded).catch(() => {});
       const message = e instanceof Error ? e.message : "";
       setError(
-        /Max 10 active/i.test(message)
-          ? "সর্বোচ্চ ১০টি active আইটেম — কিছু বেচা বা মুছে ফেলুন / Max 10 active listings"
+        /Max 10 active|Max 30 active|Max 10 new listings/i.test(message)
+          ? "সর্বোচ্চ লিস্টিং সীমা শেষ — কিছু আইটেম বাদ দিন / Listing limit reached"
           : /row-level security|permission|banned/i.test(message)
             ? "পোস্ট করা যাবে না — অ্যাডমিনের সাথে যোগাযোগ করুন / Posting not allowed"
             : /upload|image|ছবি/i.test(message)
-              ? "ছবি আপলোড ব্যর্থ — ফর্ম রেখে আবার চেষ্টা করুন / Image upload failed — form kept, please retry"
-              : "সংরক্ষণ করা যায় ni — আবার চেষ্টা করুন / Could not save — please retry",
+              ? "ছবি আপলোড ব্যর্থ — ফর্ম রেখে আবার চেষ্টা করুন / Image upload failed — please retry"
+              : "পোস্ট করা যায় ni — আবার চেষ্টা করুন / Could not post — please retry",
       );
     } finally {
       setBusy(false);
     }
   }
 
-  if (profileError)
-    return <ShopProfileErrorState error={profileError} onRetry={() => void refreshProfile()} />;
-  if (authLoading || profileLoading || editLoading || !user) {
+  if (authLoading || !user) {
     return (
-      <div className="bg-desk grid min-h-dvh place-items-center pb-[calc(7rem+env(safe-area-inset-bottom))] text-sm text-muted-foreground">
-        <Loader2 className="animate-spin" />
+      <div className="bg-desk grid min-h-dvh place-items-center pb-[calc(7rem+env(safe-area-inset-bottom))]">
+        <Loader2 className="animate-spin text-muted-foreground" />
       </div>
     );
   }
-  if (!shopProfile) return <ShopAccessGate onReady={() => void refreshProfile()} />;
 
   return (
     <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
@@ -257,11 +176,11 @@ function NewProduct() {
         <div className="flex items-center gap-2">
           <Link to="/shop" aria-label="Back to shop">
             <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
-              <ArrowLeft /> <span className="hidden sm:inline">Back to shop</span>
+              <ArrowLeft /> <span className="hidden sm:inline">Shop</span>
             </Button>
           </Link>
           <span className="ml-auto text-xs font-semibold text-primary">
-            {edit ? "Edit product / আইটেম সম্পাদনা" : "Add product / আইটেম যোগ করুন"}
+            Add product / আইটেম যোগ করুন
           </span>
         </div>
 
@@ -363,47 +282,30 @@ function NewProduct() {
           </div>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Select value={status} onValueChange={(v) => setStatus(v as ShopStatus)}>
-              <SelectTrigger className="h-11 rounded-xl" aria-label="Status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SHOP_STATUS_TABS.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={negotiable}
-                onChange={(e) => setNegotiable(e.target.checked)}
-              />
-              Negotiable / দরদাম
-            </label>
+            <Input
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              aria-label="Phone"
+              placeholder="Phone / ফোন (01XXXXXXXXX)"
+              className="h-11 rounded-xl"
+            />
+            <Input
+              value={contactWhatsapp}
+              onChange={(e) => setContactWhatsapp(e.target.value)}
+              aria-label="WhatsApp"
+              placeholder="WhatsApp (optional)"
+              className="h-11 rounded-xl"
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Input
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              aria-label="Department"
-              placeholder="Department (optional)"
-              className="h-11 rounded-xl"
+          <label className="flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={negotiable}
+              onChange={(e) => setNegotiable(e.target.checked)}
             />
-            <Input
-              type="number"
-              min={1}
-              max={6}
-              value={semester}
-              onChange={(e) => setSemester(e.target.value)}
-              aria-label="Semester"
-              placeholder="Semester (optional)"
-              className="h-11 rounded-xl"
-            />
-          </div>
+            Negotiable / দরদাম
+          </label>
 
           <div>
             <p className="text-[10px] text-muted-foreground">
@@ -463,11 +365,7 @@ function NewProduct() {
             onClick={() => void submit()}
             disabled={busy}
           >
-            {busy
-              ? "Saving…"
-              : edit
-                ? "Save changes / পরিবর্তন সংরক্ষণ"
-                : "Post item / আইটেম পোস্ট করুন"}
+            {busy ? "Posting…" : "Post item / আইটেম পোস্ট করুন"}
           </Button>
           <p className="text-center text-[10px] text-muted-foreground">
             Meet on campus and pay in person — no in-app payment.

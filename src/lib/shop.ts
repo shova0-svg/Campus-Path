@@ -47,6 +47,8 @@ export interface ShopProduct {
   department?: string;
   semester?: number;
   pickupLocation?: string;
+  contactPhone?: string;
+  contactWhatsapp?: string;
   status: ShopStatus;
   createdAt: string;
   updatedAt: string;
@@ -79,6 +81,8 @@ export interface ProductInput {
   department?: string;
   semester?: number;
   pickupLocation?: string;
+  contactPhone?: string;
+  contactWhatsapp?: string;
 }
 
 export interface ShopFilters {

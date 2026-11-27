@@ -32,6 +32,8 @@ type Row = {
   department: string | null;
   semester: number | null;
   pickup_location: string | null;
+  contact_phone: string | null;
+  contact_whatsapp: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -54,6 +56,8 @@ function fromRow(row: Row): ShopProduct {
     ...(row["department"] ? { department: row["department"] } : {}),
     ...(row["semester"] != null ? { semester: row["semester"] } : {}),
     ...(row["pickup_location"] ? { pickupLocation: row["pickup_location"] } : {}),
+    ...(row["contact_phone"] ? { contactPhone: row["contact_phone"] } : {}),
+    ...(row["contact_whatsapp"] ? { contactWhatsapp: row["contact_whatsapp"] } : {}),
     status: row.status as ShopStatus,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -140,6 +144,8 @@ function toRow(input: ProductInput): Record<string, unknown> {
     ...(input.department ? { department: input.department.trim() } : {}),
     ...(input.semester != null ? { semester: input.semester } : {}),
     ...(input.pickupLocation ? { pickup_location: input.pickupLocation.trim().slice(0, 100) } : {}),
+    ...(input.contactPhone ? { contact_phone: input.contactPhone.trim() } : {}),
+    ...(input.contactWhatsapp ? { contact_whatsapp: input.contactWhatsapp.trim() } : {}),
   };
 }
 

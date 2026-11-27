@@ -16,7 +16,6 @@ const SEGMENTS = [
   { to: "/shop", label: "Home" },
   { to: "/shop/wishlist", label: "Wishlist" },
   { to: "/shop/requests", label: "Requests" },
-  { to: "/shop/my", label: "My Shop" },
 ] as const;
 
 function WishlistPage() {

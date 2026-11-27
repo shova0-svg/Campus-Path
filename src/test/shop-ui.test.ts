@@ -1,38 +1,29 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
-describe("shop home access", () => {
+describe("basic shop structure", () => {
   const home = fs.readFileSync("src/routes/shop.index.tsx", "utf8");
-  const sell = fs.readFileSync("src/routes/shop.new.tsx", "utf8");
+  const add = fs.readFileSync("src/routes/shop.new.tsx", "utf8");
+  const detail = fs.readFileSync("src/routes/shop.$productId.tsx", "utf8");
 
-  it("lets signed-in users browse without a seller profile", () => {
-    expect(home).not.toContain("return <ShopAccessGate");
-    expect(home).toContain('to="/shop/new"');
+  it("has no seller-profile gate and no My Shop segment", () => {
+    expect(home).not.toContain("useShopProfile");
+    expect(home).not.toContain("/shop/my");
+    expect(add).not.toContain("ShopAccessGate");
+    expect(add).not.toContain("useShopProfile");
   });
 
-  it("lets a seller set up inline on the add-product route", () => {
-    expect(sell).toContain("ShopAccessGate");
-    expect(sell).not.toContain("Set up your shop first");
+  it("stores contact details on the product itself", () => {
+    expect(add).toContain("contactPhone");
+    expect(add).toContain("contactWhatsapp");
+    expect(detail).toContain("product.contactPhone");
+    expect(detail).toContain("product.contactWhatsapp");
   });
 
-  it("lets a seller set up inline from My Shop", () => {
-    const mine = fs.readFileSync("src/routes/shop.my.tsx", "utf8");
-    expect(mine).toContain("ShopAccessGate");
-    expect(mine).not.toContain("Set up your shop first");
-  });
-
-  it("surfaces product errors and offers full edit in My Shop", () => {
-    const mine = fs.readFileSync("src/routes/shop.my.tsx", "utf8");
-    expect(mine).toContain("void deleteProduct(id)");
-    expect(mine).toContain("productError");
-    expect(mine).toContain("search={{ edit: p.id }}");
-    expect(mine).toContain("statusLabel(p.status)");
-  });
-
-  it("separates profile errors from a missing profile", () => {
-    const hook = fs.readFileSync("src/hooks/use-shop-profile.ts", "utf8");
-    expect(hook).toContain("setError({");
-    expect(hook).toContain("setChecked(true)");
-    expect(fs.readFileSync("src/routes/shop.my.tsx", "utf8")).toContain("ShopProfileErrorState");
+  it("keeps browsing and detail free of seller management UI", () => {
+    expect(detail).not.toContain("setProductStatus");
+    expect(detail).not.toContain("deleteProduct");
+    expect(detail).not.toContain("sellerProfile");
+    expect(fs.existsSync("src/routes/shop.my.tsx")).toBe(false);
   });
 });

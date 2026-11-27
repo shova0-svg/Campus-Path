@@ -38,7 +38,6 @@ import {
 } from "@/lib/shop";
 import { currentShopInstitute } from "@/lib/shop-scope";
 import { useConnectivity } from "@/hooks/use-connectivity";
-import { useShopProfile } from "@/hooks/use-shop-profile";
 import { listProducts } from "@/lib/repo/shop";
 import { listWishlistIds, toggleWishlist } from "@/lib/repo/wishlist";
 import { recentProductIds } from "@/lib/shop-recent";
@@ -67,11 +66,9 @@ const SEGMENTS = [
   { to: "/shop", label: "Home" },
   { to: "/shop/wishlist", label: "Wishlist" },
   { to: "/shop/requests", label: "Requests" },
-  { to: "/shop/my", label: "My Shop" },
 ] as const;
 
 function ShopHome() {
-  const { profile, loading: profileLoading } = useShopProfile();
   const institute = currentShopInstitute();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -169,17 +166,6 @@ function ShopHome() {
     [visibleProducts, recent, products],
   );
 
-  if (profileLoading) {
-    return (
-      <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
-        <div className="mx-auto max-w-md space-y-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
-          ))}
-        </div>
-      </div>
-    );
-  }
   async function toggleHeart(id: string) {
     const wasActive = wishlist.includes(id);
     setWishlist((prev) => (wasActive ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -264,15 +250,6 @@ function ShopHome() {
             Buy and sell used items. Pay in person.
           </p>
         </section>
-
-        {!profile && (
-          <Link
-            to="/shop/new"
-            className="block rounded-2xl border border-emerald bg-emerald-soft p-3 text-xs font-semibold text-emerald"
-          >
-            Sell something? Set up your shop first / কিছু বেচতে চান? আগে দোকান খুলুন →
-          </Link>
-        )}
 
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
           <button
