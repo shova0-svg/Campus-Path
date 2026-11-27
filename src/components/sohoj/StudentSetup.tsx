@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { BookOpen, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export function StudentSetup({ onLogin, onEnablePush }: Props) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const existing = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    const existing = parseStudent(safeGet(STUDENT_KEY));
     if (existing) {
       setName(existing.name);
       setInstituteId(existing.instituteId);

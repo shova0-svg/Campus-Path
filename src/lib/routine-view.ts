@@ -1,3 +1,4 @@
+import { safeSet } from "@/lib/storage";
 import { ROUTINES, type Shift } from "@/lib/routine";
 
 export const ROUTINE_VIEW_KEY = "routine-view-v2";
@@ -56,7 +57,7 @@ export function readRoutineView(
 export function writeRoutineView(selection: RoutineViewSelection): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(ROUTINE_VIEW_KEY, JSON.stringify(selection));
+    safeSet(ROUTINE_VIEW_KEY, JSON.stringify(selection));
   } catch {
     /* storage blocked */
   }

@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { MessageSquare, Send, Star } from "lucide-react";
 import {
@@ -50,7 +51,7 @@ export function FeedbackDialog({ open, onOpenChange, initial = {} }: Props) {
     const found = validateFeedback(draft);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    const profile = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    const profile = parseStudent(safeGet(STUDENT_KEY));
     const instituteId = initial.instituteId ?? profile?.instituteId ?? "rpi";
     const { data } = await supabase.auth.getSession();
     setSaving(true);

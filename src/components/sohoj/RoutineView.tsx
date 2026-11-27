@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import {
   CalendarDays,
@@ -503,7 +504,7 @@ export function RoutineView({
       };
     }
     return readRoutineView(
-      typeof window === "undefined" ? null : window.localStorage.getItem(ROUTINE_VIEW_KEY),
+      typeof window === "undefined" ? null : safeGet(ROUTINE_VIEW_KEY),
       profileSemester,
       profileShift as Shift,
     );

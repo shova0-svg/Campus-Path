@@ -1,3 +1,4 @@
+import { safeGet, safeSet } from "@/lib/storage";
 /** In-app notification sound (background web push sound cannot be customized). */
 
 export const SOUND_PATH = "/sounds/notify.mp3";
@@ -7,7 +8,7 @@ export const LAST_PUSH_KEY = "sohoj-rasta-last-push";
 export function soundEnabled(): boolean {
   if (typeof window === "undefined") return true;
   try {
-    return window.localStorage.getItem(SOUND_KEY) !== "0";
+    return safeGet(SOUND_KEY) !== "0";
   } catch {
     return true;
   }
@@ -16,7 +17,7 @@ export function soundEnabled(): boolean {
 export function setSoundEnabled(enabled: boolean): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(SOUND_KEY, enabled ? "1" : "0");
+    safeSet(SOUND_KEY, enabled ? "1" : "0");
   } catch {
     /* storage blocked */
   }
@@ -78,7 +79,7 @@ export function playNotifySound(): void {
 export function notePushReceived(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(LAST_PUSH_KEY, new Date().toISOString());
+    safeSet(LAST_PUSH_KEY, new Date().toISOString());
   } catch {
     /* storage blocked */
   }

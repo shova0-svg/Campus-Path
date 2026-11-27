@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Zap } from "lucide-react";
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/updates")({
 
 function UpdatesPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(() =>
-    parseStudent(typeof window === "undefined" ? null : window.localStorage.getItem(STUDENT_KEY)),
+    parseStudent(typeof window === "undefined" ? null : safeGet(STUDENT_KEY)),
   );
   const [filter, setFilter] = useState<UpdateType | "all">("all");
   const { updates, markSeen } = useClassUpdates(profile);

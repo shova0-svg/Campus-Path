@@ -1,3 +1,4 @@
+import { safeGet, safeSet, safeRemove } from "@/lib/storage";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +24,7 @@ type CachedUser = { id: string; email: string; name: string };
 function readCache(): CachedUser | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
+    const raw = safeGet(CACHE_KEY);
     return raw ? (JSON.parse(raw) as CachedUser) : null;
   } catch {
     return null;
@@ -39,7 +40,7 @@ function writeCache(user: User): void {
         : typeof meta["name"] === "string"
           ? meta["name"]
           : "";
-    window.localStorage.setItem(
+    safeSet(
       CACHE_KEY,
       JSON.stringify({ id: user.id, email: user.email ?? "", name } satisfies CachedUser),
     );
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut();
     } finally {
-      window.localStorage.removeItem(CACHE_KEY);
+      safeRemove(CACHE_KEY);
     }
   };
 

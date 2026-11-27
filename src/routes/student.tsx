@@ -1,3 +1,4 @@
+import { safeGet, safeSet, safeRemove } from "@/lib/storage";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
@@ -51,14 +52,14 @@ function StudentPage() {
       void navigate({ to: "/auth", replace: true });
       return;
     }
-    const cached = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    const cached = parseStudent(safeGet(STUDENT_KEY));
     setProfile(cached);
     if (user?.id && !cached) {
       void loadStudentProfile(user.id).then((remote) => {
         if (remote) {
           const merged = { ...remote, email: user.email ?? remote.email };
           setProfile(merged);
-          window.localStorage.setItem(STUDENT_KEY, JSON.stringify(merged));
+          safeSet(STUDENT_KEY, JSON.stringify(merged));
         }
       });
     }
@@ -115,13 +116,13 @@ function StudentPage() {
 
   function login(next: StudentProfile) {
     setProfile(next);
-    window.localStorage.setItem(STUDENT_KEY, JSON.stringify(next));
+    safeSet(STUDENT_KEY, JSON.stringify(next));
     if (user?.id) void saveStudentProfile(user.id, next, notificationsEnabled()).catch(() => {});
   }
 
   function logout() {
     setProfile(null);
-    window.localStorage.removeItem(STUDENT_KEY);
+    safeRemove(STUDENT_KEY);
   }
 
   return (

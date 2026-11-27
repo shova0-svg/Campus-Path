@@ -1,3 +1,4 @@
+import { safeGet, safeSet } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { Bell, CalendarClock, Download, MapPin, X } from "lucide-react";
 import {
@@ -34,12 +35,12 @@ const STEPS = [
 export function Onboarding() {
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(SEEN_KEY) !== "1";
+    return safeGet(SEEN_KEY) !== "1";
   });
   const [step, setStep] = useState(0);
 
   function finish() {
-    window.localStorage.setItem(SEEN_KEY, "1");
+    safeSet(SEEN_KEY, "1");
     setOpen(false);
   }
 

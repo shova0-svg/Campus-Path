@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
@@ -238,7 +239,7 @@ function Index() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) return; // signed-out visitors see the landing page
-    const saved = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+    const saved = parseStudent(safeGet(STUDENT_KEY));
     if (!saved) {
       void navigate({ to: "/student", replace: true });
       return;

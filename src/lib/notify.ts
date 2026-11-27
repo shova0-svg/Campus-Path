@@ -1,3 +1,4 @@
+import { safeGet, safeSet, safeRemove } from "@/lib/storage";
 import type { Journey } from "@/lib/student";
 import { removePushSubscription, savePushSubscription, subscriptionToRow } from "@/lib/repo/push";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,12 +8,12 @@ const KEY = "sohoj-rasta-notify-enabled";
 
 export function notificationsEnabled(): boolean {
   if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(KEY) === "1";
+  return safeGet(KEY) === "1";
 }
 
 function setEnabled(value: boolean): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(KEY, value ? "1" : "0");
+  safeSet(KEY, value ? "1" : "0");
 }
 
 export function pushSupported(): boolean {
@@ -52,7 +53,7 @@ export async function enableNotifications(): Promise<boolean> {
       const { data } = await supabase.auth.getSession();
       if (data.session?.user)
         await savePushSubscription(data.session.user.id, subscriptionToRow(sub));
-      window.localStorage.setItem("sohoj-rasta-push-endpoint", sub.endpoint);
+      safeSet("sohoj-rasta-push-endpoint", sub.endpoint);
     } catch {
       // Keep the local fallback if push subscribe fails.
     }
@@ -62,7 +63,7 @@ export async function enableNotifications(): Promise<boolean> {
 
 export async function disableNotifications(): Promise<void> {
   setEnabled(false);
-  const endpoint = window.localStorage.getItem("sohoj-rasta-push-endpoint");
+  const endpoint = safeGet("sohoj-rasta-push-endpoint");
   if (endpoint) {
     try {
       const registration = await navigator.serviceWorker?.ready;
@@ -72,7 +73,7 @@ export async function disableNotifications(): Promise<void> {
     } catch {
       /* ignore */
     }
-    window.localStorage.removeItem("sohoj-rasta-push-endpoint");
+    safeRemove("sohoj-rasta-push-endpoint");
   }
 }
 

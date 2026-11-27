@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ImagePlus, Loader2, X } from "lucide-react";
@@ -34,8 +35,7 @@ function NewProduct() {
   const { user, loading: authLoading } = useAuth();
   const { profile: shopProfile, loading: profileLoading } = useShopProfile();
   const navigate = useNavigate();
-  const profile =
-    typeof window === "undefined" ? null : parseStudent(window.localStorage.getItem(STUDENT_KEY));
+  const profile = typeof window === "undefined" ? null : parseStudent(safeGet(STUDENT_KEY));
 
   useEffect(() => {
     if (!authLoading && !user) window.location.replace("/auth?next=/shop/new");

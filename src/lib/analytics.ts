@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { supabase } from "@/integrations/supabase/client";
 import { db } from "@/lib/repo/client";
 import { parseStudent, STUDENT_KEY } from "@/lib/student";
@@ -11,7 +12,7 @@ export function logEvent(event: UsageEventName, meta: Record<string, unknown> = 
   if (typeof window === "undefined") return;
   void (async () => {
     try {
-      const profile = parseStudent(window.localStorage.getItem(STUDENT_KEY));
+      const profile = parseStudent(safeGet(STUDENT_KEY));
       const { data } = await supabase.auth.getSession();
       // The RLS policy only allows authenticated inserts; don't generate a 401 for guests.
       if (!data.session?.user) return;

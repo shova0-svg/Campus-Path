@@ -1,3 +1,4 @@
+import { safeGet, safeSet, safeRemove } from "@/lib/storage";
 /**
  * Stale-while-revalidate cache for campus data.
  * - Renders instantly from memory/localStorage cache.
@@ -14,7 +15,7 @@ const listeners = new Map<string, Set<Listener<unknown>>>();
 function readDisk<T>(key: string): T | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = safeGet(key);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -24,7 +25,7 @@ function readDisk<T>(key: string): T | null {
 function writeDisk<T>(key: string, value: T): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    safeSet(key, JSON.stringify(value));
   } catch {
     /* storage full or blocked */
   }
@@ -101,7 +102,7 @@ export function createResource<T>(options: SWROptions<T>): Resource<T> {
 
   function reset(): void {
     memory.delete(key);
-    if (typeof window !== "undefined") window.localStorage.removeItem(key);
+    if (typeof window !== "undefined") safeRemove(key);
   }
 
   return { get, subscribe, refresh, set, reset };

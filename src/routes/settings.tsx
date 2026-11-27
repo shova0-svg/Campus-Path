@@ -1,3 +1,4 @@
+import { safeGet } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, BellRing, Volume2, VolumeX } from "lucide-react";
@@ -16,7 +17,7 @@ function SettingsPage() {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(LAST_PUSH_KEY);
+      const raw = safeGet(LAST_PUSH_KEY);
       if (raw) setLastPush(new Date(raw).toLocaleString());
     } catch {
       /* ignore */

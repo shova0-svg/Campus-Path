@@ -1,3 +1,4 @@
+import { safeGet, safeSet } from "@/lib/storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { classKeyOf, sortUpdates, type ClassKey, type ClassUpdate } from "@/lib/class-updates";
 import { classUpdatesResource } from "@/lib/repo/classUpdates";
@@ -8,7 +9,7 @@ const SEEN_KEY = "class-updates-seen-v1";
 function readSeen(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(window.localStorage.getItem(SEEN_KEY) ?? "{}") as Record<string, string>;
+    return JSON.parse(safeGet(SEEN_KEY) ?? "{}") as Record<string, string>;
   } catch {
     return {};
   }
@@ -51,7 +52,7 @@ export function useClassUpdates(profile: StudentProfile | null) {
     if (!keyString) return;
     const next = { ...readSeen(), [keyString]: new Date().toISOString() };
     try {
-      window.localStorage.setItem(SEEN_KEY, JSON.stringify(next));
+      safeSet(SEEN_KEY, JSON.stringify(next));
     } catch {
       /* storage blocked */
     }

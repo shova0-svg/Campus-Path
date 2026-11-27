@@ -1,3 +1,4 @@
+import { safeGet, safeSet } from "@/lib/storage";
 import { mergeNotices, type Notice, type NoticeSource } from "@/lib/notices";
 
 export const NOTICES_KEY = "sohoj-notices-v1";
@@ -15,7 +16,7 @@ export const DEFAULT_SOURCES: NoticeSource[] = [
 function read<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = safeGet(key);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as T;
     return Array.isArray(parsed) ? parsed : fallback;
@@ -27,7 +28,7 @@ function read<T>(key: string, fallback: T): T {
 function write(key: string, value: unknown): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    safeSet(key, JSON.stringify(value));
     window.dispatchEvent(new Event(NOTICES_CHANGED));
   } catch {
     /* storage full or blocked */
