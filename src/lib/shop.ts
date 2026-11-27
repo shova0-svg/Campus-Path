@@ -17,11 +17,11 @@ export const SHOP_CONDITIONS = [
 
 export type ShopCategory = (typeof SHOP_CATEGORIES)[number]["id"];
 export type ShopCondition = (typeof SHOP_CONDITIONS)[number]["id"];
-export type ShopStatus = "available" | "reserved" | "sold" | "removed";
+export type ShopStatus = "available" | "reserved" | "sold" | "removed" | "hidden";
 export type ShopSort = "newest" | "price_asc" | "price_desc";
 
 export const MAX_ACTIVE_LISTINGS = 10;
-export const MAX_IMAGES = 4;
+export const MAX_IMAGES = 5;
 export const SAFETY_NOTE =
   "Meet on campus, check the item before paying, pay in person. / ক্যাম্পাসে দেখা করুন, আগে জিনিস দেখে তারপর টাকা দিন।";
 
@@ -42,6 +42,7 @@ export interface ShopProduct {
   views: number;
   department?: string;
   semester?: number;
+  pickupLocation?: string;
   status: ShopStatus;
   createdAt: string;
   updatedAt: string;
@@ -73,6 +74,7 @@ export interface ProductInput {
   quantity: number;
   department?: string;
   semester?: number;
+  pickupLocation?: string;
 }
 
 export interface ShopFilters {
@@ -104,7 +106,7 @@ export function normalizePhone(value: string): string {
 export function validateProduct(input: ProductInput): Record<string, string> {
   const errors: Record<string, string> = {};
   const title = input.title.trim();
-  if (title.length < 3 || title.length > 100)
+  if (title.length < 1 || title.length > 100)
     errors["title"] = "শিরোনাম ৩–১০০ অক্ষর / Title 3–100 characters";
   if (input.description.trim().length > 2000)
     errors["description"] = "বার্তা সর্বোচ্চ ২০০০ অক্ষর / Max 2000 characters";
@@ -113,10 +115,12 @@ export function validateProduct(input: ProductInput): Record<string, string> {
   if (!SHOP_CONDITIONS.some((c) => c.id === input.condition))
     errors["condition"] = "অবস্থা বেছে নিন / Choose a condition";
   const price = Number(input.price);
-  if (!Number.isFinite(price) || price < 0 || price > 10000000)
+  if (!Number.isInteger(price) || price < 0 || price > 10000000)
     errors["price"] = "সঠিক দাম দিন / Valid price required";
   if (input.images.length < 1 || input.images.length > MAX_IMAGES)
     errors["images"] = `১–${MAX_IMAGES} ছবি দিন / 1–${MAX_IMAGES} images`;
+  if ((input.pickupLocation ?? "").length > 100)
+    errors["pickupLocation"] = "পিকআপ স্থান সর্বোচ্চ ১০০ অক্ষর / Pickup location max 100 characters";
   return errors;
 }
 
@@ -125,7 +129,7 @@ export function formatPrice(price: number): string {
 }
 
 export function isActive(product: ShopProduct): boolean {
-  return product.status === "available" || product.status === "reserved";
+  return ["available", "active", "reserved", "sold"].includes(product.status);
 }
 
 export function filterProducts(products: ShopProduct[], filters: ShopFilters): ShopProduct[] {
@@ -188,6 +192,7 @@ export interface ShopProfile {
   semester?: number;
   isVerified: boolean;
   totalSold: number;
+  showPhone: boolean;
   createdAt: string;
 }
 
@@ -199,6 +204,12 @@ export interface ShopProfileInput {
   department: string;
   semester?: number;
   avatarUrl?: string;
+  showPhone?: boolean;
+}
+
+/** BD mobile: 01XXXXXXXXX, +8801XXXXXXXXX or 8801XXXXXXXXX. */
+export function isValidBdPhone(value: string): boolean {
+  return /^(?:\+?8801\d{9}|01\d{9})$/.test(value.trim());
 }
 
 /** Client mirror of the shop_profiles CHECK constraints. */
@@ -208,19 +219,25 @@ export function validateShopProfile(input: ShopProfileInput): Record<string, str
   if (name.length < 2 || name.length > 60)
     errors["shopName"] = "দোকানের নাম ২–৬০ অক্ষর / Shop name 2–60 characters";
   if (input.bio.trim().length > 500) errors["bio"] = "সর্বোচ্চ ৫০০ অক্ষর / Max 500 characters";
-  if (!isValidPhone(input.phone)) errors["phone"] = "সঠিক ফোন নম্বর দিন / Valid phone number";
-  if (input.whatsapp && !isValidPhone(input.whatsapp))
+  if (!isValidBdPhone(input.phone))
+    errors["phone"] = "018XXXXXXXX ফরম্যাটে ফোন দিন / Enter a BD mobile like 01XXXXXXXXX";
+  if (input.whatsapp && !isValidBdPhone(input.whatsapp))
     errors["whatsapp"] = "সঠিক WhatsApp নম্বর / Valid WhatsApp number";
   if (!input.department.trim()) errors["department"] = "বিভাগ বেছে নিন / Department required";
   return errors;
 }
 
 export const SHOP_STATUS_TABS: { id: ShopStatus; label: string }[] = [
-  { id: "available", label: "Active / চলতি" },
+  { id: "available", label: "Active / বিক্রির জন্য" },
   { id: "reserved", label: "Reserved / রিজার্ভ" },
-  { id: "sold", label: "Sold / বিক্রীত" },
-  { id: "removed", label: "Removed / বাতিল" },
+  { id: "sold", label: "Sold / বিক্রি হয়ে গেছে" },
+  { id: "hidden", label: "Hidden / লুকানো" },
 ];
+
+export function statusLabel(status: ShopStatus): string {
+  if (status === "removed" || status === "hidden") return "Hidden / লুকানো";
+  return SHOP_STATUS_TABS.find((t) => t.id === status)?.label ?? status;
+}
 
 /** Server trigger applies the same rule; this keeps the UI in sync. */
 export function statusForQuantity(quantity: number, current: ShopStatus): ShopStatus {

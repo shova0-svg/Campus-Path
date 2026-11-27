@@ -28,9 +28,9 @@ export function ProductCard({ product, wishlisted, onToggleWishlist, compact }: 
           <span className="absolute left-2 top-2 rounded-full bg-card/90 px-2 py-0.5 text-[9px] font-bold text-foreground backdrop-blur">
             {conditionLabel(product.condition).split(" / ")[0]}
           </span>
-          {product.status === "reserved" && (
+          {(product.status === "reserved" || product.status === "sold") && (
             <span className="absolute bottom-2 left-2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold text-primary-foreground">
-              Reserved
+              {product.status === "sold" ? "Sold / বিক্রি হয়ে গেছে" : "Reserved / রিজার্ভ"}
             </span>
           )}
         </div>

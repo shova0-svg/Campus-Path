@@ -31,6 +31,7 @@ type Row = {
   views: number;
   department: string | null;
   semester: number | null;
+  pickup_location: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -52,6 +53,7 @@ function fromRow(row: Row): ShopProduct {
     views: row.views ?? 0,
     ...(row["department"] ? { department: row["department"] } : {}),
     ...(row["semester"] != null ? { semester: row["semester"] } : {}),
+    ...(row["pickup_location"] ? { pickupLocation: row["pickup_location"] } : {}),
     status: row.status as ShopStatus,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -81,7 +83,7 @@ export async function listProducts(
       .from("shop_products")
       .select("*")
       .eq("institute_id", instituteId)
-      .in("status", ["available", "reserved"]);
+      .in("status", ["available", "active", "reserved", "sold"]);
     if (filters.category) query = query.eq("category", filters.category);
     if (filters.condition) query = query.eq("item_condition", filters.condition);
     if (filters.minPrice !== undefined) query = query.gte("price", filters.minPrice);
@@ -105,32 +107,24 @@ export async function listProducts(
 }
 
 export async function getProduct(id: string): Promise<ShopProduct | null> {
-  try {
-    const { data, error } = await db.from("shop_products").select("*").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return data ? fromRow(data as Row) : null;
-  } catch {
-    return null;
-  }
+  const { data, error } = await db.from("shop_products").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? fromRow(data as Row) : null;
 }
 
 export async function listMyProducts(
   sellerId: string,
   instituteId?: string,
 ): Promise<ShopProduct[]> {
-  try {
-    let query = db
-      .from("shop_products")
-      .select("*")
-      .eq("seller_id", sellerId)
-      .order("created_at", { ascending: false });
-    if (instituteId) query = query.eq("institute_id", instituteId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data ?? []).map((r) => fromRow(r as Row));
-  } catch {
-    return [];
-  }
+  let query = db
+    .from("shop_products")
+    .select("*")
+    .eq("seller_id", sellerId)
+    .order("created_at", { ascending: false });
+  if (instituteId) query = query.eq("institute_id", instituteId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((r) => fromRow(r as Row));
 }
 
 function toRow(input: ProductInput): Record<string, unknown> {
@@ -145,6 +139,7 @@ function toRow(input: ProductInput): Record<string, unknown> {
     quantity: Math.max(0, input.quantity),
     ...(input.department ? { department: input.department.trim() } : {}),
     ...(input.semester != null ? { semester: input.semester } : {}),
+    ...(input.pickupLocation ? { pickup_location: input.pickupLocation.trim().slice(0, 100) } : {}),
   };
 }
 
@@ -175,6 +170,8 @@ export async function updateProduct(
   if (patch.quantity !== undefined) row["quantity"] = Math.max(0, patch.quantity);
   if (patch.department !== undefined) row["department"] = patch.department.trim() || null;
   if (patch.semester !== undefined) row["semester"] = patch.semester;
+  if (patch.pickupLocation !== undefined)
+    row["pickup_location"] = patch.pickupLocation.trim().slice(0, 100) || null;
   const { data, error } = await db
     .from("shop_products")
     .update(row)
@@ -307,32 +304,30 @@ export interface ShopProfileRow {
   semester: number | null;
   is_verified: boolean;
   total_sold: number;
+  show_phone: boolean;
   created_at: string;
 }
 
 export async function getMyShopProfile(): Promise<import("@/lib/shop").ShopProfile | null> {
-  try {
-    const { data, error } = await db.from("shop_profiles").select("*").maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    const r = data as ShopProfileRow;
-    return {
-      userId: r.user_id,
-      shopName: r.shop_name,
-      ...(r.avatar_url ? { avatarUrl: r.avatar_url } : {}),
-      bio: r.bio,
-      phone: r.phone,
-      ...(r.whatsapp ? { whatsapp: r.whatsapp } : {}),
-      instituteId: r.institute_id,
-      department: r.department,
-      ...(r.semester != null ? { semester: r.semester } : {}),
-      isVerified: r.is_verified,
-      totalSold: r.total_sold,
-      createdAt: r.created_at,
-    };
-  } catch {
-    return null;
-  }
+  const { data, error } = await db.from("shop_profiles").select("*").maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const r = data as ShopProfileRow;
+  return {
+    userId: r.user_id,
+    shopName: r.shop_name,
+    ...(r.avatar_url ? { avatarUrl: r.avatar_url } : {}),
+    bio: r.bio,
+    phone: r.phone,
+    ...(r.whatsapp ? { whatsapp: r.whatsapp } : {}),
+    instituteId: r.institute_id,
+    department: r.department,
+    ...(r.semester != null ? { semester: r.semester } : {}),
+    isVerified: r.is_verified,
+    totalSold: r.total_sold,
+    showPhone: r.show_phone,
+    createdAt: r.created_at,
+  };
 }
 
 export async function saveShopProfile(input: {
@@ -343,6 +338,7 @@ export async function saveShopProfile(input: {
   department: string;
   semester?: number;
   avatarUrl?: string;
+  showPhone?: boolean;
   instituteId: string;
 }): Promise<void> {
   const { data: auth } = await supabase.auth.getUser();
@@ -358,6 +354,7 @@ export async function saveShopProfile(input: {
     institute_id: input.instituteId,
     department: input.department.trim(),
     ...(input.semester != null ? { semester: input.semester } : {}),
+    ...(input.showPhone != null ? { show_phone: input.showPhone } : {}),
   });
   if (error) throw error;
 }

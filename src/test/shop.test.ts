@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_ACTIVE_LISTINGS,
+  MAX_IMAGES,
   SAFETY_NOTE,
   canRelist,
   conditionLabel,
@@ -9,6 +10,7 @@ import {
   isValidPhone,
   sortProducts,
   statusForQuantity,
+  statusLabel,
   timeAgo,
   validateProduct,
   validateShopProfile,
@@ -53,14 +55,34 @@ describe("shop validation", () => {
     expect(validateProduct(input())).toEqual({});
   });
 
-  it("rejects missing category, short title, bad price and no images", () => {
-    const errors = validateProduct(input({ title: "ab", category: "", price: "-1", images: [] }));
+  it("rejects missing category, empty title, bad price and no images", () => {
+    const errors = validateProduct(input({ title: "", category: "", price: "-1", images: [] }));
     expect(Object.keys(errors).sort()).toEqual(["category", "images", "price", "title"]);
   });
 
   it("validates phone and WhatsApp numbers", () => {
     expect(isValidPhone(" 01712-345678 ")).toBe(true);
     expect(isValidPhone("abc")).toBe(false);
+  });
+
+  it("accepts BD mobile formats only for seller phone", () => {
+    const seller = { shopName: "Campus Store", bio: "", phone: "01712345678", department: "CST" };
+    expect(
+      validateShopProfile({ ...seller, phone: "+8801712345678", whatsapp: "01712345678" }),
+    ).toEqual({});
+    expect(
+      Object.keys(validateShopProfile({ ...seller, phone: "12345", whatsapp: "abc" })),
+    ).toEqual(["phone", "whatsapp"]);
+  });
+
+  it("supports five images, pickup location and hidden status label", () => {
+    expect(MAX_IMAGES).toBe(5);
+    expect(
+      validateProduct(
+        input({ pickupLocation: "x".repeat(101), images: ["a", "b", "c", "d", "e"] }),
+      ),
+    ).toEqual({ pickupLocation: expect.any(String) });
+    expect(statusLabel("removed")).toContain("Hidden");
   });
 
   it("has the expected limits and safety note", () => {
@@ -84,8 +106,13 @@ describe("shop feed helpers", () => {
     product({ id: "reserved", status: "reserved", price: 200, condition: "new" }),
   ];
 
-  it("hides sold items and filters by category, price and query", () => {
-    expect(filterProducts(list, {}).map((p) => p.id)).toEqual(["cheap", "pricey", "reserved"]);
+  it("shows sold items with a badge and filters by category, price and query", () => {
+    expect(filterProducts(list, {}).map((p) => p.id)).toEqual([
+      "cheap",
+      "pricey",
+      "sold",
+      "reserved",
+    ]);
     expect(filterProducts(list, { category: "electronics" }).map((p) => p.id)).toEqual(["pricey"]);
     expect(filterProducts(list, { minPrice: 100, maxPrice: 300 }).map((p) => p.id)).toEqual([
       "reserved",
@@ -95,8 +122,9 @@ describe("shop feed helpers", () => {
 
   it("sorts newest, low-high and high-low", () => {
     const active = filterProducts(list, {});
-    expect(sortProducts(active).map((p) => p.id)).toEqual(["reserved", "pricey", "cheap"]);
+    expect(sortProducts(active).map((p) => p.id)).toEqual(["sold", "reserved", "pricey", "cheap"]);
     expect(sortProducts(active, "price_asc").map((p) => p.id)).toEqual([
+      "sold",
       "cheap",
       "reserved",
       "pricey",
@@ -105,6 +133,7 @@ describe("shop feed helpers", () => {
       "pricey",
       "reserved",
       "cheap",
+      "sold",
     ]);
   });
 

@@ -287,7 +287,11 @@ function ProductDetail() {
                 {conditionLabel(product.condition)}
               </span>
               <span className="rounded-full bg-primary-soft px-2.5 py-1 text-[11px] font-bold text-primary">
-                {product.status === "reserved" ? "Reserved / রিজার্ভ" : "Available / বিক্রয়যোগ্য"}
+                {product.status === "sold"
+                  ? "Sold / বিক্রি হয়ে গেছে"
+                  : product.status === "reserved"
+                    ? "Reserved / রিজার্ভ"
+                    : "Available / বিক্রয়যোগ্য"}
               </span>
               {product.isNegotiable && (
                 <span className="text-[10px] text-muted-foreground">

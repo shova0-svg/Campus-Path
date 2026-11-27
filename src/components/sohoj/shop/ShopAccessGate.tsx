@@ -15,12 +15,12 @@ import { GoogleLogo } from "@/components/sohoj/GoogleLogo";
 import { useAuth } from "@/hooks/use-auth";
 import { DEPARTMENT_OPTIONS } from "@/lib/teachers";
 import { currentShopInstitute } from "@/lib/shop-scope";
-import { validateShopProfile, type ShopProfile } from "@/lib/shop";
+import { validateShopProfile } from "@/lib/shop";
 import { saveShopProfile, uploadShopAvatar } from "@/lib/repo/shop";
 import { signInWithGoogle } from "@/lib/supabase-auth";
 
 /** Signed-out / first-time seller gate. Browsing starts after the profile exists. */
-export function ShopAccessGate({ onReady }: { onReady: (profile: ShopProfile) => void }) {
+export function ShopAccessGate({ onReady }: { onReady: () => void }) {
   const { user } = useAuth();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -30,6 +30,7 @@ export function ShopAccessGate({ onReady }: { onReady: (profile: ShopProfile) =>
   const [avatar, setAvatar] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showPhone, setShowPhone] = useState(true);
 
   async function submit() {
     const check = validateShopProfile({ shopName: name, bio, phone, whatsapp, department });
@@ -39,9 +40,16 @@ export function ShopAccessGate({ onReady }: { onReady: (profile: ShopProfile) =>
     }
     setBusy(true);
     setError("");
+    let avatarUrl = "";
+    let photoFailed = false;
     try {
-      let avatarUrl = "";
-      if (avatar && user) avatarUrl = await uploadShopAvatar(user.id, avatar);
+      if (avatar && user) {
+        try {
+          avatarUrl = await uploadShopAvatar(user.id, avatar);
+        } catch {
+          photoFailed = true;
+        }
+      }
       await saveShopProfile({
         shopName: name,
         bio,
@@ -49,22 +57,15 @@ export function ShopAccessGate({ onReady }: { onReady: (profile: ShopProfile) =>
         ...(whatsapp ? { whatsapp } : {}),
         department,
         ...(avatarUrl ? { avatarUrl } : {}),
+        showPhone,
         instituteId: currentShopInstitute(),
-      });
-      onReady({
-        userId: user!.id,
-        shopName: name,
-        ...(avatarUrl ? { avatarUrl } : {}),
-        bio,
-        phone,
-        ...(whatsapp ? { whatsapp } : {}),
-        instituteId: currentShopInstitute(),
-        department,
-        isVerified: false,
-        totalSold: 0,
-        createdAt: new Date().toISOString(),
       });
       toast.success("Shop created / দোকান তৈরি হয়েছে");
+      if (photoFailed)
+        toast.warning(
+          "Shop created without photo — retry in Edit / ছবি ছাড়া দোকান তৈরি হয়েছে — Edit এ আবার চেষ্টা করুন",
+        );
+      onReady();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create shop");
     } finally {
@@ -143,6 +144,15 @@ export function ShopAccessGate({ onReady }: { onReady: (profile: ShopProfile) =>
               className="mt-1 h-11 rounded-xl"
             />
           </div>
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showPhone}
+              onChange={(e) => setShowPhone(e.target.checked)}
+              className="size-4 accent-emerald"
+            />
+            Show my phone to buyers / ক্রেতাদের ফোন দেখাবেন
+          </label>
           <Select value={department} onValueChange={setDepartment}>
             <SelectTrigger className="h-11 rounded-xl [&>span]:truncate" aria-label="Department">
               <SelectValue placeholder="Department / বিভাগ" />

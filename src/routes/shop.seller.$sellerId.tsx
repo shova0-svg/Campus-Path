@@ -20,14 +20,15 @@ function SellerShop() {
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getShopPublicProfile(sellerId), listMyProducts(sellerId)]).then(
-      ([p, rows]) => {
-        if (!active) return;
-        setProfile(p);
-        setProducts(rows.filter((r) => r.status === "available" || r.status === "reserved"));
-        setLoading(false);
-      },
-    );
+    void Promise.all([
+      getShopPublicProfile(sellerId).catch(() => null),
+      listMyProducts(sellerId).catch(() => []),
+    ]).then(([p, rows]) => {
+      if (!active) return;
+      setProfile(p);
+      setProducts(rows.filter((r) => r.status === "available" || r.status === "reserved"));
+      setLoading(false);
+    });
     return () => {
       active = false;
     };

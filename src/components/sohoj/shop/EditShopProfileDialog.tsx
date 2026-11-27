@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DEPARTMENT_OPTIONS } from "@/lib/teachers";
 import { validateShopProfile, type ShopProfile } from "@/lib/shop";
-import { saveShopProfile } from "@/lib/repo/shop";
+import { saveShopProfile, uploadShopAvatar } from "@/lib/repo/shop";
 
 interface Props {
   open: boolean;
@@ -19,6 +20,8 @@ export function EditShopProfileDialog({ open, onOpenChange, profile, onSaved }: 
   const [whatsapp, setWhatsapp] = useState(profile.whatsapp ?? "");
   const [department, setDepartment] = useState(profile.department);
   const [bio, setBio] = useState(profile.bio);
+  const [showPhone, setShowPhone] = useState(profile.showPhone);
+  const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -30,7 +33,16 @@ export function EditShopProfileDialog({ open, onOpenChange, profile, onSaved }: 
     }
     setBusy(true);
     setError("");
+    let avatarUrl = profile.avatarUrl;
+    let photoFailed = false;
     try {
+      if (photo) {
+        try {
+          avatarUrl = await uploadShopAvatar(profile.userId, photo);
+        } catch {
+          photoFailed = true;
+        }
+      }
       await saveShopProfile({
         shopName: name,
         bio,
@@ -38,13 +50,17 @@ export function EditShopProfileDialog({ open, onOpenChange, profile, onSaved }: 
         ...(whatsapp ? { whatsapp } : {}),
         department,
         instituteId: profile.instituteId,
-        ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+        ...(avatarUrl ? { avatarUrl } : {}),
         ...(profile.semester != null ? { semester: profile.semester } : {}),
+        showPhone,
       });
       onSaved();
       onOpenChange(false);
+      if (photoFailed)
+        toast.warning("প্রোফাইল save হয়েছে, ছবি আপলোড ব্যর্থ — আবার চেষ্টা করুন / Profile saved, photo upload failed — please retry");
+      else toast.success("Shop profile updated / দোকান হালনাগাদ হয়েছে");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save");
+      setError(e instanceof Error ? e.message : "Could not save / সংরক্ষণ করা যায়নি");
     } finally {
       setBusy(false);
     }
@@ -67,13 +83,29 @@ export function EditShopProfileDialog({ open, onOpenChange, profile, onSaved }: 
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             aria-label="Phone"
-            placeholder="Phone"
+            placeholder="01XXXXXXXXX"
           />
           <Input
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
             aria-label="WhatsApp"
             placeholder="WhatsApp (optional)"
+          />
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={showPhone}
+              onChange={(e) => setShowPhone(e.target.checked)}
+              className="size-4 accent-emerald"
+            />
+            Show my phone to buyers / ক্রেতাদের ফোন দেখাবেন
+          </label>
+          <Input
+            type="file"
+            accept="image/*"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setPhoto(e.target.files?.[0] ?? null)}
+            aria-label="Shop photo"
+            className="h-10 rounded-xl"
           />
           <select
             value={department}

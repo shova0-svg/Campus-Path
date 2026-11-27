@@ -21,17 +21,18 @@ describe("shop home access", () => {
     expect(mine).not.toContain("Set up your shop first");
   });
 
-  it("surfaces delete failures and validates edits in My Shop", () => {
+  it("surfaces product errors and offers full edit in My Shop", () => {
     const mine = fs.readFileSync("src/routes/shop.my.tsx", "utf8");
     expect(mine).toContain("void deleteProduct(id)");
-    expect(mine).toContain(".catch(");
-    expect(mine).toContain("Number.isFinite(amount)");
+    expect(mine).toContain("productError");
+    expect(mine).toContain("search={{ edit: p.id }}");
+    expect(mine).toContain("statusLabel(p.status)");
   });
 
-  it("validates stale sessions and caches the seller profile", () => {
-    const auth = fs.readFileSync("src/hooks/use-auth.tsx", "utf8");
+  it("separates profile errors from a missing profile", () => {
     const hook = fs.readFileSync("src/hooks/use-shop-profile.ts", "utf8");
-    expect(auth).toContain("supabase.auth.getUser()");
-    expect(hook).toContain("readCached(user.id)");
+    expect(hook).toContain("setError({");
+    expect(hook).toContain("setChecked(true)");
+    expect(fs.readFileSync("src/routes/shop.my.tsx", "utf8")).toContain("ShopProfileErrorState");
   });
 });
