@@ -15,18 +15,27 @@ type Row = {
 };
 
 export function fromRow(row: Row): Teacher {
+  // `data` can be {} for rows added outside the app; fill required fields at the boundary.
+  const data = (row.data ?? {}) as Partial<Teacher>;
+  const department = String(row.department ?? "");
   return {
-    ...(row.data as unknown as Teacher),
+    serial: "",
+    office: "",
+    batch: "",
+    phoneOffice: "",
+    phoneHome: "",
+    facultyKey: department.toLowerCase() || "other",
+    faculty: department,
+    ...data,
     id: row.id,
     instituteId: row.institute_id,
-    name: row.name,
-    designation: row.designation,
-    faculty: row.department,
-    department: row.department,
-    mobile: row.phone,
-    email: row.email,
-    photo: row.photo_url,
-    room: row.room_no,
+    name: String(row.name ?? ""),
+    designation: String(row.designation ?? ""),
+    department,
+    mobile: String(row.phone ?? ""),
+    email: String(row.email ?? ""),
+    photo: String(row.photo_url ?? ""),
+    room: String(row.room_no ?? ""),
   };
 }
 

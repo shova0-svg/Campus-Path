@@ -57,6 +57,18 @@ export function teacherId(t: Teacher): string {
   return t.id ?? `${t.instituteId ?? "rpi"}-${t.facultyKey}-${t.name}`;
 }
 
+/** Code-seeded directory stays visible even when the remote table is empty. */
+export function mergeWithSeedTeachers(rows: Teacher[] | null): Teacher[] {
+  const keyOf = (t: Teacher) => `${t.instituteId ?? "rpi"}|${t.department}|${t.name}`;
+  const merged = new Map(TEACHERS.map((t) => [keyOf(t), t]));
+  for (const t of rows ?? []) {
+    const key = keyOf(t);
+    const seed = merged.get(key);
+    merged.set(key, { ...seed, ...t } as Teacher);
+  }
+  return [...merged.values()];
+}
+
 /** New admin-added teachers need a stable DB primary key before upsert. */
 export function teacherForSave(teacher: Teacher, instituteId: string): Teacher {
   const scoped = { ...teacher, instituteId };
@@ -155,18 +167,25 @@ export function phoneHref(value: string): string {
 export function groupTeachers(
   list: Teacher[],
 ): { key: string; label: string; teachers: Teacher[] }[] {
+  // Cached/DB rows can lack facultyKey — never let a bad row crash the directory.
+  const keyOf = (t: Teacher): string =>
+    String(t.facultyKey ?? "").trim() ||
+    String(t.department ?? "")
+      .trim()
+      .toLowerCase() ||
+    "other";
   const known = DEPARTMENT_ORDER.map((key) => {
-    const teachers = list.filter((t) => t.facultyKey === key);
+    const teachers = list.filter((t) => keyOf(t) === key);
     return { key: key as string, label: teachers[0]?.faculty ?? key, teachers };
   }).filter((g) => g.teachers.length > 0);
   const knownKeys = new Set(DEPARTMENT_ORDER as readonly string[]);
-  const extraKeys = [...new Set(list.map((t) => t.facultyKey).filter((k) => !knownKeys.has(k)))];
+  const extraKeys = [...new Set(list.map(keyOf).filter((k) => !knownKeys.has(k)))];
   return [
     ...known,
     ...extraKeys.map((key) => ({
       key,
-      label: list.find((t) => t.facultyKey === key)?.faculty ?? key,
-      teachers: list.filter((t) => t.facultyKey === key),
+      label: list.find((t) => keyOf(t) === key)?.faculty ?? key,
+      teachers: list.filter((t) => keyOf(t) === key),
     })),
   ];
 }

@@ -2,7 +2,7 @@ import { createResource } from "@/lib/cache";
 import { defaultAdmins } from "@/lib/admin";
 import { INSTITUTES } from "@/lib/campus-data";
 import { DEFAULT_ROUTINES, mergeWithCodeRoutines } from "@/lib/routine";
-import { TEACHERS } from "@/lib/teachers";
+import { mergeWithSeedTeachers, TEACHERS } from "@/lib/teachers";
 import { listAdmins } from "@/lib/repo/admins";
 import { listBuildings, type StoredBuilding } from "@/lib/repo/buildings";
 import { listRooms, type StoredRoom } from "@/lib/repo/rooms";
@@ -45,7 +45,7 @@ export const teachersResource = createResource<typeof TEACHERS>({
   key: "sohoj-rasta-teachers-v2",
   event: "sohoj:teachers-changed",
   seed: () => TEACHERS,
-  fetcher: listTeachers,
+  fetcher: async () => mergeWithSeedTeachers(await listTeachers().catch(() => null)),
 });
 
 export const adminsResource = createResource<ReturnType<typeof defaultAdmins>>({
