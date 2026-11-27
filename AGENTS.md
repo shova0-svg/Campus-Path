@@ -85,7 +85,8 @@ use the editor.
 
 ## Teacher admin saves
 
-- Admin Panel → Teachers creates/updates teachers in the **panel's selected institute** (not the home page's), generates a stable `id` for new teachers (DB `teachers.id` is a required text PK), awaits the upsert, and only toasts success after the DB write. Failed writes show a bilingual error toast and keep the editor open; the local cache is never restamped across institutes. `public/sw.js` cache bumped to v7.
+- Admin Panel → Teachers creates/updates teachers in the **panel's selected institute** (not the home page's), generates a stable `id` for new teachers (DB `teachers.id` is a required text PK), awaits the upsert, and only toasts success after the DB write. Failed writes show a bilingual error toast and keep the editor open; the local cache is never restamped across institutes.
+- `/teachers` no longer crashes on a cached/DB row with a missing `facultyKey`: `groupTeachers()` falls back to department/`other`, and `fromRow()` fills required fields when `data` is empty. `teachersResource` merges code-seeded teachers with remote rows, so signed-in users still see the directory when the remote table is empty. `public/sw.js` cache bumped to v8.
 
 ## Teacher identity
 
