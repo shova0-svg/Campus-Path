@@ -73,11 +73,12 @@ function MyShop() {
   } | null>(null);
 
   const load = useCallback(async () => {
-    if (!user) return;
+    const uid = user?.id;
+    if (!uid) return;
     setProductLoading(true);
     setProductError(null);
     try {
-      setProducts(await listMyProducts(user.id));
+      setProducts(await listMyProducts(uid));
     } catch (e) {
       setProductError({
         refId: crypto.randomUUID().slice(0, 8),
@@ -87,7 +88,7 @@ function MyShop() {
       setProductLoading(false);
     }
     setRequests(await listIncomingRequests());
-  }, [user?.id]);
+  }, [user]);
   useEffect(() => {
     void load();
   }, [load]);

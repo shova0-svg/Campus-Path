@@ -33,8 +33,9 @@ export function useShopProfile() {
 
   useEffect(() => {
     if (authLoading) return;
+    const uid = user?.id;
     setChecked(false);
-    if (!user) {
+    if (!uid) {
       setProfile(null);
       setError(null);
       setLoading(false);
@@ -43,7 +44,7 @@ export function useShopProfile() {
     }
     setLoading(true);
     void refresh().finally(() => setLoading(false));
-  }, [authLoading, user?.id, refresh]);
+  }, [authLoading, user?.id, user, refresh]);
 
   return { profile, loading, checked, error, refresh };
 }

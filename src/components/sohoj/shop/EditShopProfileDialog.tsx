@@ -57,7 +57,9 @@ export function EditShopProfileDialog({ open, onOpenChange, profile, onSaved }: 
       onSaved();
       onOpenChange(false);
       if (photoFailed)
-        toast.warning("প্রোফাইল save হয়েছে, ছবি আপলোড ব্যর্থ — আবার চেষ্টা করুন / Profile saved, photo upload failed — please retry");
+        toast.warning(
+          "প্রোফাইল save হয়েছে, ছবি আপলোড ব্যর্থ — আবার চেষ্টা করুন / Profile saved, photo upload failed — please retry",
+        );
       else toast.success("Shop profile updated / দোকান হালনাগাদ হয়েছে");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save / সংরক্ষণ করা যায়নি");
