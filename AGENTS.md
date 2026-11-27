@@ -153,6 +153,12 @@ use the editor.
 - The "Create shop" loop was a stale JWT: the cached identity made the UI look signed in while RLS saw an anon user, so the seller profile was invisible. `useAuth` now validates the session with `getUser()` on boot and clears stale caches; `useShopProfile` caches the last profile per user so a transient lookup failure cannot reopen the gate. My Shop edit validates title/price/quantity, and delete failures now show a toast instead of failing silently.
 - Any signed-in student can become a seller: `/shop/my` and `/shop/new` render `ShopAccessGate` inline when no profile exists, so creating the shop leads straight to the dashboard/product form (no dead-end "Go to Shop"). Verified live: setup → dashboard → Add product form. `public/sw.js` cache bumped to v12.
 
+## My Shop seller flow (current)
+
+- `useShopProfile` separates "still loading", "query error" (friendly message + short Ref + Retry) and "confirmed no row" (setup form only then). `getMyShopProfile()` now throws instead of swallowing errors. Setup validates BD mobile (`01XXXXXXXXX`/`+8801XXXXXXXXX`), tolerates a failed photo upload (profile still created, retry in Edit), and refreshes the dashboard on success.
+- Dashboard: header + Edit profile (name/phone/WhatsApp/photo/show_phone), prominent Add product, stats (active/sold/hidden), status tabs, product rows with thumbnail/title/price/qty/category/date/status chip, quick status dropdown, full Edit via `/shop/new?edit=<id>`, Delete with confirm, skeleton/empty/error+Retry states. Product form supports title, integer BDT price, negotiable, category, condition, quantity, description, pickup location, status, 5 images with cover/remove. Delete removes product + storage images.
+- Migrations `20261127000001_shop_my_shop.sql` (`show_phone`, `pickup_location`, hidden status, contact RPC phone gate, 2 MB bucket + update policy) and `20261127000002_shop_sold_visibility.sql` (sold visible with badge; hidden owner-only). Live proof: setup → add (2 images) → edit → quick status → hidden invisible to a second signed-in buyer → delete → DB rows 0 and storage objects 0.
+
 ## Campus Shop seller dashboard (Phase 2)
 
 - Migrations `20261126000005_shop_seller_dashboard.sql` (`quantity`, `views`, stock→sold trigger, sold counter, view RPC, banned-seller update policy), `...06_shop_counter_fix.sql` (internal counter update allowed), `...07_shop_ban_check.sql` (ban check via `shop_is_banned()`).
