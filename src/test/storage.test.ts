@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
 import { safeGet, safeRemove, safeSet } from "@/lib/storage";
 
 describe("safe storage", () => {
@@ -26,5 +27,11 @@ describe("safe storage", () => {
       Storage.prototype.setItem = originals.setItem;
       Storage.prototype.removeItem = originals.removeItem;
     }
+  });
+
+  it("uses the safe helper in the routine view", () => {
+    const source = fs.readFileSync("src/components/sohoj/RoutineView.tsx", "utf8");
+    expect(source).toContain("safeGet(");
+    expect(source).not.toContain("localStorage.getItem");
   });
 });

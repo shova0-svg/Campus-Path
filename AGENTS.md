@@ -167,6 +167,8 @@ use the editor.
 
 ## Error handling
 
+- In-app browsers can block `localStorage` entirely; `src/lib/storage.ts` (`safeGet`/`safeSet`/`safeRemove`) is the only app-level storage access, so a blocked store degrades to defaults instead of throwing during render. This was the confirmed cause of the error screen on the Class Routine tab (reproduced by forcing `Storage.prototype.getItem` to throw). `public/sw.js` cache bumped to v10.
+
 - Shared `src/components/sohoj/ErrorState.tsx` powers the React boundary, TanStack route error and 404 pages — English-only, theme tokens, Try again / Go home / Report. `src/lib/error-page.ts` is the standalone branded server HTML (English).
 - Hydration fix: localStorage-backed resources are read in `useEffect` after mount (TeacherDirectory, home index, `useAdminRole`, Student page), not in initial state — this removes React #418 mismatches online and offline.
 
