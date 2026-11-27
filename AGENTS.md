@@ -149,7 +149,8 @@ use the editor.
 
 ## Campus Shop home access
 
-- `/shop` is browsable by every signed-in user even without a `shop_profiles` row; the seller gate lives only on `/shop/new` and `/shop/my`. When no profile is found, the home feed shows a small "Sell something? Set up your shop first" link instead of replacing the marketplace. Verified live with a profile-less user: feed + `Basic Electronics Book` visible, no gate. `public/sw.js` cache bumped to v9.
+- `/shop` is browsable by every signed-in user even without a `shop_profiles` row; the seller gate lives only on `/shop/new` and `/shop/my`. When no profile is found, the home feed shows a small "Sell something? Set up your shop first" link instead of replacing the marketplace. Verified live with a profile-less user: feed + `Basic Electronics Book` visible, no gate.
+- The "Create shop" loop was a stale JWT: the cached identity made the UI look signed in while RLS saw an anon user, so the seller profile was invisible. `useAuth` now validates the session with `getUser()` on boot and clears stale caches; `useShopProfile` caches the last profile per user so a transient lookup failure cannot reopen the gate. My Shop edit validates title/price/quantity, and delete failures now show a toast instead of failing silently. `public/sw.js` cache bumped to v11.
 
 ## Campus Shop seller dashboard (Phase 2)
 
