@@ -10,8 +10,15 @@ describe("shop home access", () => {
     expect(home).toContain('to="/shop/new"');
   });
 
-  it("keeps the seller gate on the add-product route", () => {
-    expect(sell).toContain("Set up your shop first");
+  it("lets a seller set up inline on the add-product route", () => {
+    expect(sell).toContain("ShopAccessGate");
+    expect(sell).not.toContain("Set up your shop first");
+  });
+
+  it("lets a seller set up inline from My Shop", () => {
+    const mine = fs.readFileSync("src/routes/shop.my.tsx", "utf8");
+    expect(mine).toContain("ShopAccessGate");
+    expect(mine).not.toContain("Set up your shop first");
   });
 
   it("surfaces delete failures and validates edits in My Shop", () => {

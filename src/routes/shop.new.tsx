@@ -25,6 +25,7 @@ import { currentShopInstitute } from "@/lib/shop-scope";
 import { parseStudent, STUDENT_KEY } from "@/lib/student";
 import { createProduct, deleteShopImages, uploadShopImages } from "@/lib/repo/shop";
 import { useShopProfile } from "@/hooks/use-shop-profile";
+import { ShopAccessGate } from "@/components/sohoj/shop/ShopAccessGate";
 
 export const Route = createFileRoute("/shop/new")({
   head: () => ({ meta: [{ title: "Sell an item — Campus Path" }] }),
@@ -33,7 +34,11 @@ export const Route = createFileRoute("/shop/new")({
 
 function NewProduct() {
   const { user, loading: authLoading } = useAuth();
-  const { profile: shopProfile, loading: profileLoading } = useShopProfile();
+  const {
+    profile: shopProfile,
+    loading: profileLoading,
+    refresh: refreshProfile,
+  } = useShopProfile();
   const navigate = useNavigate();
   const profile = typeof window === "undefined" ? null : parseStudent(safeGet(STUDENT_KEY));
 
@@ -126,19 +131,7 @@ function NewProduct() {
   }
 
   if (!profileLoading && user && !shopProfile) {
-    return (
-      <div className="bg-desk grid min-h-dvh place-items-center px-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
-        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center">
-          <p className="text-sm font-semibold">Set up your shop first / আগে দোকান খুলুন</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Selling needs a shop profile with your phone number.
-          </p>
-          <Button className="mt-4" asChild>
-            <Link to="/shop">Go to Shop</Link>
-          </Button>
-        </div>
-      </div>
-    );
+    return <ShopAccessGate onReady={() => void refreshProfile()} />;
   }
 
   if (authLoading || !user) {

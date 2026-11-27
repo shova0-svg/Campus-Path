@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { GoogleLogo } from "@/components/sohoj/GoogleLogo";
 import { EditShopProfileDialog } from "@/components/sohoj/shop/EditShopProfileDialog";
+import { ShopAccessGate } from "@/components/sohoj/shop/ShopAccessGate";
 import { ShopImage } from "@/components/sohoj/shop/ShopImage";
 import { useAuth } from "@/hooks/use-auth";
 import { useShopProfile } from "@/hooks/use-shop-profile";
@@ -171,18 +172,7 @@ function MyShop() {
       </div>
     );
   }
-  if (!profile) {
-    return (
-      <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
-        <main className="mx-auto max-w-md rounded-3xl border border-border bg-card p-8 text-center">
-          <p className="text-sm font-semibold">Set up your shop first</p>
-          <Button className="mt-4" asChild>
-            <Link to="/shop">Go to Shop</Link>
-          </Button>
-        </main>
-      </div>
-    );
-  }
+  if (!profile) return <ShopAccessGate onReady={() => void refresh()} />;
 
   return (
     <div className="bg-desk min-h-dvh px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6">
