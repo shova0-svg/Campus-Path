@@ -83,6 +83,10 @@ use the editor.
 - Regenerate icons with `npm run icons` (`scripts/generate-icons.mjs`, `sharp` devDependency) → `public/icons/*`, `public/og-image.png`, `public/favicon.svg`.
 - IMPORTANT: do not rename `sohoj-*` localStorage keys, `SOHOJ1|` QR prefix, `sohoj:*` events, Supabase identifiers or `src/components/sohoj/*` paths — those are data/QR compat identifiers, not brand text.
 
+## Teacher admin saves
+
+- Admin Panel → Teachers creates/updates teachers in the **panel's selected institute** (not the home page's), generates a stable `id` for new teachers (DB `teachers.id` is a required text PK), awaits the upsert, and only toasts success after the DB write. Failed writes show a bilingual error toast and keep the editor open; the local cache is never restamped across institutes. `public/sw.js` cache bumped to v7.
+
 ## Teacher identity
 
 - 1st-shift routine notices use English names; `src/data/teacher-aliases.ts` holds manually verified English→Bangla directory aliases. 2nd-shift teachers match by printed phone (`normalizePhone`).
